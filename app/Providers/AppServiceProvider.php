@@ -98,7 +98,8 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(\App\Services\FieldMapping\FieldTransformer::class),
                 $app->make(\App\Services\FieldMapping\FieldMatcher::class),
                 $app->make(FhirService::class),
-                $app->make(\App\Services\MedicalTerminologyService::class)
+                $app->make(\App\Services\MedicalTerminologyService::class),
+                $app->make(\App\Services\CanonicalFieldMappingService::class)
             );
         });
 

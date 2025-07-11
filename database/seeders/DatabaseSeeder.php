@@ -789,7 +789,7 @@ class DatabaseSeeder extends Seeder
         $seeders = [
             MasterDataSeeder::class,
             CanonicalFieldsSeeder::class,
-            IVRFieldMappingSeeder::class,
+            // IVRFieldMappingSeeder::class, // Removed - old unused system
             DiagnosisCodesFromCsvSeeder::class,
             // TestOrderSeeder should only be run in testing environments if needed
             // TestOrderSeeder::class,

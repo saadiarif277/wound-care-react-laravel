@@ -6,7 +6,7 @@ import { Button } from '@/Components/Button';
 interface Document {
   id: string;
   name: string;
-  type: 'insurance_card' | 'medical_record' | 'prescription' | 'consent_form' | 'other';
+  type: 'insurance_card' | 'medical_record' | 'prescription' | 'consent_form' | 'ivr' | 'order_form' | 'other';
   fileType: 'pdf' | 'image' | 'document';
   uploadedAt: string;
   uploadedBy: string;
@@ -45,6 +45,10 @@ const AdditionalDocumentsSection: React.FC<AdditionalDocumentsSectionProps> = ({
         return 'Prescription';
       case 'consent_form':
         return 'Consent Form';
+      case 'ivr':
+        return 'IVR Form';
+      case 'order_form':
+        return 'Order Form';
       case 'other':
         return 'Other Document';
       default:
@@ -62,6 +66,10 @@ const AdditionalDocumentsSection: React.FC<AdditionalDocumentsSectionProps> = ({
         return 'bg-purple-100 text-purple-800';
       case 'consent_form':
         return 'bg-orange-100 text-orange-800';
+      case 'ivr':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'order_form':
+        return 'bg-teal-100 text-teal-800';
       case 'other':
         return 'bg-gray-100 text-gray-800';
       default:
@@ -135,11 +143,32 @@ const AdditionalDocumentsSection: React.FC<AdditionalDocumentsSectionProps> = ({
                     View
                   </Button>
                   <Button
-                    onClick={() => {
-                      const link = window.document.createElement('a');
-                      link.href = document.url;
-                      link.download = document.name;
-                      link.click();
+                    onClick={async () => {
+                      try {
+                        // Use secure API endpoint for downloads
+                        const response = await fetch(document.url, {
+                          method: 'GET',
+                          headers: {
+                            'Accept': 'application/octet-stream',
+                          },
+                        });
+                        
+                        if (!response.ok) {
+                          throw new Error('Download failed');
+                        }
+                        
+                        const blob = await response.blob();
+                        const downloadUrl = window.URL.createObjectURL(blob);
+                        const link = window.document.createElement('a');
+                        link.href = downloadUrl;
+                        link.download = document.name;
+                        link.click();
+                        window.URL.revokeObjectURL(downloadUrl);
+                      } catch (error) {
+                        console.error('Download failed:', error);
+                        // Fallback to direct URL if API fails
+                        window.open(document.url, '_blank');
+                      }
                     }}
                     variant="ghost"
                     size="sm"

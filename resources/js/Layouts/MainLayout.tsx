@@ -1,10 +1,12 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import FlashMessages from '@/Components/Messages/FlashMessages';
 import RoleBasedNavigation from '@/Components/Navigation/RoleBasedNavigation';
+
 import { UserRole } from '@/types/roles';
 import { getRoleDisplayName } from '@/lib/roleUtils';
-// AI overlay imports removed to fix authentication conflicts
-import React from 'react';
+
+import 'react-awesome-button/dist/styles.css';
+import React, { useState } from 'react';
 import {
   FiLogOut,
   FiMenu,
@@ -44,7 +46,8 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [currentUserRole, setCurrentUserRole] = React.useState<UserRole>(props.userRole || 'provider');
-  // AI overlay state removed to fix authentication conflicts
+  
+
 
   const currentPath = window.location.pathname;
   const user = props.auth?.user;
@@ -400,7 +403,9 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
 
         <FlashMessages />
 
-        {/* AI Overlay System removed to fix authentication conflicts */}
+
+
+
       </div>
     </>
   );

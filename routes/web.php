@@ -17,12 +17,13 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EligibilityController;
 use App\Http\Controllers\MACValidationController;
+use App\Http\Controllers\ResourcesController;
 use App\Http\Controllers\Commission\CommissionController;
 use App\Http\Controllers\Commission\CommissionRuleController;
 use App\Http\Controllers\Commission\CommissionRecordController;
 use App\Http\Controllers\Commission\CommissionPayoutController;
 use App\Http\Controllers\ProductRequestController;
-use App\Http\Controllers\RequestController;
+use App\Http\Controllers\NewQuickRequestController as QuickRequestController;
 use App\Http\Controllers\RBACController;
 // AccessControlController removed - feature deprecated
 use App\Http\Controllers\Api\MedicareMacValidationController;
@@ -97,9 +98,9 @@ Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
 Route::get('/auth/token', AuthTokenController::class)->middleware('auth')->name('auth.token');
 
 // CSRF Token Refresh Route
-// Route::get('/csrf-token', function () {
-//     return response()->json(['token' => csrf_token()]);
-// })->name('csrf.refresh');
+Route::get('/csrf-token', function () {
+    return response()->json(['token' => csrf_token()]);
+})->name('csrf.refresh');
 
 Route::post('/api/support/escalate', function (Request $request) {
     // Validate the request
@@ -417,6 +418,22 @@ Route::middleware(['auth', 'permission:view-orders'])->prefix('provider')->group
     Route::get('/episodes/{episode}', [ProviderDashboardController::class, 'showEpisode'])
         ->name('provider.episodes.show')
         ->middleware('permission:view-orders');
+    // Provider Order Details
+    Route::get('/orders/{id}', [App\Http\Controllers\Admin\OrderCenterController::class, 'show'])
+        ->name('provider.orders.show')
+        ->middleware('permission:view-orders');
+});
+
+// Sales Rep Order Routes
+Route::middleware(['auth', 'role:msc-rep,msc-subrep'])->prefix('sales')->group(function () {
+    Route::get('/orders/{id}', [App\Http\Controllers\Admin\OrderCenterController::class, 'show'])
+        ->name('sales.orders.show');
+});
+
+// Support Order Routes  
+Route::middleware(['auth', 'permission:manage-orders'])->prefix('support')->group(function () {
+    Route::get('/orders/{id}', [App\Http\Controllers\Admin\OrderCenterController::class, 'show'])
+        ->name('support.orders.show');
 });
 
 // Legacy routes (redirect to consolidated page)
@@ -545,6 +562,15 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::middleware(['permission:view-mac-validation'])->prefix('mac-validation')->group(function () {
         Route::get('/', [MedicareMacValidationController::class, 'index'])->name('mac-validation.index');
         Route::post('/validate', [MedicareMacValidationController::class, 'validateMAC'])->name('mac-validation.validate');
+    });
+
+    // Resources Page - Public billing and coding resources
+    Route::get('/resources', [ResourcesController::class, 'index'])->name('resources.index');
+    
+    // Resources API endpoints
+    Route::prefix('api/resources')->group(function () {
+        Route::get('/mac-news', [ResourcesController::class, 'getMacNews'])->name('api.resources.mac-news');
+        Route::get('/mac-news/{contractor}', [ResourcesController::class, 'getContractorNews'])->name('api.resources.contractor-news');
     });
 
     // eClinicalWorks Integration Routes
@@ -971,30 +997,27 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::middleware(['permission:manage-orders'])->prefix('admin/docuseal')->group(function () {
         // Template management
         Route::get('/templates', function () {
-            return Inertia::render('Admin/Docuseal/Templates');
+            return Inertia::render('Admin/DocuSeal/Templates');
         })->name('admin.docuseal.templates');
 
         // Analytics dashboard
         Route::get('/analytics', function () {
-            return Inertia::render('Admin/Docuseal/Analytics');
+            return Inertia::render('Admin/DocuSeal/Analytics');
         })->name('admin.docuseal.analytics');
     });
 
     // Docuseal API endpoints (within web middleware for session auth)
-    // NOTE: DocusealTemplateController needs to be created
-    /*
-    Route::prefix('api/v1/docuseal/templates')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'index']);
-        Route::post('/sync', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'sync']);
-        Route::post('/extract-fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'extractFields']);
-        Route::post('/upload-embedded', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'uploadEmbedded']);
-        Route::get('/manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'getManufacturerFields']);
-        Route::post('/{templateId}/update-mappings', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'updateMappings']);
-        Route::post('/{templateId}/update-metadata', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'updateMetadata']);
-        Route::post('/{templateId}/apply-bulk-patterns', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'applyBulkPatterns']);
-        Route::post('/{templateId}/sync-fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'syncFields']);
+    Route::prefix('api/v1/admin/docuseal/templates')->middleware(['permission:manage-orders'])->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'index']);
+        Route::post('/sync', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'sync']);
+        Route::post('/extract-fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'extractFields']);
+        Route::post('/upload-embedded', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'uploadEmbedded']);
+        Route::get('/manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields']);
+        Route::post('/{templateId}/update-mappings', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'updateMappings']);
+        Route::post('/{templateId}/update-metadata', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'updateMetadata']);
+        Route::post('/{templateId}/apply-bulk-patterns', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'applyBulkPatterns']);
+        Route::post('/{templateId}/sync-fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'syncFields']);
     });
-    */
 
     // Test route for Provider Dashboard functionality
     Route::get('/test-provider-permissions', function () {

@@ -883,28 +883,29 @@ Route::middleware(['api', 'auth:sanctum'])->group(function () {
     Route::post('/quick-request/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
         ->name('api.quick-request.create-episode-with-documents')
         ->middleware(['permission:create-product-requests', 'handle_quick_request_errors']);
-
-    Route::post('/quick-request/extract-ivr-fields', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'extractIvrFields'])
-        ->name('api.quick-request.extract-ivr-fields')
-        ->middleware(['permission:create-product-requests', 'handle_quick_request_errors']);
 });
 
-// Episode MAC Validation Routes
-Route::prefix('episodes')->middleware(['auth:sanctum'])->group(function () {
-    Route::get('/{episode}/mac-validation', [\App\Http\Controllers\Api\EpisodeMacValidationController::class, 'show'])
-        ->name('api.episodes.mac-validation')
+// Document Download Routes
+Route::prefix('v1/documents')->middleware(['auth:sanctum'])->name('api.documents.')->group(function () {
+    // Get available documents for an order
+    Route::get('/orders/{orderId}', [\App\Http\Controllers\Api\DocumentDownloadController::class, 'getOrderDocuments'])
+        ->name('orders.index')
+        ->middleware('permission:view-orders');
+
+    // Get available documents for an episode  
+    Route::get('/episodes/{episodeId}', [\App\Http\Controllers\Api\DocumentDownloadController::class, 'getEpisodeDocuments'])
+        ->name('episodes.index')
+        ->middleware('permission:view-orders');
+
+    // Get download URL for a specific document
+    Route::get('/download/{submissionId}', [\App\Http\Controllers\Api\DocumentDownloadController::class, 'downloadDocument'])
+        ->name('download')
+        ->middleware('permission:view-orders');
+
+    // Proxy download a document (with tracking and additional security)
+    Route::get('/proxy/{submissionId}', [\App\Http\Controllers\Api\DocumentDownloadController::class, 'proxyDownload'])
+        ->name('proxy')
         ->middleware('permission:view-orders');
 });
 
-// Admin Notification Routes
-Route::prefix('admin')->group(function () {
-    Route::post('send-notification', [App\Http\Controllers\Api\AdminNotificationController::class, 'sendNotification'])
-        ->name('api.admin.send-notification');
-});
-
-// Order Status Management
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::post('/order-status/update', [App\Http\Controllers\Api\OrderStatusController::class, 'updateStatus']);
-    Route::delete('/order-status/remove-document', [App\Http\Controllers\Api\OrderStatusController::class, 'removeDocument']);
-});
 // Fallback Route for 404 API requests

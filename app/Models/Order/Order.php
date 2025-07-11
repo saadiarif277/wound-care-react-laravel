@@ -242,6 +242,104 @@ class Order extends Model
     }
 
     /**
+     * Get the DocuSeal submissions for this order
+     */
+    public function docusealSubmissions()
+    {
+        return $this->hasMany(\App\Models\Docuseal\DocusealSubmission::class);
+    }
+
+    /**
+     * Get the IVR document for this order (episode-level, shared)
+     */
+    public function getIvrDocumentAttribute()
+    {
+        if (!$this->episode_id) {
+            return null;
+        }
+
+        // Get all orders in this episode and find IVR document from any of them
+        $episodeOrderIds = static::where('episode_id', $this->episode_id)->pluck('id');
+
+        return \App\Models\Docuseal\DocusealSubmission::whereIn('order_id', $episodeOrderIds)
+            ->where('document_type', 'IVR')
+            ->where('status', 'completed')
+            ->whereNotNull('document_url')
+            ->first();
+    }
+
+    /**
+     * Get the Order Form document for this specific order
+     */
+    public function getOrderFormDocumentAttribute()
+    {
+        return $this->docusealSubmissions()
+            ->where('document_type', 'OrderForm')
+            ->where('status', 'completed')
+            ->whereNotNull('document_url')
+            ->first();
+    }
+
+    /**
+     * Get all available documents for this order
+     */
+    public function getAvailableDocumentsAttribute()
+    {
+        $documents = [];
+
+        // Add IVR document if available (episode-level)
+        if ($this->ivr_document) {
+            $documents[] = [
+                'id' => $this->ivr_document->id,
+                'type' => 'IVR',
+                'name' => 'Insurance Verification Request',
+                'url' => $this->ivr_document->document_url,
+                'completed_at' => $this->ivr_document->completed_at,
+                'shared' => true, // Indicates this is shared across the episode
+                'audit_log_url' => $this->ivr_document->metadata['audit_log_url'] ?? null,
+            ];
+        }
+
+        // Add Order Form if available (order-specific)
+        if ($this->order_form_document) {
+            $documents[] = [
+                'id' => $this->order_form_document->id,
+                'type' => 'OrderForm',
+                'name' => 'Order Form',
+                'url' => $this->order_form_document->document_url,
+                'completed_at' => $this->order_form_document->completed_at,
+                'shared' => false, // This is specific to this order
+                'audit_log_url' => $this->order_form_document->metadata['audit_log_url'] ?? null,
+            ];
+        }
+
+        return $documents;
+    }
+
+    /**
+     * Check if user can download documents for this order
+     */
+    public function canUserDownloadDocuments(\App\Models\User $user): bool
+    {
+        // Admins can download any documents
+        if ($user->hasRole('msc-admin')) {
+            return true;
+        }
+
+        // Users can download documents for their own orders
+        if ($user->id === $this->provider_id) {
+            return true;
+        }
+
+        // Organization members can download documents for orders in their organization
+        if ($user->organization_id && $user->organization_id === $this->facility?->organization_id) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Get the confirmation documents for this order.
      * TODO: Implement when Document model is available
      */

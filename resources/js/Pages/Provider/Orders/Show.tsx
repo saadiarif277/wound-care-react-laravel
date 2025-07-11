@@ -783,11 +783,30 @@ const ProviderOrderShow: React.FC<ProviderOrderShowProps> = ({ order }) => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => {
-                                    const link = document.createElement('a');
-                                    link.href = doc.url;
-                                    link.download = doc.filename || 'document';
-                                    link.click();
+                                  onClick={async () => {
+                                    try {
+                                      const response = await fetch(doc.url, {
+                                        method: 'GET',
+                                        headers: {
+                                          'Accept': 'application/octet-stream',
+                                        },
+                                      });
+                                      
+                                      if (!response.ok) {
+                                        throw new Error('Download failed');
+                                      }
+                                      
+                                      const blob = await response.blob();
+                                      const downloadUrl = window.URL.createObjectURL(blob);
+                                      const link = document.createElement('a');
+                                      link.href = downloadUrl;
+                                      link.download = doc.filename || 'document';
+                                      link.click();
+                                      window.URL.revokeObjectURL(downloadUrl);
+                                    } catch (error) {
+                                      console.error('Download failed:', error);
+                                      window.open(doc.url, '_blank');
+                                    }
                                   }}
                                   className="hover:bg-blue-50"
                                 >

@@ -229,10 +229,17 @@ class OptimizedMedicalAiService
             }
 
             // Step 2: Build context for AI processing (matching Python service expectations)
+            // Simplify template structure to prevent AI service fallback
+            $simplifiedTemplateFields = [
+                'field_names' => $templateFields['field_names'] ?? [],
+                'required_fields' => $templateFields['required_fields'] ?? [],
+                'total_fields' => $templateFields['total_fields'] ?? count($templateFields['field_names'] ?? [])
+            ];
+            
             $context = [
-                // Template structure for Python service
+                // Template structure for Python service - simplified to prevent fallback
                 'template_structure' => [
-                    'template_fields' => $templateFields
+                    'template_fields' => $simplifiedTemplateFields
                 ],
                 // FHIR context for AI processing
                 'fhir_context' => $fhirData,
@@ -253,7 +260,10 @@ class OptimizedMedicalAiService
             $this->logger->info('Calling AI service for template field mapping', [
                 'template_id' => $templateId,
                 'field_count' => count($templateFields['field_names'] ?? []),
-                'manufacturer' => $manufacturerName
+                'manufacturer' => $manufacturerName,
+                'base_data_count' => count($context['base_data']),
+                'has_fhir_context' => !empty($context['fhir_context']),
+                'simplified_template_fields' => count($simplifiedTemplateFields['field_names'] ?? [])
             ]);
 
             $aiResult = $this->callMedicalAiService($context);
@@ -735,11 +745,9 @@ class OptimizedMedicalAiService
     protected function callMedicalAiService(array $context): array
     {
         $cacheKey = 'medical_ai_' . md5(json_encode($context));
-        
-        // Check cache first (5 minute TTL)
+
         if (Config::get('services.medical_ai.cache_enabled', true)) {
-            $cachedResult = Cache::get($cacheKey);
-            if ($cachedResult) {
+            if ($cachedResult = Cache::get($cacheKey)) {
                 $this->logger->info('Using cached AI response');
                 return $cachedResult;
             }
@@ -748,55 +756,79 @@ class OptimizedMedicalAiService
         $attempt = 0;
         while ($attempt < $this->retryAttempts) {
             try {
+                $this->logger->info('Calling AI service', [
+                    'attempt' => $attempt + 1,
+                    'service_url' => $this->aiServiceUrl
+                ]);
+
                 $response = Http::timeout($this->timeout)
                     ->withHeaders([
                         'Authorization' => 'Bearer ' . $this->aiServiceKey,
-                        'Content-Type' => 'application/json'
+                        'Content-Type' => 'application/json',
                     ])
                     ->post($this->aiServiceUrl . '/api/v1/enhance-mapping', [
                         'context' => $context,
                         'optimization_level' => 'high',
-                        'confidence_threshold' => 0.7
+                        'confidence_threshold' => 0.7,
                     ]);
 
                 if ($response->successful()) {
                     $result = $response->json();
-                    
-                    // Cache successful response
                     if (Config::get('services.medical_ai.cache_enabled', true)) {
                         Cache::put($cacheKey, $result, 300); // 5 minutes
                     }
-                    
                     return $result;
                 }
 
-                throw new Exception("AI service returned status: " . $response->status());
-                
-            } catch (Exception $e) {
-                $attempt++;
-                $this->logger->warning('AI service call failed', [
-                    'attempt' => $attempt,
+                // Handle non-successful responses with structured errors
+                $errorData = $response->json();
+                throw new \App\Exceptions\MedicalAiServiceException(
+                    $errorData['message'] ?? 'AI service request failed',
+                    $response->status(),
+                    null,
+                    $errorData['error_type'] ?? 'UnknownHttpError',
+                    $errorData['details'] ?? []
+                );
+
+            } catch (\App\Exceptions\MedicalAiServiceException $e) {
+                // Specific AI service errors (like validation) should not be retried.
+                $this->logger->error('Medical AI Service Error', [
+                    'status_code' => $e->getStatusCode(),
+                    'error_type' => $e->getErrorType(),
+                    'message' => $e->getMessage(),
+                    'details' => $e->getDetails(),
+                ]);
+                throw $e; // Re-throw immediately.
+
+            } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                $this->logger->warning('AI service connection failed', [
+                    'attempt' => $attempt + 1,
                     'error' => $e->getMessage(),
-                    'service_url' => $this->aiServiceUrl
+                    'will_retry' => ($attempt + 1) < $this->retryAttempts,
                 ]);
 
-                if ($attempt >= $this->retryAttempts) {
-                    // Return fallback response
-                    return [
-                        'enhanced_fields' => [],
-                        'confidence' => 0,
-                        'method' => 'fallback',
-                        'recommendations' => []
-                    ];
+                if (++$attempt >= $this->retryAttempts) {
+                    throw new \App\Exceptions\MedicalAiServiceException('Could not connect to AI service.', 503, $e);
                 }
+                usleep(500000 * $attempt); // Wait before retrying connection errors.
 
-                // Wait before retry (exponential backoff)
-                sleep(pow(2, $attempt));
+            } catch (\Exception $e) {
+                $this->logger->error('An unexpected error occurred during AI service call', [
+                    'attempt' => $attempt + 1,
+                    'error' => $e->getMessage(),
+                    'will_retry' => ($attempt + 1) < $this->retryAttempts,
+                ]);
+
+                if (++$attempt >= $this->retryAttempts) {
+                    throw $e; // Re-throw if all retries fail.
+                }
+                usleep(500000 * $attempt);
             }
         }
 
-        return [];
-    }
+        // This part should ideally not be reached if exceptions are handled correctly.
+        return ['enhanced_fields' => [], 'confidence' => 0, 'method' => 'fallback', 'error' => 'Exhausted all retry attempts.'];
+   }
 
     /**
      * Merge AI recommendations with base data

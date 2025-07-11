@@ -1,0 +1,28 @@
+---
+trigger: model_decision
+description: When dealing with IVR or Order Docs
+globs:
+---
+# IVR & Order Document Logics:
+
+## Episode-Level Documents (Shared):
+
+### IVR: One per Patient + Manufacturer combination
+Applies to ALL orders within that episode
+Patient gets ONE IVR verification that covers multiple orders
+## Order-Level Documents (Individual):
+
+### Order Forms: One per specific order
+Each order gets its own unique form
+Even within the same episode
+
+##Association Strategy:
+Use episode_id for IVR documents (shared)
+Use order_id for Order Forms (individual)
+Track via external_id or docuseal_submission_id in webhooks
+
+## Download Logic:
+
+Order details page shows BOTH documents
+IVR comes from episode relationship (shared indicator)
+Order Form comes from direct order relationship---

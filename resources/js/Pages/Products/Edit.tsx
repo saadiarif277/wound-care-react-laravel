@@ -122,10 +122,12 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
       }
     });
 
-    router.post(`/products/${product.id}`, formData, {
+    // Use PUT method for updating existing products
+    router.put(`/products/${product.id}`, formData, {
       forceFormData: true,
       onSuccess: () => {
-        // Handle success
+        // Handle success - redirect to product management page
+        router.visit('/products/manage');
       },
       onError: (errors) => {
         console.error('Form submission errors:', errors);
@@ -1123,7 +1125,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
             <div className="flex items-center justify-end gap-4 pt-6 border-t border-white/10">
               <button
                 type="button"
-                onClick={() => router.get('/products')}
+                onClick={() => router.visit('/products/manage')}
                 className={cn(
                   "px-6 py-3 rounded-xl font-medium",
                   t.button.ghost.base,

@@ -1,0 +1,184 @@
+{
+  "metadata": {
+    "form_id": "centurion_therapeutics_ivr",
+    "form_name": "CENTURION_THERAPEUTICS_IVR",
+    "timestamp": "2025-07-10T08:45:38.559116",
+    "processing_time": 0.000238,
+    "statistics": {
+      "total_fields": 40,
+      "mapped_fields": 24,
+      "unmapped_fields": 16,
+      "errors": 0,
+      "warnings": 16
+    }
+  },
+  "canonical_data": {
+    "patient_name": "Provider and Facility Information",
+    "patient_dob": "Sales Representative:",
+    "patient_address": "",
+    "patient_city": "",
+    "patient_state": "",
+    "patient_zip": "",
+    "primary_insurance": ":unselected:",
+    "secondary_insurance": "",
+    "contact_phone": "",
+    "policy_number": "",
+    "Provider_Speciality": "",
+    "tax_id": "",
+    "facility_name": "",
+    "facility_contact": "Phone #.",
+    "application_frequency": "Number of Applications:",
+    "new_wound": ":unselected:",
+    "Order_Type": ":unselected:",
+    "patient_gender": ":unselected:"
+  },
+  "unmapped_fields": [
+    {
+      "field": "required_information_indicated_by",
+      "value": {
+        "value": "unselected: New Wound :unselected: Additional Application :unselected: Re-verification :unselected: New Insurance",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "insurance_verification_email_to",
+      "value": {
+        "value": "hotline@advantagerma.com FAX TO: 855-729-5758",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "home_phone_number",
+      "value": {
+        "value": "",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "mobile_number",
+      "value": {
+        "value": "*Is this patient currently in a skilled facility or nursing home? :unselected: Yes :unselected: No",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "payer_phone_number",
+      "value": {
+        "value": "",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "provider_name",
+      "value": {
+        "value": "",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "ptan_number",
+      "value": {
+        "value": "",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "provider_id_numbers",
+      "value": {
+        "value": "NPI :*",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "facility_id_numbers",
+      "value": {
+        "value": "NPI :*",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "fax_number",
+      "value": {
+        "value": "",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "treatment_setting",
+      "value": {
+        "value": ":unselected: Hospital Outpatient Wound Dept/Clinic (HOPD) (POS-22) :unselected: Provider's Office (POS-11) Nursing (POS-32) :unselected: Home (POS-12) :unselected: ALF (POS-13) :unselected: SNF (POS-31) :unselected:",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "coding_and_billing",
+      "value": {
+        "value": "unselected: AmnioBand Q4151 :unselected: Allopatch Q4128",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "known_conditions",
+      "value": {
+        "value": "Anticipated Treatment Start Date:",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "if_the_payer_requires_prior_authorization_for_pre_determination_for_product_applications_would_you_like_assistance",
+      "value": {
+        "value": "unselected: Yes :unselected: No",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "provider_signature",
+      "value": {
+        "value": "",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    },
+    {
+      "field": "please_fax_this_form_along_with_a_copy_of_the_front_and_back_of_the_patient_s_insurance_card_email",
+      "value": {
+        "value": "",
+        "confidence": 0.9,
+        "type": "string"
+      }
+    }
+  ],
+  "errors": [],
+  "warnings": [
+    "Unmapped field: required_information_indicated_by",
+    "Unmapped field: insurance_verification_email_to",
+    "Unmapped field: home_phone_number",
+    "Unmapped field: mobile_number",
+    "Unmapped field: payer_phone_number",
+    "Unmapped field: provider_name",
+    "Unmapped field: ptan_number",
+    "Unmapped field: provider_id_numbers",
+    "Unmapped field: facility_id_numbers",
+    "Unmapped field: fax_number",
+    "Unmapped field: treatment_setting",
+    "Unmapped field: coding_and_billing",
+    "Unmapped field: known_conditions",
+    "Unmapped field: if_the_payer_requires_prior_authorization_for_pre_determination_for_product_applications_would_you_like_assistance",
+    "Unmapped field: provider_signature",
+    "Unmapped field: please_fax_this_form_along_with_a_copy_of_the_front_and_back_of_the_patient_s_insurance_card_email"
+  ]
+}

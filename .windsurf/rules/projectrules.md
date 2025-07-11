@@ -1,0 +1,36 @@
+---
+trigger: always_on
+description:
+globs:
+---
+Project Architecture
+
+Hybrid PHI Strategy: Operational data in Supabase, PHI exclusively in Azure Health Data Services via FHIR R4
+Technology Stack: Next.js (App Router), React Server Components, Zustand, React Query, Supabase, Azure Health Data Services
+Monorepo Structure: apps/web/ for main application, packages/ for shared modules
+HIPAA Compliance: Strict PHI/non-PHI separation with referential integrity
+
+Core Engines & Features
+
+MAC Validation Engine
+Clinical Opportunity Engine (COE)
+Commission Engine
+Eligibility & Pre-Authorization Engine
+Product Recommendation Engine
+MSC Assist (RAG Agent)
+
+User Portals
+
+Admin Portal: Order processing, customer/sales rep management, system configuration
+Provider Portal: Product requests, eligibility checks, order tracking
+Sales Rep Portal: Commission tracking, customer management, product knowledge
+
+AI Collaboration Workflow
+
+✅ Reference PRD.md and ARCHITECTURE_CONTEXT.md at conversation start
+✅ Maintain 300-400 line file limits
+✅ Prioritize React Server Components
+✅ Always create unit tests for new code
+✅ Update TASK.MD for progress tracking
+✅ Ensure HIPAA compliance in all suggestions
+

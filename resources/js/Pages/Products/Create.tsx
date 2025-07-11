@@ -90,7 +90,8 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
     router.post('/products', formData, {
       forceFormData: true,
       onSuccess: () => {
-        // Handle success
+        // Handle success - redirect to product management page
+        router.visit('/products/manage');
       },
       onError: (errors) => {
         console.error('Form submission errors:', errors);
@@ -164,7 +165,7 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <button
-                  onClick={() => router.get('/products')}
+                  onClick={() => router.visit('/products/manage')}
                   className={cn(
                     "p-2 rounded-xl transition-all",
                     t.button.ghost.base,
@@ -184,7 +185,7 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => router.get('/products')}
+                onClick={() => router.visit('/products/manage')}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all",
                   t.button.ghost.base,
@@ -844,7 +845,7 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
             <div className="flex items-center justify-end gap-4 pt-6 border-t border-white/10">
               <button
                 type="button"
-                onClick={() => router.get('/products')}
+                onClick={() => router.visit('/products/manage')}
                 className={cn(
                   "px-6 py-3 rounded-xl font-medium",
                   t.button.ghost.base,

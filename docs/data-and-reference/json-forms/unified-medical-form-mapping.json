@@ -1,0 +1,2173 @@
+{
+  "version": "2.0",
+  "description": "Unified Medical Forms Mapping System - Complete source of truth for canonical fields and form implementations",
+  "lastUpdated": "2024-01-01",
+  
+  "canonicalFieldDefinitions": {
+    "physicianInformation": {
+      "physicianName": {
+        "description": "Full name of the treating physician",
+        "dataType": "string",
+        "required": true,
+        "validation": {
+          "minLength": 2,
+          "maxLength": 100,
+          "pattern": "^[a-zA-Z\\s\\-\\.,']+$"
+        },
+        "alternateKeys": ["provider_name", "r_name", "physician_signature", "rendering_physician_name", "pt_provider_name", "ordering_physician", "treating_md", "doc_name", "phys_full_name", "provider_last_first", "md_name", "rendering_provider_name"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "PHYSICIAN NAME",
+            "implemented": true
+          },
+          "form2_IVR": {
+            "fieldName": "Physician Name",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "*Provider Name",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Physician Name",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Physician Name",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Name",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "*Provider Name",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "*Provider Name",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "r_name",
+            "fieldLabel": "Provider Name",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "r_name",
+            "fieldLabel": "Provider Name",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "rendering_physician_name",
+            "fieldLabel": "Rendering Physician Name",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "physician_name",
+            "fieldLabel": "PHYSICIAN NAME",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "physician_name",
+            "fieldLabel": "Physician Name",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "physician_name",
+            "fieldLabel": "Physician Name",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "r_name",
+            "fieldLabel": "Provider Name",
+            "implemented": true
+          }
+        }
+      },
+      "physicianNPI": {
+        "description": "National Provider Identifier",
+        "dataType": "string",
+        "required": true,
+        "validation": {
+          "pattern": "^[0-9]{10}$",
+          "checksum": "luhn"
+        },
+        "alternateKeys": ["provider_npi", "npi", "r_id_s_npi", "physician_npi", "doc_npi", "rendering_npi", "treating_npi", "ordering_npi"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "NPI",
+            "implemented": true
+          },
+          "form2_IVR": {
+            "fieldName": "Physician NPI",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "*Provider ID #s: NPI",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "NPI",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "NPI",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "NPI",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "*Provider ID #'s NPI",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "*Provider ID #'s NPI",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "r_id_s_npi",
+            "fieldLabel": "Provider ID #s: NPI :",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "npi",
+            "fieldLabel": "NPI",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "npi",
+            "fieldLabel": "NPI",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "npi",
+            "fieldLabel": "NPI",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "physician_npi",
+            "fieldLabel": "Physician NPI",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "npi",
+            "fieldLabel": "NPI",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "npi",
+            "fieldLabel": "NPI",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "individual_npi",
+            "fieldLabel": "Individual NPI",
+            "implemented": true
+          }
+        }
+      },
+      "physicianSpecialty": {
+        "description": "Medical specialty of the physician",
+        "dataType": "string",
+        "required": false,
+        "validation": {
+          "enum": ["Podiatry", "Wound Care", "Vascular Surgery", "General Surgery", "Dermatology", "Internal Medicine", "Family Medicine", "Other"]
+        },
+        "alternateKeys": ["Provider_Speciality", "specialty"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "PHYSICIAN SPECIALTY",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Specialty",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Physician Specialty",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "specialty",
+            "fieldLabel": "Specialty",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "physician_specialty",
+            "fieldLabel": "PHYSICIAN SPECIALTY",
+            "implemented": true
+          }
+        }
+      },
+      "taxId": {
+        "description": "Tax identification number",
+        "dataType": "string",
+        "required": true,
+        "validation": {
+          "pattern": "^[0-9]{2}-[0-9]{7}$|^[0-9]{9}$"
+        },
+        "alternateKeys": ["tax_id", "Tax_ID", "TIN", "Provider_TIN"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "TAX ID",
+            "implemented": true
+          },
+          "form2_IVR": {
+            "fieldName": "TAX ID#",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Tax ID",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Tax ID",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "TIN",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Tax ID",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "Tax ID#",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "Tax ID#",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "tax_id",
+            "fieldLabel": "Tax ID",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "tax_id",
+            "fieldLabel": "Tax ID#",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "tax_id",
+            "fieldLabel": "Tax ID",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "tax_id",
+            "fieldLabel": "TAX ID",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "tax_id",
+            "fieldLabel": "TAX ID#",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "tin",
+            "fieldLabel": "TIN",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "tax_id",
+            "fieldLabel": "Tax ID#",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "tax_id_number",
+            "fieldLabel": "Tax ID Number",
+            "implemented": true
+          }
+        }
+      },
+      "ptanNumber": {
+        "description": "Provider Transaction Access Number (Medicare)",
+        "dataType": "string",
+        "required": false,
+        "alternateKeys": ["Provider_PTAN", "ptan", "physician_ptan"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "PTAN",
+            "implemented": true
+          },
+          "form2_IVR": {
+            "fieldName": "Physician PTAN",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "PTAN #",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "PTAN (Medicare #)",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "PTAN",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "ptan",
+            "fieldLabel": "PTAN #",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "ptan",
+            "fieldLabel": "PTAN",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "physician_ptan",
+            "fieldLabel": "Physician PTAN",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "ptan",
+            "fieldLabel": "PTAN",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "ptan",
+            "fieldLabel": "PTAN",
+            "implemented": true
+          }
+        }
+      },
+      "medicaidNumber": {
+        "description": "Medicaid provider number",
+        "dataType": "string",
+        "required": false,
+        "alternateKeys": ["medicaid_provider_number", "medicaid_r", "Medicaid_Number"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "MEDICAID #",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Medicaid Provider #",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Medicaid #",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "Medicare Provider #",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "Medicare Provider #",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "medicaid_r",
+            "fieldLabel": "Medicaid Provider #",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "medicaid",
+            "fieldLabel": "MEDICAID #",
+            "implemented": true
+          }
+        }
+      },
+      "practiceName": {
+        "description": "Name of the medical practice",
+        "dataType": "string",
+        "required": false,
+        "formImplementations": {
+          "form2_IVR": {
+            "fieldName": "Practice Name",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Practice Name",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "practice_name",
+            "fieldLabel": "Practice Name",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "practice_name",
+            "fieldLabel": "Practice Name",
+            "implemented": true
+          }
+        }
+      },
+      "practicePTAN": {
+        "description": "Practice PTAN number",
+        "dataType": "string",
+        "required": false,
+        "alternateKeys": ["Practice_PTAN", "practice_ptan"],
+        "formImplementations": {
+          "form2_IVR": {
+            "fieldName": "Practice PTAN",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "practice_ptan",
+            "fieldLabel": "Practice PTAN",
+            "implemented": true
+          }
+        }
+      },
+      "practiceNPI": {
+        "description": "Practice NPI number",
+        "dataType": "string",
+        "required": false,
+        "alternateKeys": ["practice_npi", "group_npi"],
+        "formImplementations": {
+          "form2_IVR": {
+            "fieldName": "Practice NPI",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "practice_npi",
+            "fieldLabel": "Practice NPI",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "group_npi",
+            "fieldLabel": "Group NPI",
+            "implemented": true
+          }
+        }
+      },
+      "practiceAddress": {
+        "description": "Practice street address",
+        "dataType": "string",
+        "required": false,
+        "formImplementations": {
+          "form6_ImbedBio": {
+            "fieldName": "Practice Address",
+            "implemented": true
+          }
+        }
+      }
+    },
+    
+    "facilityInformation": {
+      "facilityName": {
+        "description": "Name of the medical facility",
+        "dataType": "string",
+        "required": true,
+        "validation": {
+          "minLength": 2,
+          "maxLength": 200
+        },
+        "alternateKeys": ["Facility_Name", "facility_name"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "FACILITY NAME",
+            "implemented": true
+          },
+          "form2_IVR": {
+            "fieldName": "Practice Name",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "*Facility Name",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Facility Name",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Facility Name",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Facility Name",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "*Facility Name",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "*Facility Name",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "facility_name",
+            "fieldLabel": "Facility Name",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "facility_name",
+            "fieldLabel": "Facility Name",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "facility_name",
+            "fieldLabel": "Facility Name",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "facility_name",
+            "fieldLabel": "FACILITY NAME",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "facility_name",
+            "fieldLabel": "Facility Name",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "facility_name",
+            "fieldLabel": "Facility Name",
+            "implemented": true
+          }
+        }
+      },
+      "facilityAddress": {
+        "description": "Street address of the facility",
+        "dataType": "string",
+        "required": true,
+        "alternateKeys": ["facility_address"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "FACILITY ADDRESS",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Address",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Facility Address",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Address",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Facility Address",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "Address",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "Address",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "facility_address",
+            "fieldLabel": "FACILITY ADDRESS",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "facility_address",
+            "fieldLabel": "Facility Address",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "address",
+            "fieldLabel": "Address",
+            "implemented": true
+          }
+        }
+      },
+      "facilityCity": {
+        "description": "City where facility is located",
+        "dataType": "string",
+        "required": true,
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "CITY, STATE, ZIP",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "City",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "City, State, Zip",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "City",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "City",
+            "implemented": true
+          }
+        }
+      },
+      "facilityState": {
+        "description": "State where facility is located",
+        "dataType": "string",
+        "required": true,
+        "validation": {
+          "pattern": "^[A-Z]{2}$"
+        },
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "CITY, STATE, ZIP",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "State",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "City, State, Zip",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "State",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "State",
+            "implemented": true
+          }
+        }
+      },
+      "facilityZip": {
+        "description": "Zip code where facility is located",
+        "dataType": "string",
+        "required": true,
+        "validation": {
+          "pattern": "^[0-9]{5}(-[0-9]{4})?$"
+        },
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "CITY, STATE, ZIP",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Zip",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "City, State, Zip",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "Zip",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "Zip",
+            "implemented": true
+          }
+        }
+      },
+      "facilityNPI": {
+        "description": "Facility National Provider Identifier",
+        "dataType": "string",
+        "required": false,
+        "alternateKeys": ["facility_npi", "facility_id_s_npi"],
+        "formImplementations": {
+          "form2_IVR": {
+            "fieldName": "Practice NPI",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "*Facility ID #s: NPI",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "NPI",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "NPI",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "*Facility ID #'s NPI",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "*Facility ID #'s NPI",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "facility_id_s_npi",
+            "fieldLabel": "Facility ID #s: NPI :",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "facility_npi",
+            "fieldLabel": "Facility NPI",
+            "implemented": true
+          }
+        }
+      },
+      "facilityTaxId": {
+        "description": "Facility Tax ID",
+        "dataType": "string",
+        "required": false,
+        "formImplementations": {
+          "form3_Centurion": {
+            "fieldName": "*Facility ID #s: Tax ID",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Tax ID",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "*Facility ID #'s Tax ID#",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "*Facility ID #'s Tax ID#",
+            "implemented": true
+          }
+        }
+      },
+      "facilityType": {
+        "description": "Type of facility",
+        "dataType": "string",
+        "required": false,
+        "validation": {
+          "enum": ["Hospital", "Clinic", "Surgery Center", "Wound Care Center", "Physician Office", "Other"]
+        },
+        "formImplementations": {
+          "form6_ImbedBio": {
+            "fieldName": "Facility Type",
+            "implemented": true
+          }
+        }
+      },
+      "contactName": {
+        "description": "Primary contact person at facility",
+        "dataType": "string",
+        "required": true,
+        "alternateKeys": ["facility_contact", "Primary_Contact_Person", "Facility_Primary_Contact_Person"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "CONTACT NAME",
+            "implemented": true
+          },
+          "form2_IVR": {
+            "fieldName": "Office Contact Name",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "*Facility Contact",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Contact Name",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Contact Name",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Point of Contact",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "*Facility Contact",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "*Facility Contact",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "facility_contact",
+            "fieldLabel": "Facility Contact",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "facility_contact",
+            "fieldLabel": "Facility Contact",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "primary_contact_person",
+            "fieldLabel": "Primary Contact Person",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "contact_name",
+            "fieldLabel": "CONTACT NAME",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "contact_name",
+            "fieldLabel": "Contact Name",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "facility_contact",
+            "fieldLabel": "Facility Contact",
+            "implemented": true
+          },
+          "Celularity Order Form": {
+            "fieldName": "contact_name",
+            "fieldLabel": "Contact Name",
+            "implemented": true
+          },
+          "MSC Crosstimber Order Form": {
+            "fieldName": "contact_name",
+            "fieldLabel": "Contact Name",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "contact_name",
+            "fieldLabel": "Contact Name",
+            "implemented": true
+          }
+        }
+      },
+      "contactPhone": {
+        "description": "Contact phone number",
+        "dataType": "string",
+        "required": true,
+        "validation": {
+          "pattern": "^[0-9-()\\s\\.]+$"
+        },
+        "alternateKeys": ["phone", "contact_phone", "Primary_Contact_Person_Phone", "facility_phone"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "PHONE #",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Phone #",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Phone #",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Phone",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Phone",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "Phone#",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "Phone#",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "phone",
+            "fieldLabel": "Phone #.",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "phone",
+            "fieldLabel": "Phone#",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "contact_phone",
+            "fieldLabel": "Contact Phone",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "phone",
+            "fieldLabel": "PHONE #",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "phone",
+            "fieldLabel": "Phone",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "phone",
+            "fieldLabel": "Phone#",
+            "implemented": true
+          },
+          "Celularity Order Form": {
+            "fieldName": "phone",
+            "fieldLabel": "Phone #",
+            "implemented": true
+          },
+          "MSC Crosstimber Order Form": {
+            "fieldName": "contact_number",
+            "fieldLabel": "Contact Number",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "contact_phone",
+            "fieldLabel": "Contact Phone",
+            "implemented": true
+          }
+        }
+      },
+      "contactFax": {
+        "description": "Contact fax number",
+        "dataType": "string",
+        "required": false,
+        "alternateKeys": ["fax", "fax_number", "facility_fax"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "FAX #",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Fax #",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Fax #",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Fax",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "Fax#",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "Fax#",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "fax",
+            "fieldLabel": "Fax #",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "fax",
+            "fieldLabel": "FAX",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "contact_fax",
+            "fieldLabel": "Contact Fax",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "fax",
+            "fieldLabel": "FAX #",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "fax",
+            "fieldLabel": "Fax#",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "practice_fax",
+            "fieldLabel": "Practice Fax",
+            "implemented": true
+          }
+        }
+      },
+      "contactEmail": {
+        "description": "Contact email address",
+        "dataType": "string",
+        "required": false,
+        "validation": {
+          "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.+[a-zA-Z]{2,}$"
+        },
+        "alternateKeys": ["email_address", "Primary_Contact_Person_Email", "facility_contact_email"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "CONTACT PH/EMAIL",
+            "implemented": true
+          },
+          "form2_IVR": {
+            "fieldName": "Office Contact Email",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Email Address",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Contact Email",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Email",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "*Facility Contact Email",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "*Facility Contact Email",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "email_address",
+            "fieldLabel": "Email Address",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "facility_contact_email",
+            "fieldLabel": "Facility Contact Email",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "contact_email_address",
+            "fieldLabel": "Contact Email Address",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "office_contact_email",
+            "fieldLabel": "Office Contact Email",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "facility_contact_email",
+            "fieldLabel": "Facility Contact Email",
+            "implemented": true
+          },
+          "MSC Crosstimber Order Form": {
+            "fieldName": "contact_e_mail",
+            "fieldLabel": "Contact e-mail",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "contact_email",
+            "fieldLabel": "Contact Email",
+            "implemented": true
+          }
+        }
+      }
+    },
+    
+    "patientInformation": {
+      "patientName": {
+        "description": "Full name of the patient",
+        "dataType": "string",
+        "required": true,
+        "validation": {
+          "minLength": 2,
+          "maxLength": 100,
+          "pattern": "^[a-zA-Z\\s\\-\\.,']+$"
+        },
+        "alternateKeys": ["patient_name", "pt_name", "full_name", "patient_full_name", "pt_last_first", "beneficiary_name", "insured_name"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "PATIENT NAME",
+            "implemented": true
+          },
+          "form2_IVR": {
+            "fieldName": "Patient Name",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "*Patient Name",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Patient Name",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Patient Name",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Name",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "*Patient Name",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "*Patient Name",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "patient_name",
+            "fieldLabel": "Patient Name",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "patient_name",
+            "fieldLabel": "Patient Name",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "patient_name",
+            "fieldLabel": "Patient name",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "patient_name",
+            "fieldLabel": "PATIENT NAME",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "patient_name",
+            "fieldLabel": "Patient Name",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "patient_name",
+            "fieldLabel": "Patient Name",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "patient_name",
+            "fieldLabel": "Patient Name",
+            "implemented": true
+          }
+        }
+      },
+      "patientDOB": {
+        "description": "Patient date of birth",
+        "dataType": "date",
+        "required": true,
+        "validation": {
+          "format": "YYYY-MM-DD",
+          "maxDate": "today"
+        },
+        "alternateKeys": ["dob", "date_of_birth", "pt_dob", "birth_date", "patient_birthdate"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "PATIENT DOB",
+            "implemented": true
+          },
+          "form2_IVR": {
+            "fieldName": "Patient DOB",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "*DOB",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Patient Date of Birth",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Date of Birth",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Date of Birth",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "*DOB",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "*DOB",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "dob",
+            "fieldLabel": "DOB",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "dob",
+            "fieldLabel": "DOB",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "dob",
+            "fieldLabel": "DOB",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "patient_dob",
+            "fieldLabel": "PATIENT DOB",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "patient_dob",
+            "fieldLabel": "Patient DOB",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "date_of_birth",
+            "fieldLabel": "Date of Birth",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "dob",
+            "fieldLabel": "DOB",
+            "implemented": true
+          }
+        }
+      },
+      "patientAddress": {
+        "description": "Patient street address",
+        "dataType": "string",
+        "required": true,
+        "alternateKeys": ["address", "pt_address", "street_address", "mailing_address", "patient_street"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "PATIENT ADDRESS",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Address",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Patient Address",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Address",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Address",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "Address",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "Address",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "address",
+            "fieldLabel": "Address",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "address",
+            "fieldLabel": "Address",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "address",
+            "fieldLabel": "Address",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "patient_address",
+            "fieldLabel": "PATIENT ADDRESS",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "address",
+            "fieldLabel": "Address",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "address",
+            "fieldLabel": "Address",
+            "implemented": true
+          }
+        }
+      },
+      "patientCity": {
+        "description": "Patient city",
+        "dataType": "string",
+        "required": true,
+        "alternateKeys": ["patient_city", "city"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "CITY, STATE, ZIP",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "City",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "[City / State / Zip]",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "City",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "City",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "city",
+            "fieldLabel": "City",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "city",
+            "fieldLabel": "City",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "city_state_zip",
+            "fieldLabel": "City/State/Zip",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "city_state_zip",
+            "fieldLabel": "CITY, STATE, ZIP",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "city",
+            "fieldLabel": "City",
+            "implemented": true
+          },
+          "MSC Crosstimber Order Form": {
+            "fieldName": "city",
+            "fieldLabel": "City",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "city",
+            "fieldLabel": "City",
+            "implemented": true
+          }
+        }
+      },
+      "patientState": {
+        "description": "Patient state",
+        "dataType": "string",
+        "required": true,
+        "validation": {
+          "pattern": "^[A-Z]{2}$"
+        },
+        "alternateKeys": ["patient_state", "state"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "CITY, STATE, ZIP",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "State",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "[City / State / Zip]",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "State",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "State",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "state",
+            "fieldLabel": "State",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "state",
+            "fieldLabel": "State",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "city_state_zip",
+            "fieldLabel": "CITY, STATE, ZIP",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "state",
+            "fieldLabel": "State",
+            "implemented": true
+          },
+          "MSC Crosstimber Order Form": {
+            "fieldName": "state",
+            "fieldLabel": "State",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "state",
+            "fieldLabel": "State",
+            "implemented": true
+          }
+        }
+      },
+      "patientZip": {
+        "description": "Patient zip code",
+        "dataType": "string",
+        "required": true,
+        "validation": {
+          "pattern": "^[0-9]{5}(-[0-9]{4})?$"
+        },
+        "alternateKeys": ["patient_zip", "zip"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "CITY, STATE, ZIP",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Zip",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "[City / State / Zip]",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "Zip",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "Zip",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "zip",
+            "fieldLabel": "Zip",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "zip",
+            "fieldLabel": "Zip",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "city_state_zip",
+            "fieldLabel": "CITY, STATE, ZIP",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "zip",
+            "fieldLabel": "Zip",
+            "implemented": true
+          },
+          "MSC Crosstimber Order Form": {
+            "fieldName": "zip",
+            "fieldLabel": "Zip",
+            "implemented": true
+          },
+          "MSC New Client Form Template": {
+            "fieldName": "zip",
+            "fieldLabel": "ZIP",
+            "implemented": true
+          }
+        }
+      },
+      "patientPhone": {
+        "description": "Patient phone number",
+        "dataType": "string",
+        "required": false,
+        "validation": {
+          "pattern": "^[0-9-()\\s\\.]+$"
+        },
+        "alternateKeys": ["patient_phone", "home_phone"],
+        "formImplementations": {
+          "form1_ACZ": {
+            "fieldName": "PATIENT PHONE",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Home Phone #",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Phone",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Phone",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "home_phone",
+            "fieldLabel": "Home Phone #",
+            "implemented": true
+          },
+          "ACZ_&_ASSOCIATES_IVR": {
+            "fieldName": "patient_phone",
+            "fieldLabel": "PATIENT PHONE",
+            "implemented": true
+          },
+          "Advanced Solution IVR": {
+            "fieldName": "phone",
+            "fieldLabel": "Phone",
+            "implemented": true
+          }
+        }
+      },
+      "patientGenderMale": {
+        "description": "Patient Gender - Male checkbox",
+        "dataType": "boolean",
+        "required": false,
+        "validation": {
+          "oneOf": ["patientGenderMale", "patientGenderFemale"]
+        },
+        "formImplementations": {
+          "form2_IVR": {
+            "fieldName": "Male",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Male",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Male",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Male",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Male",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "Male",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "Male",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "male",
+            "fieldLabel": "Male",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "male",
+            "fieldLabel": "Male",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "male",
+            "fieldLabel": "Male",
+            "implemented": true
+          }
+        }
+      },
+      "patientInSkilledNursingFacility": {
+        "description": "Is the patient currently in a skilled nursing facility or nursing home?",
+        "dataType": "boolean",
+        "required": false,
+        "alternateKeys": ["is_in_snf", "skilled_nursing_facility", "nursing_home_resident"],
+        "formImplementations": {
+          "Q2 Restorigin IVR": {
+            "fieldName": "is_in_snf_checkbox_group",
+            "fieldLabel": "*Is this patient currently in a skilled nursing facility or nursing home?",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "is_in_snf_checkbox_group",
+            "fieldLabel": "Is the patient currently residing in a Nursing Home OR Skilled Nursing Facility: Yes or No",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "is_in_snf_checkbox_group",
+            "fieldLabel": "*Is this patient currently in a skilled facility or nursing home?",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "is_in_snf_checkbox_group",
+            "fieldLabel": "Is Patient currently residing in a Skilled Nursing Facility, Nursing Home or any inpatient facility?",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "is_in_snf_checkbox_group",
+            "fieldLabel": "*Is this patient currently in a skilled nursing facility or nursing home?",
+            "implemented": true
+          }
+        }
+      },
+      "patientGenderFemale": {
+        "description": "Patient Gender - Female checkbox",
+        "dataType": "boolean",
+        "required": false,
+        "validation": {
+          "oneOf": ["patientGenderMale", "patientGenderFemale"]
+        },
+        "formImplementations": {
+          "form2_IVR": {
+            "fieldName": "Female",
+            "implemented": true
+          },
+          "form3_Centurion": {
+            "fieldName": "Female",
+            "implemented": true
+          },
+          "form4_BioWound": {
+            "fieldName": "Female",
+            "implemented": true
+          },
+          "form5_AdvancedSolution": {
+            "fieldName": "Female",
+            "implemented": true
+          },
+          "form6_ImbedBio": {
+            "fieldName": "Female",
+            "implemented": true
+          },
+          "form7_ExtremityCare_FT": {
+            "fieldName": "Female",
+            "implemented": true
+          },
+          "form8_ExtremityCare_RO": {
+            "fieldName": "Female",
+            "implemented": true
+          },
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "female",
+            "fieldLabel": "Female",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "female",
+            "fieldLabel": "Female",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "female",
+            "fieldLabel": "Female",
+            "implemented": true
+          }
+        }
+      }
+    },
+    
+    "insuranceInformation": {
+      "primaryInsurance": {
+        "insuranceName": {
+          "description": "Name of primary insurance company",
+          "dataType": "string",
+          "required": true,
+          "alternateKeys": ["insurance_name", "primary_ins", "payer_name", "ins_company", "primary_carrier"],
+          "formImplementations": {
+            "form1_ACZ": {
+              "fieldName": "INSURANCE NAME",
+              "implemented": true
+            },
+            "form2_IVR": {
+              "fieldName": "Primary Insurance",
+              "implemented": true
+            },
+            "form3_Centurion": {
+              "fieldName": "Primary Insurance",
+              "implemented": true
+            },
+            "form4_BioWound": {
+              "fieldName": "Payer Name",
+              "implemented": true
+            },
+            "form5_AdvancedSolution": {
+              "fieldName": "Primary Insurance",
+              "implemented": true
+            },
+            "form6_ImbedBio": {
+              "fieldName": "Primary",
+              "implemented": true
+            },
+            "form7_ExtremityCare_FT": {
+              "fieldName": "Primary Insurance",
+              "implemented": true
+            },
+            "form8_ExtremityCare_RO": {
+              "fieldName": "Primary Insurance",
+              "implemented": true
+            },
+            "CENTURION_THERAPEUTICS_IVR": {
+              "fieldName": "primary_insurance",
+              "fieldLabel": "Primary Insurance",
+              "implemented": true
+            },
+            "EXTREMITY CARE Coll-e-Derm IVR": {
+              "fieldName": "primary_insurance",
+              "fieldLabel": "Primary Insurance",
+              "implemented": true
+            },
+            "Celularity_IVR": {
+              "fieldName": "primary_insurance",
+              "fieldLabel": "Primary Insurance",
+              "implemented": true
+            },
+            "MedLife IVR": {
+              "fieldName": "primary_insurance",
+              "fieldLabel": "Primary Insurance",
+              "implemented": true
+            },
+            "Q2 Restorigin IVR": {
+              "fieldName": "primary_insurance",
+              "fieldLabel": "Primary Insurance",
+              "implemented": true
+            }
+          }
+        },
+        "policyNumber": {
+          "description": "Primary insurance policy number",
+          "dataType": "string",
+          "required": true,
+          "alternateKeys": ["policy_number", "member_id", "Member_ID"],
+          "formImplementations": {
+            "form1_ACZ": {
+              "fieldName": "POLICY NUMBER",
+              "implemented": true
+            },
+            "form2_IVR": {
+              "fieldName": "Member ID",
+              "implemented": true
+            },
+            "form3_Centurion": {
+              "fieldName": "Policy Number",
+              "implemented": true
+            },
+            "form4_BioWound": {
+              "fieldName": "Policy #",
+              "implemented": true
+            },
+            "form5_AdvancedSolution": {
+              "fieldName": "Policy Number",
+              "implemented": true
+            },
+            "form7_ExtremityCare_FT": {
+              "fieldName": "Policy Number",
+              "implemented": true
+            },
+            "form8_ExtremityCare_RO": {
+              "fieldName": "Policy Number",
+              "implemented": true
+            },
+            "CENTURION_THERAPEUTICS_IVR": {
+              "fieldName": "policy_number",
+              "fieldLabel": "Policy Number",
+              "implemented": true
+            },
+            "EXTREMITY CARE Coll-e-Derm IVR": {
+              "fieldName": "policy_number",
+              "fieldLabel": "Policy Number",
+              "implemented": true
+            },
+            "Celularity_IVR": {
+              "fieldName": "ins_id",
+              "fieldLabel": "Ins ID#",
+              "implemented": true
+            },
+            "ACZ_&_ASSOCIATES_IVR": {
+              "fieldName": "policy_number",
+              "fieldLabel": "POLICY NUMBER",
+              "implemented": true
+            },
+            "MedLife IVR": {
+              "fieldName": "member_id",
+              "fieldLabel": "Member ID",
+              "implemented": true
+            },
+            "Advanced Solution IVR": {
+              "fieldName": "policy_number",
+              "fieldLabel": "Policy Number",
+              "implemented": true
+            },
+            "Q2 Restorigin IVR": {
+              "fieldName": "policy_number",
+              "fieldLabel": "Policy Number",
+              "implemented": true
+            }
+          }
+        },
+        "payerPhone": {
+          "description": "Insurance company phone number",
+          "dataType": "string",
+          "required": false,
+          "validation": {
+            "pattern": "^[0-9-()\\s\\.]+$"
+          },
+          "alternateKeys": ["payer_phone", "ins_phone", "insurance_phone"],
+          "formImplementations": {
+            "form1_ACZ": {
+              "fieldName": "PAYER PHONE",
+              "implemented": true
+            },
+            "form3_Centurion": {
+              "fieldName": "Payer Phone #",
+              "implemented": true
+            },
+            "form4_BioWound": {
+              "fieldName": "Payer Phone #",
+              "implemented": true
+            },
+            "form5_AdvancedSolution": {
+              "fieldName": "Insurance Phone Number",
+              "implemented": true
+            },
+            "form7_ExtremityCare_FT": {
+              "fieldName": "Payer Phone #",
+              "implemented": true
+            },
+            "form8_ExtremityCare_RO": {
+              "fieldName": "Payer Phone #",
+              "implemented": true
+            },
+            "CENTURION_THERAPEUTICS_IVR": {
+              "fieldName": "payer_phone",
+              "fieldLabel": "Payer Phone",
+              "implemented": true
+            },
+            "EXTREMITY CARE Coll-e-Derm IVR": {
+              "fieldName": "payer_phone",
+              "fieldLabel": "Payer Phone #",
+              "implemented": true
+            },
+            "Celularity_IVR": {
+              "fieldName": "ins_phone",
+              "fieldLabel": "Ins. Phone",
+              "implemented": true
+            },
+            "ACZ_&_ASSOCIATES_IVR": {
+              "fieldName": "payer_phone",
+              "fieldLabel": "PAYER PHONE",
+              "implemented": true
+            },
+            "Q2 Restorigin IVR": {
+              "fieldName": "payer_phone",
+              "fieldLabel": "Payer Phone #",
+              "implemented": true
+            }
+          }
+        },
+        "subscriberName": {
+          "description": "Name of insurance subscriber",
+          "dataType": "string",
+          "required": false,
+          "formImplementations": {
+            "form3_Centurion": {
+              "fieldName": "Subscriber Name",
+              "implemented": true
+            },
+            "form5_AdvancedSolution": {
+              "fieldName": "Subscriber Name",
+              "implemented": true
+            },
+            "CENTURION_THERAPEUTICS_IVR": {
+              "fieldName": "subscriber_name",
+              "fieldLabel": "Subscriber Name",
+              "implemented": true
+            },
+            "Advanced Solution IVR": {
+              "fieldName": "subscriber_name",
+              "fieldLabel": "Subscriber Name",
+              "implemented": true
+            }
+          }
+        },
+        "providerStatus": {
+          "description": "Provider network status",
+          "dataType": "enum",
+          "required": false,
+          "validation": {
+            "enum": ["IN-NETWORK", "OUT-OF-NETWORK"]
+          },
+          "alternateKeys": ["in_network", "out_of_network", "Ins_In_Network", "Ins_Out_Of_Network"],
+          "formImplementations": {
+            "form1_ACZ": {
+              "fieldName": "PROVIDER STATUS",
+              "implemented": true
+            },
+            "form5_AdvancedSolution": {
+              "fieldName": "Does Provider Participate with Network?",
+              "implemented": true
+            },
+            "ACZ_&_ASSOCIATES_IVR": {
+              "fieldName": "in_network",
+              "fieldLabel": "IN-NETWORK",
+              "implemented": true
+            },
+            "ACZ_&_ASSOCIATES_IVR": {
+              "fieldName": "out_of_network",
+              "fieldLabel": "OUT-OF-NETWORK",
+              "implemented": true
+            }
+          }
+        }
+      },
+      "secondaryInsurance": {
+        "description": "Secondary insurance information",
+        "dataType": "object",
+        "required": false,
+        "alternateKeys": ["secondary_insurance"],
+        "formImplementations": {
+          "CENTURION_THERAPEUTICS_IVR": {
+            "fieldName": "secondary_insurance",
+            "fieldLabel": "Secondary Insurance",
+            "implemented": true
+          },
+          "EXTREMITY CARE Coll-e-Derm IVR": {
+            "fieldName": "secondary_insurance",
+            "fieldLabel": "Secondary Insurance",
+            "implemented": true
+          },
+          "Celularity_IVR": {
+            "fieldName": "secondary_insurance",
+            "fieldLabel": "Secondary Insurance",
+            "implemented": true
+          },
+          "MedLife IVR": {
+            "fieldName": "secondary_insurance",
+            "fieldLabel": "Secondary Insurance",
+            "implemented": true
+          },
+          "Q2 Restorigin IVR": {
+            "fieldName": "secondary_insurance",
+            "fieldLabel": "Secondary Insurance",
+            "implemented": true
+          }
+        }
+      }
+    }
+  },
+  
+  "additionalFieldMappings": {
+    "clinicalInformation": {
+      "description": "Clinical and wound-related information not in canonical fields",
+      "fields": {
+        "woundType": {
+          "description": "Type of wound being treated",
+          "dataType": "enum",
+          "values": ["Diabetic Foot Ulcer", "Venous Leg Ulcer", "Pressure Ulcer", "Surgical Dehiscence", "Trauma Wounds", "Burns"],
+          "alternateKeys": ["Wound_Type"],
+          "formImplementations": {
+            "EXTREMITY CARE Coll-e-Derm IVR": ["diabetic_ulcer", "venous_ulcer", "surgical_dehcence", "pressure_ulcer", "trauma_wounds"],
+            "Advanced Solution IVR": ["diabetic_foot_ulcer", "venous_leg_ulcer", "pressure_ulcer", "traumatic_burns", "radiation_burns", "necrotizing_faciit", "dehced_surgical_wound"],
+            "Q2 Restorigin IVR": ["diabetic_ulcer", "venous_ulcer", "surgical_dehcence", "pressure_ulcer", "trauma_wounds"]
+          }
+        },
+        "woundSize": {
+          "description": "Size of the wound",
+          "dataType": "string",
+          "alternateKeys": ["Wound_Sizes", "wound_size_s", "total_wound_size"],
+          "formImplementations": {
+            "Celularity_IVR": "wound_size_s",
+            "ACZ_&_ASSOCIATES_IVR": "total_wound_size_and_or_medical_htory",
+            "MedLife IVR": "wound_size",
+            "Advanced Solution IVR": "wound_size_s"
+          }
+        },
+        "woundLocation": {
+          "description": "Location of the wound on body",
+          "dataType": "string",
+          "alternateKeys": ["Wound_Location"],
+          "formImplementations": {
+            "Celularity_IVR": "wound_location",
+            "MedLife IVR": "wound_location"
+          }
+        },
+        "cptCodes": {
+          "description": "CPT codes for procedure",
+          "dataType": "string",
+          "alternateKeys": ["cpt_codes", "application_cpt_s"],
+          "formImplementations": {
+            "CENTURION_THERAPEUTICS_IVR": ["15271_15272", "15273_15274", "15275_15276", "15277_15278"],
+            "EXTREMITY CARE Coll-e-Derm IVR": ["15271_15272", "15273_15274", "15275_15276", "15277_15278"],
+            "Celularity_IVR": "cpt_hcpcs_code_s",
+            "ACZ_&_ASSOCIATES_IVR": ["15271_15272", "15273_15274_formula", "15275_15276", "15277_15278"],
+            "MedLife IVR": "cpt",
+            "Advanced Solution IVR": "application_cpt_s",
+            "Q2 Restorigin IVR": ["15271_15272", "15273_15274", "15275_15276", "15277_15278"]
+          }
+        },
+        "icd10Codes": {
+          "description": "ICD-10 diagnosis codes",
+          "dataType": "string",
+          "alternateKeys": ["icd10_codes", "diagnosis", "diagnos_icd_10_codes"],
+          "formImplementations": {
+            "Celularity_IVR": "diagnos_icd_10_codes",
+            "ACZ_&_ASSOCIATES_IVR": "icd_10_codes",
+            "MedLife IVR": "icd_10",
+            "Advanced Solution IVR": "icd_10_diagnos_code_s"
+          }
+        },
+        "procedureDate": {
+          "description": "Date of procedure",
+          "dataType": "date",
+          "alternateKeys": ["Date_of_Service", "Date_of_Surgery", "anticipated_date"],
+          "formImplementations": {
+            "Celularity_IVR": "procedure_date",
+            "ACZ_&_ASSOCIATES_IVR": "surgery_date",
+            "MedLife IVR": ["surgery_date", "procedure_date"],
+            "Advanced Solution IVR": "date_of_procedure",
+            "EXTREMITY CARE Coll-e-Derm IVR": "anticipated_application_date",
+            "Q2 Restorigin IVR": "anticipated_application_date"
+          }
+        }
+      }
+    },
+    
+    "productInformation": {
+      "description": "Product-specific information",
+      "fields": {
+        "productName": {
+          "description": "Name of medical product",
+          "dataType": "string",
+          "alternateKeys": ["Product_"],
+          "formImplementations": {
+            "ACZ_&_ASSOCIATES_IVR": ["membrane_wrap", "membrane_wrap_hydr", "membrane_tri_layer", "revoshield", "dermabind"],
+            "Advanced Solution IVR": ["completeaa", "membrane_wrap_hydro", "membrane_wrap", "woundplus", "completeft"],
+            "Celularity_IVR": ["biovance", "interfyl"],
+            "EXTREMITY CARE Coll-e-Derm IVR": "q4193_coll_e_derm",
+            "Q2 Restorigin IVR": "q4191_restorigin"
+          }
+        },
+        "productSize": {
+          "description": "Size of product requested",
+          "dataType": "string",
+          "alternateKeys": ["Requested_Size", "Product_Size"],
+          "formImplementations": {
+            "EXTREMITY CARE Coll-e-Derm IVR": ["2_2cm", "4_4cm", "2_3cm", "4x6cm", "2_4cm", "4_8cm"],
+            "Q2 Restorigin IVR": ["12mm_dc", "2_3cm", "5x5cm", "16mm_dc", "2_4cm", "4_8cm", "1_5x1_5cm", "4x4cm", "2_2cm", "4_6cm"],
+            "MedLife IVR": "size_of_graft_requested",
+            "Celularity Order Form": "size"
+          }
+        }
+      }
+    },
+    
+    "orderInformation": {
+      "description": "Order and administrative information",
+      "fields": {
+        "orderType": {
+          "description": "Type of order",
+          "dataType": "enum",
+          "values": ["New Application", "Additional Application", "Re-verification", "New Insurance"],
+          "alternateKeys": ["Order_Type"],
+          "formImplementations": {
+            "CENTURION_THERAPEUTICS_IVR": ["new_wound", "additional_application", "re_verification", "new_insurance"],
+            "EXTREMITY CARE Coll-e-Derm IVR": ["new_application", "additional_application", "re_verification", "new_insurance"],
+            "Q2 Restorigin IVR": ["new_application", "additional_application", "re_verification", "new_insurance"],
+            "Celularity Order Form": "order_type"
+          }
+        },
+        "placeOfService": {
+          "description": "Place where service is provided",
+          "dataType": "enum",
+          "alternateKeys": ["place_of_service", "POS_11", "POS_12", "POS_22", "POS_24", "POS_31", "POS_32"],
+          "formImplementations": {
+            "ACZ_&_ASSOCIATES_IVR": ["physician_office_pos_11", "hospital_outpatient_pos22", "surgery_c_pos_24", "home_pos12", "nursing_c_facility_pos_32"],
+            "Advanced Solution IVR": ["office", "outpatient_hospital", "ambulatory_surgical_c"],
+            "Celularity_IVR": ["physician_office_11", "hopd_22", "ambulatory_surgical_c_24"],
+            "CENTURION_THERAPEUTICS_IVR": ["hospital_outpatient_wound_dept_clinic_hopd_pos_22", "r_s_office_pos_11", "home_pos_12", "alf_pos_13", "snf_pos_31", "nursing_pos_32"],
+            "EXTREMITY CARE Coll-e-Derm IVR": ["physician_office_clinic_pos11", "patient_home_pos12", "assted_living_facility_pos13", "nursing_facility_pos32", "skilled_nursing_facility_pos31"],
+            "Q2 Restorigin IVR": ["physician_office_clinic_pos11", "patient_home_pos12", "assted_living_facility_pos13", "nursing_facility_pos32", "skilled_nursing_facility_pos31"]
+          }
+        },
+        "salesRepresentative": {
+          "description": "Sales representative information",
+          "dataType": "string",
+          "alternateKeys": ["Sales_Rep", "sales_representative"],
+          "formImplementations": {
+            "CENTURION_THERAPEUTICS_IVR": "sales_representative",
+            "MSC Crosstimber Order Form": "sales_rep",
+            "MSC New Client Form Template": "sales_rep"
+          }
+        }
+      }
+    }
+  },
+  
+  "formMetadata": {
+    "totalForms": 13,
+    "totalFields": 637,
+    "totalCanonicalFields": 30,
+    "mappingCoverage": {
+      "fullyMapped": 85,
+      "partiallyMapped": 12,
+      "unmapped": 3
+    },
+    "formComplexity": {
+      "CENTURION_THERAPEUTICS_IVR": { "fields": 57, "mappedPercentage": 95 },
+      "EXTREMITY CARE Coll-e-Derm IVR": { "fields": 65, "mappedPercentage": 93 },
+      "Celularity_IVR": { "fields": 48, "mappedPercentage": 94 },
+      "ACZ_&_ASSOCIATES_IVR": { "fields": 51, "mappedPercentage": 96 },
+      "MedLife IVR": { "fields": 30, "mappedPercentage": 97 },
+      "Advanced Solution IVR": { "fields": 51, "mappedPercentage": 95 },
+      "Q2 Restorigin IVR": { "fields": 63, "mappedPercentage": 94 },
+      "Celularity Order Form": { "fields": 45, "mappedPercentage": 91 },
+      "MSC Crosstimber Order Form": { "fields": 39, "mappedPercentage": 88 },
+      "MSC New Client Form Template": { "fields": 29, "mappedPercentage": 92 }
+    }
+  },
+  
+  "mappingRules": {
+    "fieldNameNormalization": {
+      "description": "Rules for normalizing field names across forms",
+      "rules": [
+        {
+          "pattern": "^\\*(.+)$",
+          "replacement": "$1",
+          "description": "Remove asterisk prefix for required fields"
+        },
+        {
+          "pattern": "_",
+          "replacement": " ",
+          "description": "Replace underscores with spaces"
+        },
+        {
+          "pattern": "\\s+",
+          "replacement": " ",
+          "description": "Normalize multiple spaces to single space"
+        },
+        {
+          "pattern": "^(.+)\\s*#$",
+          "replacement": "$1 Number",
+          "description": "Replace # suffix with Number"
+        }
+      ]
+    },
+    "dataValidation": {
+      "phoneNumbers": {
+        "pattern": "^[0-9-()\\s\\.]+$",
+        "normalize": "Remove all non-numeric characters except extensions"
+      },
+      "dates": {
+        "formats": ["MM/DD/YYYY", "MM-DD-YYYY", "YYYY-MM-DD"],
+        "normalize": "Convert to ISO 8601 format (YYYY-MM-DD)"
+      },
+      "zipCodes": {
+        "pattern": "^[0-9]{5}(-[0-9]{4})?$"
+      },
+      "npi": {
+        "pattern": "^[0-9]{10}$",
+        "validate": "Luhn algorithm checksum"
+      }
+    }
+  },
+  
+  "implementationGuidance": {
+    "bestPractices": [
+      "Always validate against canonical field definitions before processing",
+      "Use alternateKeys to match fields that may have different names across forms",
+      "Apply validation rules consistently across all form implementations",
+      "Handle missing required fields gracefully with clear error messages",
+      "Normalize data according to the rules before storage or transmission"
+    ],
+    "errorHandling": {
+      "missingRequiredFields": "Highlight missing fields and prevent form submission",
+      "invalidFormat": "Show inline validation errors with format hints",
+      "duplicateEntries": "Check for existing records before creating new ones"
+    },
+    "dataFlow": {
+      "input": "OCR or manual form entry",
+      "processing": "Map to canonical fields using this unified system",
+      "validation": "Apply all validation rules and check requirements",
+      "output": "Standardized data ready for downstream systems"
+    }
+  }
+}

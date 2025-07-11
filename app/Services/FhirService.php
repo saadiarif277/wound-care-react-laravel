@@ -380,6 +380,31 @@ class FhirService
         }
     }
 
+    public function getLinkedPractitioner(string $patientId): ?array
+    {
+        $patient = $this->getPatientById($patientId);
+        if (!$patient || !isset($patient['generalPractitioner'][0]['reference'])) {
+            Log::debug('No linked practitioner found for patient', ['patient_id' => $patientId]);
+            return null;
+        }
+
+        $ref = $patient['generalPractitioner'][0]['reference'];
+        if (str_starts_with($ref, 'Practitioner/')) {
+            $practitionerId = substr($ref, 13);
+            $practitioner = $this->getPractitionerById($practitionerId);
+            Log::debug('Linked practitioner fetched', [
+                'patient_id' => $patientId,
+                'practitioner_id' => $practitionerId,
+                'has_name' => isset($practitioner['name']),
+                'has_npi' => isset($practitioner['identifier']),
+            ]);
+            return $practitioner;
+        }
+
+        Log::debug('Invalid practitioner reference', ['reference' => $ref]);
+        return null;
+    }
+
     /**
      * Get practitioner by FHIR ID (alias for getPractitionerById)
      */

@@ -1,0 +1,25 @@
+[Unit]
+Description=Medical AI Service for Wound Care Application
+After=network.target
+
+[Service]
+Type=simple
+User=rvalen
+Group=rvalen
+WorkingDirectory=/home/rvalen/Projects/Milestones/wound-care-react-laravel/scripts
+Environment="PATH=/home/rvalen/Projects/Milestones/wound-care-react-laravel/scripts/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="AZURE_OPENAI_ENDPOINT=https://msc-ai-services.cognitiveservices.azure.com"
+Environment="AZURE_OPENAI_API_KEY=1niLnd9xLv3idBqCXsGXUNs9mStjkhMksN1TKNsxFueoSF6WAg6rJQQJ99BCACHYHv6XJ3w3AAAAACOGSouN"
+Environment="AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o"
+Environment="AZURE_OPENAI_API_VERSION=2025-01-01-preview"
+Environment="DOCUSEAL_API_URL=https://api.docuseal.com"
+Environment="DOCUSEAL_API_KEY=rj6M42wpPkU1vhzaLi9qykeWPqsgS8VBdxJh1UrLSmt"
+Environment="MEDICAL_AI_SERVICE_PORT=8081"
+ExecStart=/home/rvalen/Projects/Milestones/wound-care-react-laravel/scripts/.venv/bin/python -m uvicorn medical_ai_service:app --host 0.0.0.0 --port 8081
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/var/log/medical-ai-service.log
+StandardError=append:/var/log/medical-ai-service.error.log
+
+[Install]
+WantedBy=multi-user.target

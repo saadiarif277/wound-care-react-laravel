@@ -9,6 +9,7 @@ use App\Services\FieldMapping\FieldMatcher;
 use App\Services\DocuSeal\TemplateFieldValidationService;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Models\CanonicalField;
+use App\Services\CanonicalFieldMappingService;
 // use App\Models\TemplateFieldMapping; // Model doesn't exist - commenting out
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -22,6 +23,7 @@ use App\Services\MedicalTerminologyService;
 // use App\Services\EpisodeService; // Service doesn't exist - commenting out
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class UnifiedFieldMappingService
 {
@@ -41,6 +43,7 @@ class UnifiedFieldMappingService
         // protected DocusealService $docusealService, // Circular dependency - removing
         FhirService $fhirService,
         MedicalTerminologyService $medicalTerminologyService,
+        private CanonicalFieldMappingService $canonicalMappingService,
         private ?TemplateFieldValidationService $fieldValidator = null
     ) {
         $this->fhirService = $fhirService;
@@ -170,7 +173,7 @@ class UnifiedFieldMappingService
     }
 
     /**
-     * Main entry point for all field mapping needs (original static method)
+     * Main entry point for all field mapping needs (enhanced with CSV-based template mapping)
      */
     public function mapEpisodeToTemplate(
         ?string $episodeId, 
@@ -190,25 +193,73 @@ class UnifiedFieldMappingService
                 $sourceData = $additionalData;
             }
 
-            // 2. Get manufacturer configuration based on document type
+            // 2. Get template ID for this manufacturer
+            $templateId = $this->getTemplateIdForManufacturer($manufacturerName);
+            
+            // 3. Try CSV-based template mapping first (more comprehensive)
+            if ($templateId) {
+                Log::info('Using CSV-based template mapping', [
+                    'manufacturer' => $manufacturerName,
+                    'template_id' => $templateId,
+                    'episode_id' => $episodeId,
+                    'source_fields_count' => count($sourceData)
+                ]);
+                
+                $mappedData = $this->mapFieldsWithCSVMapping($sourceData, $templateId);
+                
+                if (!empty($mappedData)) {
+                    // CSV mapping successful
+                    Log::info('CSV-based template mapping successful', [
+                        'manufacturer' => $manufacturerName,
+                        'template_id' => $templateId,
+                        'mapped_fields_count' => count($mappedData),
+                        'mapping_method' => 'csv_template_mapping'
+                    ]);
+                    
+                    return [
+                        'data' => $mappedData,
+                        'validation' => ['valid' => true, 'errors' => [], 'warnings' => []],
+                        'manufacturer' => ['name' => $manufacturerName, 'template_id' => $templateId],
+                        'completeness' => ['percentage' => min(100, (count($mappedData) / 20) * 100)], // Estimate based on typical form size
+                        'metadata' => [
+                            'episode_id' => $episodeId,
+                            'manufacturer' => $manufacturerName,
+                            'template_id' => $templateId,
+                            'mapped_at' => now()->toIso8601String(),
+                            'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
+                            'source' => 'csv_template_mapping',
+                            'field_count' => count($mappedData)
+                        ]
+                    ];
+                }
+            }
+
+            // 4. Fallback to old manufacturer configuration if CSV mapping fails
+            Log::info('CSV mapping not available, falling back to manufacturer config', [
+                'manufacturer' => $manufacturerName,
+                'template_id' => $templateId,
+                'has_template_id' => !empty($templateId)
+            ]);
+            
+            // Get manufacturer configuration based on document type
             $manufacturerConfig = $this->getManufacturerConfig($manufacturerName, $documentType);
             if (!$manufacturerConfig) {
                 throw new \InvalidArgumentException("Unknown manufacturer: {$manufacturerName} for document type: {$documentType}");
             }
 
-            // 3. Map fields according to configuration
+            // Map fields according to old configuration
             $mappedData = $this->mapFields($sourceData, $manufacturerConfig['fields']);
 
-            // 4. Apply manufacturer-specific business rules
+            // Apply manufacturer-specific business rules
             $mappedData = $this->applyBusinessRules($mappedData, $manufacturerConfig, $sourceData);
 
-            // 5. Validate mapped data
+            // Validate mapped data
             $validation = $this->validateMapping($mappedData, $manufacturerConfig);
 
-            // 6. Calculate completeness
+            // Calculate completeness
             $completeness = $this->calculateCompleteness($mappedData, $manufacturerConfig);
 
-            // 7. Log mapping analytics
+            // Log mapping analytics
             if ($episodeId) {
                 $this->logMappingAnalytics($episodeId, $manufacturerName, $completeness, microtime(true) - $startTime);
             }
@@ -306,11 +357,99 @@ class UnifiedFieldMappingService
             return $this->fieldTransformer->formatDuration($data);
         }
 
+        // Handle specific field computations
+        if ($computation === 'wound_size_total') {
+            $length = (float)($this->getValueByPath($data, 'wound_size_length') ?? 
+                             $this->getValueByPath($data, 'wound_length') ?? 0);
+            $width = (float)($this->getValueByPath($data, 'wound_size_width') ?? 
+                            $this->getValueByPath($data, 'wound_width') ?? 0);
+            return $length * $width;
+        }
+
+        if ($computation === 'patient_full_address') {
+            $parts = [];
+            $line1 = $this->getValueByPath($data, 'patient_address_line1') ?? 
+                    $this->getValueByPath($data, 'patient_address');
+            if ($line1) $parts[] = $line1;
+            
+            $line2 = $this->getValueByPath($data, 'patient_address_line2');
+            if ($line2) $parts[] = $line2;
+            
+            $city = $this->getValueByPath($data, 'patient_city');
+            $state = $this->getValueByPath($data, 'patient_state');
+            $zip = $this->getValueByPath($data, 'patient_zip') ?? 
+                   $this->getValueByPath($data, 'patient_postal_code');
+            
+            if ($city && $state && $zip) {
+                $parts[] = "{$city}, {$state} {$zip}";
+            } elseif ($city && $state) {
+                $parts[] = "{$city}, {$state}";
+            } elseif ($city) {
+                $parts[] = $city;
+            }
+            
+            return implode(', ', $parts);
+        }
+
+        if ($computation === 'facility_full_address') {
+            $parts = [];
+            $line1 = $this->getValueByPath($data, 'facility_address_line1') ?? 
+                    $this->getValueByPath($data, 'facility_address');
+            if ($line1) $parts[] = $line1;
+            
+            $line2 = $this->getValueByPath($data, 'facility_address_line2');
+            if ($line2) $parts[] = $line2;
+            
+            $city = $this->getValueByPath($data, 'facility_city');
+            $state = $this->getValueByPath($data, 'facility_state');
+            $zip = $this->getValueByPath($data, 'facility_zip') ?? 
+                   $this->getValueByPath($data, 'facility_zip_code');
+            
+            if ($city && $state && $zip) {
+                $parts[] = "{$city}, {$state} {$zip}";
+            } elseif ($city && $state) {
+                $parts[] = "{$city}, {$state}";
+            } elseif ($city) {
+                $parts[] = $city;
+            }
+            
+            return implode(', ', $parts);
+        }
+
+        if ($computation === 'provider_full_name' || $computation === 'physician_full_name') {
+            $first = $this->getValueByPath($data, 'provider_first_name') ?? 
+                    $this->getValueByPath($data, 'physician_first_name');
+            $last = $this->getValueByPath($data, 'provider_last_name') ?? 
+                   $this->getValueByPath($data, 'physician_last_name');
+            
+            if ($first && $last) {
+                return "{$first} {$last}";
+            }
+            
+            // Fall back to pre-computed full name fields
+            return $this->getValueByPath($data, 'provider_name') ?? 
+                   $this->getValueByPath($data, 'physician_name') ??
+                   $this->getValueByPath($data, 'provider_full_name') ??
+                   $this->getValueByPath($data, 'physician_full_name') ?? '';
+        }
+
         // Handle concatenation (field1 + field2)
         if (str_contains($computation, ' + ')) {
             $parts = array_map('trim', explode(' + ', $computation));
-            $values = array_map(fn($part) => $this->getValueByPath($data, $part), $parts);
-            return implode(' ', array_filter($values));
+            $values = [];
+            foreach ($parts as $part) {
+                // Handle quoted strings
+                if ((str_starts_with($part, '"') && str_ends_with($part, '"')) ||
+                    (str_starts_with($part, "'") && str_ends_with($part, "'"))) {
+                    $values[] = trim($part, '"\'');
+                } else {
+                    $value = $this->getValueByPath($data, $part);
+                    if ($value !== null && $value !== '') {
+                        $values[] = $value;
+                    }
+                }
+            }
+            return implode(' ', $values);
         }
 
         // Handle multiplication (field1 * field2)
@@ -469,44 +608,151 @@ class UnifiedFieldMappingService
     /**
      * Apply manufacturer-specific business rules
      */
-    private function applyBusinessRules(array $data, array $config, array $sourceData): array
+    private function applyBusinessRules(array $mappedData, array $manufacturerConfig, array $sourceData): array
     {
-        $manufacturerName = $config['name'];
+        // Default for patientInSkilledNursingFacility
+        if (!isset($mappedData['patientInSkilledNursingFacility'])) {
+            $mappedData['patientInSkilledNursingFacility'] = false;
+        }
 
-        // ACZ specific rules
-        if ($manufacturerName === 'ACZ' && isset($config['duration_requirement'])) {
-            if ($config['duration_requirement'] === 'greater_than_4_weeks') {
-                $weeks = (int)($sourceData['wound_duration_weeks'] ?? 0);
-                if ($weeks <= 4) {
-                    Log::warning("ACZ requires wound duration > 4 weeks", [
-                        'actual_weeks' => $weeks,
-                        'episode_id' => $sourceData['episode_id'] ?? null
-                    ]);
-                    // You might want to add a flag or warning to the data
-                    $data['_warnings'] = ($data['_warnings'] ?? []);
-                    $data['_warnings'][] = 'Wound duration does not meet ACZ requirement of > 4 weeks';
+        // Handle place_of_service boolean expansion
+        $placeOfService = $sourceData['place_of_service'] ?? 
+                         $sourceData['facility_default_place_of_service'] ?? 
+                         $sourceData['default_place_of_service'] ?? null;
+        
+        if ($placeOfService !== null) {
+            // Map common place of service values to checkboxes
+            $posMapping = [
+                'office' => 'pos_office',
+                '11' => 'pos_office',
+                'outpatient' => 'pos_outpatient',
+                'outpatient_hospital' => 'pos_outpatient',
+                '22' => 'pos_outpatient',
+                'asc' => 'pos_asc',
+                'ambulatory_surgical_center' => 'pos_asc',
+                '24' => 'pos_asc',
+                'home' => 'pos_home',
+                '12' => 'pos_home',
+                'assisted_living' => 'pos_assisted_living',
+                '13' => 'pos_assisted_living',
+                'skilled_nursing' => 'pos_skilled_nursing',
+                'snf' => 'pos_skilled_nursing',
+                '31' => 'pos_skilled_nursing',
+                'nursing_home' => 'pos_nursing_home',
+                '32' => 'pos_nursing_home'
+            ];
+            
+            // First set all POS fields to false if they don't exist
+            $posFields = ['pos_office', 'pos_outpatient', 'pos_asc', 'pos_home', 
+                         'pos_assisted_living', 'pos_skilled_nursing', 'pos_nursing_home', 'pos_other'];
+            foreach ($posFields as $posField) {
+                if (!isset($mappedData[$posField])) {
+                    $mappedData[$posField] = false;
                 }
             }
-        }
-
-        // Advanced Health specific rules
-        if ($manufacturerName === 'Advanced Health') {
-            // Example: Advanced Health might require specific formatting for certain fields
-            if (isset($data['wound_type'])) {
-                $data['wound_type'] = str_replace('_', ' ', ucwords($data['wound_type']));
+            
+            // Now set the appropriate one to true
+            $normalizedPos = strtolower(trim($placeOfService));
+            if (isset($posMapping[$normalizedPos])) {
+                $mappedData[$posMapping[$normalizedPos]] = true;
+            } else {
+                // If we don't recognize it, mark as "other" and store the value
+                $mappedData['pos_other'] = true;
+                $mappedData['pos_other_text'] = $placeOfService;
             }
         }
 
-        // Add more manufacturer-specific rules as needed
-        
-        return $data;
+        // Handle wound type boolean expansion
+        $woundType = $sourceData['wound_type'] ?? null;
+        if ($woundType !== null) {
+            $woundTypeMapping = [
+                'diabetic_foot_ulcer' => 'wound_diabetic',
+                'diabetic foot ulcer' => 'wound_diabetic',
+                'dfu' => 'wound_diabetic',
+                'venous_leg_ulcer' => 'wound_venous',
+                'venous leg ulcer' => 'wound_venous',
+                'vlu' => 'wound_venous',
+                'pressure_ulcer' => 'wound_pressure',
+                'pressure ulcer' => 'wound_pressure',
+                'pressure_injury' => 'wound_pressure',
+                'traumatic_burns' => 'wound_traumatic_burns',
+                'traumatic burns' => 'wound_traumatic_burns',
+                'radiation_burns' => 'wound_radiation_burns',
+                'radiation burns' => 'wound_radiation_burns',
+                'necrotizing_fasciitis' => 'wound_necrotizing',
+                'necrotizing fasciitis' => 'wound_necrotizing',
+                'dehisced_surgical_wound' => 'wound_dehisced',
+                'dehisced surgical wound' => 'wound_dehisced',
+                'surgical_wound' => 'wound_dehisced'
+            ];
+            
+            // Set all wound type fields to false first
+            $woundFields = ['wound_diabetic', 'wound_venous', 'wound_pressure', 
+                           'wound_traumatic_burns', 'wound_radiation_burns', 
+                           'wound_necrotizing', 'wound_dehisced', 'wound_other'];
+            foreach ($woundFields as $woundField) {
+                if (!isset($mappedData[$woundField])) {
+                    $mappedData[$woundField] = false;
+                }
+            }
+            
+            // Set the appropriate wound type to true
+            $normalizedWoundType = strtolower(trim($woundType));
+            if (isset($woundTypeMapping[$normalizedWoundType])) {
+                $mappedData[$woundTypeMapping[$normalizedWoundType]] = true;
+            } else {
+                $mappedData['wound_other'] = true;
+                $mappedData['wound_other_type'] = $woundType;
+            }
+        }
+
+        // Handle insurance type boolean expansion
+        $primaryPlanType = $sourceData['primary_plan_type'] ?? null;
+        if ($primaryPlanType !== null) {
+            $planTypeMapping = [
+                'hmo' => 'primary_hmo',
+                'ppo' => 'primary_ppo',
+                'medicare_advantage' => 'primary_hmo',
+                'medicare advantage' => 'primary_hmo',
+                'traditional_medicare' => 'primary_other',
+                'traditional medicare' => 'primary_other'
+            ];
+            
+            // Set defaults
+            if (!isset($mappedData['primary_hmo'])) $mappedData['primary_hmo'] = false;
+            if (!isset($mappedData['primary_ppo'])) $mappedData['primary_ppo'] = false;
+            if (!isset($mappedData['primary_other'])) $mappedData['primary_other'] = false;
+            
+            $normalizedPlanType = strtolower(trim($primaryPlanType));
+            if (isset($planTypeMapping[$normalizedPlanType])) {
+                $mappedData[$planTypeMapping[$normalizedPlanType]] = true;
+            } else {
+                $mappedData['primary_other'] = true;
+                $mappedData['primary_other_type'] = $primaryPlanType;
+            }
+        }
+
+        $manufacturerName = $manufacturerConfig['name'] ?? '';
+        // Example of a manufacturer-specific rule
+        if ($manufacturerName === 'Smith & Nephew') {
+            // Custom logic for Smith & Nephew
+        }
+
+        return $mappedData;
     }
 
     /**
-     * Validate mapped data against manufacturer requirements
-     * Uses intelligent validation that adapts to different IVR form requirements
+     * Validate mapped fields against configuration
      */
     private function validateMapping(array $data, array $config): array
+    {
+        return $this->validateMappedData($data, $config);
+    }
+
+    /**
+     * Validate mapped data against configuration
+     */
+    private function validateMappedData(array $data, array $config): array
     {
         $errors = [];
         $warnings = [];
@@ -515,10 +761,9 @@ class UnifiedFieldMappingService
 
         foreach ($config['fields'] as $field => $fieldConfig) {
             $isRequired = $fieldConfig['required'] ?? false;
-            $fieldValue = $data[$field] ?? null;
-            $isEmpty = empty($fieldValue) && $fieldValue !== '0' && $fieldValue !== 0;
+            $fieldValue = $this->getValueByPath($data, $field);
+            $isEmpty = !$this->isFieldSet($fieldValue);
 
-            // Check required fields - but be intelligent about it
             if ($isRequired && $isEmpty) {
                 // Categorize by importance for better error handling
                 $importance = $fieldConfig['importance'] ?? 'medium';
@@ -553,26 +798,11 @@ class UnifiedFieldMappingService
         }
 
         // Only fail validation if there are critical errors
-        // Most IVR forms can work with missing non-critical fields
         $isValid = empty($criticalErrors);
-        
-        // If we have too many warnings, suggest using AI enhancement
-        if (count($warnings) > 5 && class_exists('\App\Services\Medical\OptimizedMedicalAiService')) {
-            $warnings[] = "Consider using AI-enhanced field mapping for better results";
-        }
-
-        Log::info('Unified field mapping validation completed', [
-            'is_valid' => $isValid,
-            'critical_errors' => count($criticalErrors),
-            'warnings' => count($warnings),
-            'missing_optional' => count($missingOptionalFields),
-            'total_fields' => count($config['fields']),
-            'provided_fields' => count(array_filter($data, fn($v) => !empty($v) || $v === '0' || $v === 0))
-        ]);
 
         return [
             'valid' => $isValid,
-            'errors' => array_merge($criticalErrors, $errors), // Put critical errors first
+            'errors' => array_merge($criticalErrors, $errors),
             'warnings' => $warnings,
             'critical_errors' => $criticalErrors,
             'missing_optional_fields' => $missingOptionalFields,
@@ -638,7 +868,7 @@ class UnifiedFieldMappingService
         $fieldStatus = [];
 
         foreach ($config['fields'] as $field => $fieldConfig) {
-            $isFilled = !empty($data[$field]) || $data[$field] === '0' || $data[$field] === 0;
+            $isFilled = $this->isFieldSet($data[$field] ?? null);
             
             if ($isFilled) {
                 $filled++;
@@ -658,15 +888,107 @@ class UnifiedFieldMappingService
             ];
         }
 
+        $requiredFields = collect($config['validation'] ?? [])
+            ->filter(fn($v) => $v['required'] ?? false)
+            ->keys()
+            ->toArray();
+        
+        $unfilled = array_filter($requiredFields, fn($field) => empty($data[$field] ?? null));
+        
+        if (!empty($unfilled)) {
+            $topUnfilled = array_slice($unfilled, 0, 3);
+            Log::debug('Top unfilled required fields: ' . implode(', ', $topUnfilled));
+        }
+        
+        $providerUnfilled = array_filter($unfilled, fn($f) => stripos($f, 'physician') !== false || stripos($f, 'provider') !== false);
+        if (!empty($providerUnfilled)) {
+            Log::info('Unfilled provider fields: ' . implode(', ', $providerUnfilled));
+        }
+
         return [
             'percentage' => $total > 0 ? round(($filled / $total) * 100, 2) : 0,
-            'required_percentage' => $required > 0 ? round(($requiredFilled / $required) * 100, 2) : 0,
+            'overall_percentage' => $total > 0 ? round(($filled / $total) * 100, 1) : 0,
+            'required_percentage' => $required > 0 ? round(($requiredFilled / $required) * 100, 2) : 100,
+            'total_fields' => $total,
+            'filled_fields' => $filled,
             'filled' => $filled,
             'total' => $total,
+            'required_fields' => $required,
             'required_filled' => $requiredFilled,
             'required_total' => $required,
             'field_status' => $fieldStatus
         ];
+    }
+
+    /**
+     * Get value by dot notation path
+     */
+    private function getValueByPath(array $data, string $path): mixed
+    {
+        // Handle array indexing syntax like application_cpt_codes[0]
+        if (str_contains($path, '[') && str_contains($path, ']')) {
+            // Extract array name and index
+            preg_match('/^([^[]+)\[(\d+)\]$/', $path, $matches);
+            if (count($matches) === 3) {
+                $arrayName = $matches[1];
+                $index = (int)$matches[2];
+                
+                if (isset($data[$arrayName]) && is_array($data[$arrayName]) && isset($data[$arrayName][$index])) {
+                    return $data[$arrayName][$index];
+                }
+                return null;
+            }
+        }
+        
+        // Handle dot notation for nested arrays
+        $keys = explode('.', $path);
+        $value = $data;
+
+        foreach ($keys as $key) {
+            // Handle array indexing within dot notation
+            if (str_contains($key, '[') && str_contains($key, ']')) {
+                preg_match('/^([^[]+)\[(\d+)\]$/', $key, $matches);
+                if (count($matches) === 3) {
+                    $arrayName = $matches[1];
+                    $index = (int)$matches[2];
+                    
+                    if (!is_array($value) || !isset($value[$arrayName]) || !is_array($value[$arrayName]) || !isset($value[$arrayName][$index])) {
+                        return null;
+                    }
+                    $value = $value[$arrayName][$index];
+                } else {
+                    return null;
+                }
+            } else {
+                if (!is_array($value) || !isset($value[$key])) {
+                    return null;
+                }
+                $value = $value[$key];
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * Check if field value is considered set/filled
+     */
+    private function isFieldSet($value): bool
+    {
+        if ($value === null || $value === '') {
+            return false;
+        }
+        
+        if (is_array($value) && empty($value)) {
+            return false;
+        }
+        
+        // Consider '0' and 0 as set values
+        if ($value === '0' || $value === 0) {
+            return true;
+        }
+        
+        return true;
     }
 
     /**
@@ -758,7 +1080,7 @@ class UnifiedFieldMappingService
             }
         }
 
-                // Try matching by manufacturer name in config
+        // Try matching by manufacturer name in config
         foreach ($configSource['manufacturers'] as $key => $config) {
             if (isset($config['name']) && is_string($config['name']) &&
                 (strtolower($config['name']) === strtolower($name) || 
@@ -778,6 +1100,130 @@ class UnifiedFieldMappingService
         }
 
         return null;
+    }
+
+    /**
+     * Get available manufacturers
+     */
+    public function getAvailableManufacturers(): array
+    {
+        return array_map(function($manufacturer) {
+            return [
+                'name' => $manufacturer['name'],
+                'display_name' => $manufacturer['display_name'] ?? $manufacturer['name'],
+                'description' => $manufacturer['description'] ?? null
+            ];
+        }, $this->config['manufacturers'] ?? []);
+    }
+
+    /**
+     * Get field mapping for specific manufacturer and field
+     */
+    public function getFieldMapping(string $manufacturerName, string $fieldName): ?array
+    {
+        $manufacturer = $this->getManufacturerConfig($manufacturerName);
+        
+        if (!$manufacturer || !isset($manufacturer['fields'][$fieldName])) {
+            return null;
+        }
+        
+        return $manufacturer['fields'][$fieldName];
+    }
+
+    /**
+     * Validate manufacturer configuration
+     */
+    private function validateManufacturerConfig(array $config): bool
+    {
+        $required = ['name', 'fields'];
+        
+        foreach ($required as $field) {
+            if (!isset($config[$field])) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * Log mapping activity
+     */
+    private function logMappingActivity(string $action, array $context = []): void
+    {
+        Log::info("Unified field mapping: {$action}", array_merge([
+            'service' => 'UnifiedFieldMappingService',
+            'timestamp' => now()->toISOString()
+        ], $context));
+    }
+
+    /**
+     * Get configuration path
+     */
+    private function getConfigPath(): string
+    {
+        return base_path('docs/data-and-reference/json-forms/unified-medical-form-mapping.json');
+    }
+
+    /**
+     * Cache configuration
+     */
+    protected function cacheConfig(array $config): void
+    {
+        Cache::put('unified_field_mapping_config', $config, 3600); // Cache for 1 hour
+    }
+
+    /**
+     * Get cached configuration
+     */
+    protected function getCachedConfig(): ?array
+    {
+        return Cache::get('unified_field_mapping_config');
+    }
+
+    /**
+     * Clear configuration cache
+     */
+    public function clearConfigCache(): void
+    {
+        Cache::forget('unified_field_mapping_config');
+    }
+
+    /**
+     * Reload configuration from file
+     */
+    protected function reloadConfig(): array
+    {
+        $this->clearConfigCache();
+        return $this->loadConfig();
+    }
+
+    /**
+     * Load configuration
+     */
+    protected function loadConfig(): array
+    {
+        $configPath = $this->getConfigPath();
+        
+        if (!file_exists($configPath)) {
+            Log::error('Configuration file not found', ['path' => $configPath]);
+            return [];
+        }
+        
+        $content = file_get_contents($configPath);
+        $config = json_decode($content, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::error('Failed to parse configuration JSON', [
+                'error' => json_last_error_msg(),
+                'path' => $configPath
+            ]);
+            return [];
+        }
+        
+        $this->cacheConfig($config);
+        
+        return $config;
     }
 
     /**
@@ -869,6 +1315,23 @@ class UnifiedFieldMappingService
             return null;
         }
     }
+
+    /**
+     * Get template ID for manufacturer
+     */
+    private function getTemplateIdForManufacturer(string $manufacturerName): ?string
+    {
+        // Try to get from config first
+        $config = $this->getManufacturerConfig($manufacturerName);
+        if ($config && isset($config['docuseal_template_id'])) {
+            return $config['docuseal_template_id'];
+        }
+        
+        // Fall back to database
+        return $this->getTemplateIdFromDatabase($manufacturerName, 'IVR');
+    }
+
+    // mapFieldsWithCSVMapping method removed - duplicate definition found at line 1317 with full implementation
 
     /**
      * Resolve configuration reference if it exists
@@ -1046,59 +1509,361 @@ class UnifiedFieldMappingService
     }
 
     /**
-     * Get value by path (supports nested access)
+     * Map fields using CSV-based canonical mappings
      */
-    private function getValueByPath(array $data, string $path): mixed
+    private function mapFieldsWithCSVMapping(array $sourceData, string $templateId): array
     {
-        // Handle array indexing syntax like application_cpt_codes[0]
-        if (str_contains($path, '[') && str_contains($path, ']')) {
-            // Extract array name and index
-            preg_match('/^([^[]+)\[(\d+)\]$/', $path, $matches);
-            if (count($matches) === 3) {
-                $arrayName = $matches[1];
-                $index = (int)$matches[2];
+        $startTime = microtime(true);
+        
+        // Try to determine manufacturer from template ID
+        $manufacturerName = $this->getManufacturerByTemplateId($templateId);
+        if (!$manufacturerName) {
+            Log::warning('Could not determine manufacturer from template ID', ['template_id' => $templateId]);
+            return [];
+        }
+
+        // Get CSV-based mappings for this manufacturer
+        $formMappings = $this->canonicalMappingService->getMappingsForForm($manufacturerName, 'IVR');
+        if (empty($formMappings['field_mappings'])) {
+            Log::info('No CSV mappings found for manufacturer', ['manufacturer' => $manufacturerName]);
+            return [];
+        }
+
+        $mappedData = [];
+        $mappingStats = [
+            'total_fields' => 0,
+            'mapped_fields' => 0,
+            'high_confidence' => 0,
+            'validation_issues' => []
+        ];
+
+        // Apply CSV-based field mappings
+        foreach ($formMappings['field_mappings'] as $fieldKey => $mapping) {
+            $mappingStats['total_fields']++;
+            
+            if ($mapping['mapping_status'] !== 'mapped') {
+                continue;
+            }
+
+            $canonicalKey = $mapping['canonical_key'];
+            $confidence = $mapping['confidence'] ?? 0;
+            
+            // Get value from source data using canonical key
+            $value = $this->getValueByCanonicalKey($sourceData, $canonicalKey);
+            
+            if ($value !== null) {
+                // Apply data transformation based on field type
+                $transformedValue = $this->transformValueByType($value, $mapping['type'], $mapping);
                 
-                if (isset($data[$arrayName]) && is_array($data[$arrayName]) && isset($data[$arrayName][$index])) {
-                    return $data[$arrayName][$index];
+                $mappedData[$fieldKey] = $transformedValue;
+                $mappingStats['mapped_fields']++;
+                
+                if ($confidence >= 0.8) {
+                    $mappingStats['high_confidence']++;
                 }
-                return null;
+                
+                Log::debug('CSV field mapped', [
+                    'field_key' => $fieldKey,
+                    'canonical_key' => $canonicalKey,
+                    'confidence' => $confidence,
+                    'value_preview' => is_string($transformedValue) ? substr($transformedValue, 0, 50) : gettype($transformedValue)
+                ]);
+            }
+        }
+
+        // Apply business rules and defaults (including boolean defaults)
+        $manufacturerConfig = $this->getManufacturerConfig($manufacturerName) ?? [];
+        $mappedData = $this->applyBusinessRules($mappedData, $manufacturerConfig, $sourceData);
+        
+        // Validate mappings and detect issues
+        $validationIssues = $this->canonicalMappingService->validateMappings($manufacturerName, 'IVR');
+        $mappingStats['validation_issues'] = $validationIssues;
+
+        $duration = microtime(true) - $startTime;
+        
+        Log::info('CSV mapping completed', [
+            'manufacturer' => $manufacturerName,
+            'template_id' => $templateId,
+            'mapping_stats' => $mappingStats,
+            'duration_ms' => round($duration * 1000, 2)
+        ]);
+
+        return $mappedData;
+    }
+
+    /**
+     * Get manufacturer name by template ID
+     */
+    private function getManufacturerByTemplateId(string $templateId): ?string
+    {
+        // Check all manufacturer configs for matching template ID
+        $manufacturers = $this->listManufacturers();
+        
+        foreach ($manufacturers as $manufacturer) {
+            if ($manufacturer['docuseal_template_id'] === $templateId) {
+                return $manufacturer['name'];
             }
         }
         
-        // Handle dot notation for nested arrays
-        $keys = explode('.', $path);
-        $value = $data;
+        return null;
+    }
 
-        foreach ($keys as $key) {
-            // Handle array indexing within dot notation
-            if (str_contains($key, '[') && str_contains($key, ']')) {
-                preg_match('/^([^[]+)\[(\d+)\]$/', $key, $matches);
-                if (count($matches) === 3) {
-                    $arrayName = $matches[1];
-                    $index = (int)$matches[2];
-                    
-                    if (!is_array($value) || !isset($value[$arrayName]) || !is_array($value[$arrayName]) || !isset($value[$arrayName][$index])) {
-                        return null;
-                    }
-                    $value = $value[$arrayName][$index];
-                } else {
-                    return null;
-                }
-            } else {
-                if (!is_array($value) || !isset($value[$key])) {
-                    return null;
-                }
-                $value = $value[$key];
+    /**
+     * Get value from source data using canonical key
+     */
+    private function getValueByCanonicalKey(array $sourceData, string $canonicalKey): mixed
+    {
+        // Direct key match
+        if (isset($sourceData[$canonicalKey])) {
+            return $sourceData[$canonicalKey];
+        }
+        
+        // Try nested path access
+        if (str_contains($canonicalKey, '.')) {
+            return $this->getValueByPath($sourceData, $canonicalKey);
+        }
+        
+        // Try fuzzy matching for common variations
+        $variations = $this->generateKeyVariations($canonicalKey);
+        foreach ($variations as $variation) {
+            if (isset($sourceData[$variation])) {
+                return $sourceData[$variation];
             }
         }
+        
+        // Special handling for provider/physician synonyms
+        if (str_contains($canonicalKey, 'provider_')) {
+            $physicianKey = str_replace('provider_', 'physician_', $canonicalKey);
+            if (isset($sourceData[$physicianKey])) {
+                return $sourceData[$physicianKey];
+            }
+            // Also try variations of the physician key
+            $physicianVariations = $this->generateKeyVariations($physicianKey);
+            foreach ($physicianVariations as $variation) {
+                if (isset($sourceData[$variation])) {
+                    return $sourceData[$variation];
+                }
+            }
+        } elseif (str_contains($canonicalKey, 'physician_')) {
+            $providerKey = str_replace('physician_', 'provider_', $canonicalKey);
+            if (isset($sourceData[$providerKey])) {
+                return $sourceData[$providerKey];
+            }
+            // Also try variations of the provider key
+            $providerVariations = $this->generateKeyVariations($providerKey);
+            foreach ($providerVariations as $variation) {
+                if (isset($sourceData[$variation])) {
+                    return $sourceData[$variation];
+                }
+            }
+        }
+        
+        return null;
+    }
 
-        return $value;
+    /**
+     * Generate key variations for fuzzy matching
+     */
+    private function generateKeyVariations(string $key): array
+    {
+        $variations = [];
+        
+        // Snake case variations
+        $variations[] = str_replace('_', '', $key);
+        $variations[] = str_replace('_', '-', $key);
+        
+        // Camel case variations
+        $variations[] = lcfirst(str_replace('_', '', ucwords($key, '_')));
+        $variations[] = ucfirst(str_replace('_', '', ucwords($key, '_')));
+        
+        // Space variations
+        $variations[] = str_replace('_', ' ', $key);
+        $variations[] = ucwords(str_replace('_', ' ', $key));
+        
+        // Common abbreviations and expansions
+        $abbreviations = [
+            'dob' => 'date_of_birth',
+            'date_of_birth' => 'dob',
+            'npi' => 'national_provider_identifier',
+            'national_provider_identifier' => 'npi',
+            'tin' => 'tax_id',
+            'tax_id' => 'tin',
+            'ptan' => 'provider_transaction_access_number',
+            'provider_transaction_access_number' => 'ptan',
+            'pos' => 'place_of_service',
+            'place_of_service' => 'pos',
+            'mac' => 'medicare_admin_contractor',
+            'medicare_admin_contractor' => 'mac',
+            'id' => 'identifier',
+            'identifier' => 'id',
+            'phone' => 'phone_number',
+            'phone_number' => 'phone',
+            'fax' => 'fax_number',
+            'fax_number' => 'fax',
+            'addr' => 'address',
+            'address' => 'addr',
+            'org' => 'organization',
+            'organization' => 'org'
+        ];
+        
+        // Add abbreviation variations
+        foreach ($abbreviations as $abbr => $full) {
+            if (str_contains($key, $abbr)) {
+                $variations[] = str_replace($abbr, $full, $key);
+            }
+            if (str_contains($key, $full)) {
+                $variations[] = str_replace($full, $abbr, $key);
+            }
+        }
+        
+        // Handle plural/singular forms
+        if (str_ends_with($key, 's') && !str_ends_with($key, 'ss')) {
+            $variations[] = substr($key, 0, -1); // Remove 's'
+        } else if (!str_ends_with($key, 's')) {
+            $variations[] = $key . 's'; // Add 's'
+        }
+        
+        // Common field name patterns
+        if (str_starts_with($key, 'patient_')) {
+            $variations[] = 'pt_' . substr($key, 8);
+            $variations[] = substr($key, 8) . '_patient';
+        }
+        if (str_starts_with($key, 'pt_')) {
+            $variations[] = 'patient_' . substr($key, 3);
+        }
+        
+        return array_unique($variations);
+    }
+
+    /**
+     * Transform value based on field type
+     */
+    private function transformValueByType(mixed $value, string $type, array $mapping): mixed
+    {
+        switch (strtolower($type)) {
+            case 'boolean':
+            case 'checkbox':
+                return $this->transformToBoolean($value);
+                
+            case 'date':
+                return $this->transformToDate($value);
+                
+            case 'phone':
+                return $this->transformToPhone($value);
+                
+            case 'email':
+                return $this->transformToEmail($value);
+                
+            case 'number':
+            case 'integer':
+                return $this->transformToNumber($value);
+                
+            case 'text':
+            default:
+                return $this->transformToText($value);
+        }
+    }
+
+    /**
+     * Transform value to boolean
+     */
+    private function transformToBoolean(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        
+        if (is_string($value)) {
+            $lower = strtolower(trim($value));
+            return in_array($lower, ['true', '1', 'yes', 'on', 'checked', 'selected']);
+        }
+        
+        return (bool) $value;
+    }
+
+    /**
+     * Transform value to formatted date
+     */
+    private function transformToDate(mixed $value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+        
+        try {
+            $date = new \DateTime($value);
+            return $date->format('Y-m-d');
+        } catch (\Exception $e) {
+            Log::warning('Date transformation failed', ['value' => $value, 'error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * Transform value to formatted phone
+     */
+    private function transformToPhone(mixed $value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+        
+        // Remove all non-numeric characters
+        $phone = preg_replace('/[^0-9]/', '', (string) $value);
+        
+        // Format as (XXX) XXX-XXXX if 10 digits
+        if (strlen($phone) === 10) {
+            return sprintf('(%s) %s-%s', 
+                substr($phone, 0, 3),
+                substr($phone, 3, 3),
+                substr($phone, 6, 4)
+            );
+        }
+        
+        return $phone;
+    }
+
+    /**
+     * Transform value to email
+     */
+    private function transformToEmail(mixed $value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+        
+        $email = trim((string) $value);
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
+    }
+
+    /**
+     * Transform value to number
+     */
+    private function transformToNumber(mixed $value): ?float
+    {
+        if (empty($value)) {
+            return null;
+        }
+        
+        return is_numeric($value) ? (float) $value : null;
+    }
+
+    /**
+     * Transform value to text
+     */
+    private function transformToText(mixed $value): string
+    {
+        if (is_array($value)) {
+            return implode(', ', $value);
+        }
+        
+        return (string) $value;
     }
 
     /**
      * Log mapping analytics for monitoring and improvement
      */
-    private function logMappingAnalytics(int $episodeId, string $manufacturer, array $completeness, float $duration): void
+    private function logMappingAnalytics(string $episodeId, string $manufacturer, array $completeness, float $duration): void
     {
         Log::info('Field mapping completed', [
             'episode_id' => $episodeId,
@@ -1151,7 +1916,7 @@ class UnifiedFieldMappingService
         
         // Then, add manufacturers from main config (if not already added)
         $existingNames = array_column($manufacturers, 'name');
-        foreach ($this->config['manufacturers'] as $name => $config) {
+        foreach ($this->config['manufacturers'] ?? [] as $name => $config) {
             // Resolve config reference if needed
             $resolvedConfig = $this->resolveConfigReference($config, $this->config);
             $manufacturerName = $resolvedConfig['name'] ?? $name;
@@ -1242,97 +2007,6 @@ class UnifiedFieldMappingService
     }
 
     /**
-     * Update field mapping for a template
-     * NOTE: Commented out as TemplateFieldMapping model doesn't exist
-     */
-    /*
-    public function updateFieldMapping(
-        string $templateId, 
-        string $fieldName, 
-        ?int $canonicalFieldId, 
-        array $transformationRules = []
-    ): TemplateFieldMapping {
-        $mapping = TemplateFieldMapping::updateOrCreate(
-            [
-                'template_id' => $templateId,
-                'field_name' => $fieldName,
-            ],
-            [
-                'canonical_field_id' => $canonicalFieldId,
-                'updated_by' => (Auth::user())->id
-            ]
-        );
-
-        // Validate the mapping
-        $validation = $this->validateFieldMapping($mapping);
-        $mapping->validation_status = $validation['status'];
-        $mapping->validation_messages = $validation['messages'];
-        $mapping->save();
-
-        return $mapping;
-    }
-    */
-
-    /**
-     * Validate a field mapping
-     * NOTE: Commented out as TemplateFieldMapping model doesn't exist
-     */
-    /*
-    public function validateFieldMapping(TemplateFieldMapping $mapping): array
-    {
-        $status = 'valid';
-        $messages = [];
-
-        // Check if canonical field exists
-        if (!$mapping->canonical_field_id) {
-            $status = 'warning';
-            $messages[] = 'No canonical field mapped';
-            return compact('status', 'messages');
-        }
-
-        $canonicalField = $mapping->canonicalField;
-        if (!$canonicalField) {
-            $status = 'error';
-            $messages[] = 'Invalid canonical field reference';
-            return compact('status', 'messages');
-        }
-
-        // Validate transformation rules
-        if (!empty($mapping->transformation_rules)) {
-            foreach ($mapping->transformation_rules as $rule) {
-                if (!isset($rule['type']) || !isset($rule['operation'])) {
-                    $status = 'warning';
-                    $messages[] = 'Invalid transformation rule format';
-                }
-            }
-        }
-
-        // Check data type compatibility
-        if ($canonicalField->data_type === 'date' && empty($mapping->transformation_rules)) {
-            $hasDateTransform = false;
-            foreach ($mapping->transformation_rules ?? [] as $rule) {
-                if ($rule['type'] === 'format' && $rule['operation'] === 'date') {
-                    $hasDateTransform = true;
-                    break;
-                }
-            }
-            if (!$hasDateTransform) {
-                $status = 'warning';
-                $messages[] = 'Date field may need format transformation';
-            }
-        }
-
-        // Check for required field
-        if ($canonicalField->is_required && !$mapping->is_active) {
-            $status = 'warning';
-            $messages[] = 'Required field is not active';
-        }
-
-        return compact('status', 'messages');
-    }
-    */
-
-    /**
      * Calculate mapping statistics for a template
      */
     public function getMappingStatistics(string $templateId): array
@@ -1408,47 +2082,6 @@ class UnifiedFieldMappingService
 
         return in_array($category, $phiCategories) || in_array($fieldName, $phiFields);
     }
-
-    /**
-     * Apply mapping configuration to data
-     * NOTE: Commented out as TemplateFieldMapping model doesn't exist
-     */
-    /*
-    public function applyMappingConfiguration(array $data, string $templateId): array
-    {
-        $mappings = TemplateFieldMapping::where('template_id', $templateId)
-            ->where('is_active', true)
-            ->with('canonicalField')
-            ->get();
-
-        $mappedData = [];
-        $rulesEngine = app(MappingRulesEngine::class);
-
-        foreach ($mappings as $mapping) {
-            if (!isset($data[$mapping->field_name])) {
-                continue;
-            }
-
-            $value = $data[$mapping->field_name];
-
-            // Apply transformation rules if any
-            if (!empty($mapping->transformation_rules)) {
-                $value = $rulesEngine->applyTransformationRules($value, $mapping->transformation_rules);
-            }
-
-            // Map to canonical field path
-            if ($mapping->canonicalField) {
-                $this->setNestedValue(
-                    $mappedData, 
-                    $mapping->canonicalField->field_path, 
-                    $value
-                );
-            }
-        }
-
-        return $mappedData;
-    }
-    */
 
     /**
      * Set nested value in array using dot notation

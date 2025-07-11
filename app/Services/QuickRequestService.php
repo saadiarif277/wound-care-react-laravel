@@ -82,6 +82,21 @@ final class QuickRequestService
                     'id' => $facility->id,
                     'name' => $facility->name,
                     'address' => $facility->full_address,
+                    'address_line1' => $facility->address_line1,
+                    'address_line2' => $facility->address_line2,
+                    'city' => $facility->city,
+                    'state' => $facility->state,
+                    'zip_code' => $facility->zip_code,
+                    'phone' => $facility->phone,
+                    'fax' => $facility->fax,
+                    'email' => $facility->email,
+                    'npi' => $facility->npi,
+                    'group_npi' => $facility->group_npi,
+                    'ptan' => $facility->ptan,
+                    'tax_id' => $facility->tax_id,
+                    'facility_type' => $facility->facility_type,
+                    'place_of_service' => $facility->place_of_service,
+                    'medicaid_number' => $facility->medicaid_number,
                     'source' => 'user_relationship'
                 ];
             });
@@ -95,6 +110,21 @@ final class QuickRequestService
                 'id' => $facility->id,
                 'name' => $facility->name,
                 'address' => $facility->full_address,
+                'address_line1' => $facility->address_line1,
+                'address_line2' => $facility->address_line2,
+                'city' => $facility->city,
+                'state' => $facility->state,
+                'zip_code' => $facility->zip_code,
+                'phone' => $facility->phone,
+                'fax' => $facility->fax,
+                'email' => $facility->email,
+                'npi' => $facility->npi,
+                'group_npi' => $facility->group_npi,
+                'ptan' => $facility->ptan,
+                'tax_id' => $facility->tax_id,
+                'facility_type' => $facility->facility_type,
+                'place_of_service' => $facility->place_of_service,
+                'medicaid_number' => $facility->medicaid_number,
                 'source' => 'user_relationship'
             ];
         });
@@ -112,6 +142,21 @@ final class QuickRequestService
                     'id' => $facility->id,
                     'name' => $facility->name,
                     'address' => $facility->full_address ?? 'No address',
+                    'address_line1' => $facility->address_line1,
+                    'address_line2' => $facility->address_line2,
+                    'city' => $facility->city,
+                    'state' => $facility->state,
+                    'zip_code' => $facility->zip_code,
+                    'phone' => $facility->phone,
+                    'fax' => $facility->fax,
+                    'email' => $facility->email,
+                    'npi' => $facility->npi,
+                    'group_npi' => $facility->group_npi,
+                    'ptan' => $facility->ptan,
+                    'tax_id' => $facility->tax_id,
+                    'facility_type' => $facility->facility_type,
+                    'place_of_service' => $facility->place_of_service,
+                    'medicaid_number' => $facility->medicaid_number,
                     'organization_id' => $facility->organization_id,
                     'source' => 'all_facilities'
                 ];
@@ -128,11 +173,27 @@ final class QuickRequestService
 
         if ($userRole === 'provider') {
             // Providers can only see themselves - they cannot order for other providers
+            // Load full provider profile with all fields
+            $user->load(['providerProfile', 'providerCredentials']);
+            
             $providers[] = [
                 'id' => $user->id,
                 'name' => $user->first_name . ' ' . $user->last_name,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
                 'credentials' => $user->providerProfile?->credentials ?? $user->providerCredentials->pluck('credential_number')->implode(', ') ?? null,
                 'npi' => $user->npi_number ?? $user->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
+                'email' => $user->email,
+                'phone' => $user->phone ?? $user->providerProfile?->phone ?? null,
+                'specialty' => $user->providerProfile?->specialty ?? null,
+                'license_number' => $user->providerProfile?->license_number ?? $user->providerCredentials->where('credential_type', 'license_number')->first()?->credential_number ?? null,
+                'license_state' => $user->providerProfile?->license_state ?? null,
+                'dea_number' => $user->providerProfile?->dea_number ?? $user->providerCredentials->where('credential_type', 'dea_number')->first()?->credential_number ?? null,
+                'ptan' => $user->providerProfile?->ptan ?? $user->providerCredentials->where('credential_type', 'ptan')->first()?->credential_number ?? null,
+                'tax_id' => $user->providerProfile?->tax_id ?? null,
+                'practice_name' => $user->providerProfile?->practice_name ?? $currentOrg?->name ?? null,
+                'medicaid_number' => $user->providerProfile?->medicaid_number ?? $user->providerCredentials->where('credential_type', 'medicaid_number')->first()?->credential_number ?? null,
+                'fhir_practitioner_id' => $user->fhir_practitioner_id ?? null,
             ];
         } elseif ($userRole === 'office-manager') {
             // Office managers can order for multiple providers at their facility
@@ -143,13 +204,27 @@ final class QuickRequestService
                     ->whereHas('roles', function($q) {
                         $q->where('slug', 'provider');
                     })
-                    ->get(['id', 'first_name', 'last_name', 'npi_number'])
-                    ->map(function($provider) {
+                    ->with(['providerProfile', 'providerCredentials'])
+                    ->get()
+                    ->map(function($provider) use ($currentOrg) {
                         return [
                             'id' => $provider->id,
                             'name' => $provider->first_name . ' ' . $provider->last_name,
+                            'first_name' => $provider->first_name,
+                            'last_name' => $provider->last_name,
                             'credentials' => $provider->providerProfile?->credentials ?? $provider->provider_credentials ?? null,
                             'npi' => $provider->npi_number,
+                            'email' => $provider->email,
+                            'phone' => $provider->phone ?? $provider->providerProfile?->phone ?? null,
+                            'specialty' => $provider->providerProfile?->specialty ?? null,
+                            'license_number' => $provider->providerProfile?->license_number ?? null,
+                            'license_state' => $provider->providerProfile?->license_state ?? null,
+                            'dea_number' => $provider->providerProfile?->dea_number ?? null,
+                            'ptan' => $provider->providerProfile?->ptan ?? null,
+                            'tax_id' => $provider->providerProfile?->tax_id ?? null,
+                            'practice_name' => $provider->providerProfile?->practice_name ?? $currentOrg?->name ?? null,
+                            'medicaid_number' => $provider->providerProfile?->medicaid_number ?? null,
+                            'fhir_practitioner_id' => $provider->fhir_practitioner_id ?? null,
                         ];
                     })
                     ->toArray();

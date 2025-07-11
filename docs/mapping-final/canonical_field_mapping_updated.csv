@@ -1,0 +1,486 @@
+form_name,field_label,field_key,canonical_key,mapping_status,type,required,confidence,sample_value
+CENTURION_THERAPEUTICS_IVR,New Wound,new_wound,new_wound,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,Additional Application,additional_application,Order_Type,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,Re-verification,re_verification,Order_Type,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,New Insurance,new_insurance,primary_insurance,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,EMAIL TO,email_to,email_to,unmapped,text,False,0,hotline@advantagerma.com
+CENTURION_THERAPEUTICS_IVR,FAX TO,fax_to,contact_fax,mapped,text,False,0,855-729-5758
+CENTURION_THERAPEUTICS_IVR,Patient Name,patient_name,patient_name,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,DOB,dob,patient_dob,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Male,male,patient_gender,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,Female,female,patient_gender,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,Address,address,patient_address,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,City,city,patient_city,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,State,state,patient_state,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Zip,zip,patient_zip,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Home Phone #,home_phone,contact_phone,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Mobile #,mobile,mobile_phone,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,"Yes
+nursing",yes_nursing,checkbox_yes,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,"No
+facility or nursing home?",no_facility_or_nursing_home,checkbox_no,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,"If YES, how many days has the patient been admitted to the skilled",if_yes_how_many_days_has_patient_been_admitted_to_skilled,patient_name,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Primary Insurance,primary_insurance,primary_insurance,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Secondary Insurance,secondary_insurance,secondary_insurance,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Payer Phone,payer_phone,contact_phone,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Policy Number,policy_number,policy_number,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Subscriber Name,subscriber_name,patient_name,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Physican Name,r_name,physican_name,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Specialty,specialty,physican_Speciality,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,PTAN #,ptan,physican_PTAN,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Physican ID #s: NPI :,r_id_s_npi,physican_npi,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Tax ID,tax_id,tax_id,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Medicaid Physican #,medicaid_r,medicaid_physican_number,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Facility Name,facility_name,facility_name,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Facility ID #s: NPI :,facility_id_s_npi,physican_npi,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Facility Contact,facility_contact,facility_contact,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Phone #.,phone,contact_phone,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Fax #,fax,contact_fax,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Email Address,email_address,patient_address,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Hospital Outpatient Wound Dept/Clinic (HOPD) (POS-22),hospital_outpatient_wound_dept_clinic_hopd_pos_22,patient_name,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,Physican's Office (POS-11),r_s_office_pos_11,place_of_service,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,Home (POS-12),home_pos_12,place_of_service,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,ALF (POS-13),alf_pos_13,place_of_service,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,SNF (POS-31),snf_pos_31,place_of_service,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,Nursing (POS-32),nursing_pos_32,place_of_service,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,AmnioBand Q4151,amnioband_q4151,product_amnioband_q4151,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,Allopatch Q4128,allopatch_q4128,Product_,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,"Primary
+Known Conditions",primary_known_conditions,checkbox_no,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Secondary,secondary,secondary_insurance,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Tertiary,tertiary,tertiary_insurance,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Anticipated Treatment Start Date,anticipated_treatment_start_date,anticipated_date,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Frequency,frequency,application_frequency,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Number of Applications,number_of_applications,number_of_applications,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Yes,yes,checkbox_yes,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,No,no,diagnosis,mapped,text,False,0,:unselected:
+CENTURION_THERAPEUTICS_IVR,Physican Signature,r_signature,physican_signature,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Date,date,patient_dob,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Sales Representative,sales_representative,Sales_Rep,mapped,text,False,0,
+CENTURION_THERAPEUTICS_IVR,Email,email,patient_email,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,email,email,patient_email,mapped,text,False,0,IVR@extremitycare.com
+EXTREMITY CARE Coll-e-Derm IVR,Call,call,call,unmapped,text,False,0,1.888.694.6694
+EXTREMITY CARE Coll-e-Derm IVR,New Application,new_application,Order_Type,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Additional Application,additional_application,Order_Type,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Re-verification,re_verification,Order_Type,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,New Insurance,new_insurance,primary_insurance,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,2×2cm,2_2cm,Requested_Size,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,4×4cm,4_4cm,Requested_Size,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,2×3cm,2_3cm,Requested_Size,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,4x6cm,4x6cm,product_size_4x6cm,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Physician Office/Clinic (POS11),physician_office_clinic_pos11,physican_name,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Patient Home (POS12),patient_home_pos12,patient_name,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Assisted Living Facility (POS13),assted_living_facility_pos13,place_of_service,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,2×4cm,2_4cm,Requested_Size,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,4×8cm,4_8cm,Requested_Size,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Nursing Facility (POS32),nursing_facility_pos32,place_of_service,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Skilled Nursing Facility (POS31),skilled_nursing_facility_pos31,place_of_service,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Other,or,other_specify,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Patient Name,patient_name,patient_name,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,DOB,dob,patient_dob,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Male,male,patient_gender,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Female,female,patient_gender,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Address,address,patient_address,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,City,city,patient_city,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,State,state,patient_state,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Zip,zip,patient_zip,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Yes,yes,checkbox_yes,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,No,no,diagnosis,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Primary Insurance,primary_insurance,primary_insurance,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Secondary Insurance,secondary_insurance,secondary_insurance,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Payer Phone #,payer_phone,contact_phone,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Policy Number,policy_number,policy_number,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Physican Name,r_name,physican_name,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Physican ID #'s,r_id_s,physican_id_numbers,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,NPI,npi,physican_npi,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Tax ID#,tax_id,Tax_ID,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Medicare Physican #,medic_r,medicare_physican_number,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Facility Name,facility_name,facility_name,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Facility ID #'s,facility_id_s,facility_id_numbers,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Facility Contact,facility_contact,facility_contact,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Phone#,phone,contact_phone,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,FAX,fax,fax_number,mapped,text,False,0,1.800.640.2060
+EXTREMITY CARE Coll-e-Derm IVR,Facility Contact Email,facility_contact_email,Primary_Contact_Person_Email,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,15271/15272,15271_15272,Cpt_Codes_15271-15272,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,15273/15274,15273_15274,Cpt_Codes_15273-15274,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Q4193 Coll-e-Derm™,q4193_coll_e_derm,Product_,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,15275/15276,15275_15276,Cpt_Codes_15275-15276,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,15277/15278,15277_15278,Cpt_Codes_15277-15278,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Anticipated Application Date,anticipated_application_date,anticipated_date,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Number of Anticipated Applications,number_of_anticipated_applications,Number_of_Intended,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,"Diabetic Ulcer (Code Diabetes and Ulcer Locations Separately), 2 codes must be present on claim",diabetic_ulcer_code_diabetes_and_ulcer_locations_separately_2_codes_must_be_present_on_claim,diabetic_ulcer_coding_instructions,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,"Venous Ulcer (Code Venous and Ulcer Locations Separately), 2 codes must be present on claim",venous_ulcer_code_venous_and_ulcer_locations_separately_2_codes_must_be_present_on_claim,venous_ulcer_coding_instructions,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Surgical Dehiscence,surgical_dehcence,Wound_Type,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Pressure Ulcer,pressure_ulcer,Wound_Type,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,Trauma Wounds,trauma_wounds,Wound_Type,mapped,text,False,0,:unselected:
+EXTREMITY CARE Coll-e-Derm IVR,CUSTOMER SERVICE,customer_service,customer_service,unmapped,text,False,0,1.888.694.6694
+EXTREMITY CARE Coll-e-Derm IVR,BILLING,billing,billing,unmapped,text,False,0,1.844.484.2722
+EXTREMITY CARE Coll-e-Derm IVR,unselected: New Application,unselected_new_application,checkbox_unselected,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,unselected: Re-verification,unselected_re_verification,checkbox_unselected,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Product Requested MESHED,product_requested_meshed,product_requested_meshed,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,unselected: 2×2cm,unselected_2_2cm,checkbox_unselected,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,unselected: 2×3cm,unselected_2_3cm,checkbox_unselected,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,unselected: 2×4cm,unselected_2_4cm,checkbox_unselected,mapped,text,False,0,
+EXTREMITY CARE Coll-e-Derm IVR,Physican AND FACILITY INFORMATION,r_and_facility_information,Facility_Name,mapped,text,False,0,
+Celularity_IVR,Biovance®,biovance,Product_,mapped,text,False,0,:unselected:
+Celularity_IVR,"Biovance 3L®
+EMAIL ADDRESS:
+CALL",biovance_3l_email_address_call,patient_address,mapped,text,False,0,:unselected:
+Celularity_IVR,Interfyl®,interfyl,Product_,mapped,text,False,0,:unselected:
+Celularity_IVR,Account Executive contact information (name and email),account_executive_contact_information_name_and_email,patient_name,mapped,text,False,0,
+Celularity_IVR,Patient name,patient_name,patient_name,mapped,text,False,0,
+Celularity_IVR,DOB,dob,patient_dob,mapped,text,False,0,
+Celularity_IVR,Address,address,patient_address,mapped,text,False,0,
+Celularity_IVR,City/State/Zip,city_state_zip,patient_city,mapped,text,False,0,
+Celularity_IVR,Primary Insurance,primary_insurance,primary_insurance,mapped,text,False,0,
+Celularity_IVR,Ins ID#,ins_id,Member_ID,mapped,text,False,0,
+Celularity_IVR,Ins. Phone,ins_phone,contact_phone,mapped,text,False,0,
+Celularity_IVR,Secondary Insurance,secondary_insurance,secondary_insurance,mapped,text,False,0,
+Celularity_IVR,YES,yes,checkbox_yes,mapped,text,False,0,:unselected:
+Celularity_IVR,NO,no,diagnosis,mapped,text,False,0,:unselected:
+Celularity_IVR,"If yes, what is the CPT surgery code?",if_yes_what_cpt_surgery_code,cpt_codes,mapped,text,False,0,
+Celularity_IVR,Physician Office (11),physician_office_11,physican_name,mapped,text,False,0,:unselected:
+Celularity_IVR,HOPD (22),hopd_22,POS_22,mapped,text,False,0,:unselected:
+Celularity_IVR,Ambulatory Surgical Center (24),ambulatory_surgical_c_24,POS_24,mapped,text,False,0,:unselected:
+Celularity_IVR,Rendering Physician Name,rendering_physician_name,patient_name,mapped,text,False,0,
+Celularity_IVR,NPI,npi,physican_npi,mapped,text,False,0,
+Celularity_IVR,Tax ID,tax_id,tax_id,mapped,text,False,0,
+Celularity_IVR,Medicare PTAN,medic_ptan,Medicare_PTAN,mapped,text,False,0,
+Celularity_IVR,Physican Phone,r_phone,contact_phone,mapped,text,False,0,
+Celularity_IVR,City / State,city_state,patient_city,mapped,text,False,0,
+Celularity_IVR,Physican Fax,r_fax,contact_fax,mapped,text,False,0,
+Celularity_IVR,Primary Contact Person,primary_contact_person,Primary_Contact_Person,mapped,text,False,0,
+Celularity_IVR,Contact Phone,contact_phone,contact_phone,mapped,text,False,0,
+Celularity_IVR,Contact Email Address,contact_email_address,patient_address,mapped,text,False,0,
+Celularity_IVR,Contact Fax,contact_fax,contact_fax,mapped,text,False,0,
+Celularity_IVR,Facility Name,facility_name,facility_name,mapped,text,False,0,
+Celularity_IVR,Facility Phone,facility_phone,contact_phone,mapped,text,False,0,
+Celularity_IVR,Facility Address,facility_address,patient_address,mapped,text,False,0,
+Celularity_IVR,Facility Fax,facility_fax,contact_fax,mapped,text,False,0,
+Celularity_IVR,Facility NPI,facility_npi,facility_npi,mapped,text,False,0,
+Celularity_IVR,Group PTAN,group_ptan,Group_PTAN,mapped,text,False,0,
+Celularity_IVR,Procedure Date,procedure_date,Date_of_Service,mapped,text,False,0,
+Celularity_IVR,CPT / HCPCS Code(s),cpt_hcpcs_code_s,cpt_codes,mapped,text,False,0,
+Celularity_IVR,Diagnosis ICD-10 Codes,diagnos_icd_10_codes,diagnosis,mapped,text,False,0,
+Celularity_IVR,Wound Size(s),wound_size_s,Wound_Sizes,mapped,text,False,0,
+Celularity_IVR,Wound Location,wound_location,Wound_Location,mapped,text,False,0,
+Celularity_IVR,Additional Patient Notes,additional_patient_notes,patient_name,mapped,text,False,0,
+Celularity_IVR,Number of Grafts Intended,number_of_grafts_intended,Number_of_Intended,mapped,text,False,0,
+Celularity_IVR,Size of Initial Application (in sq. cm or ml/mg),size_of_initial_application_in_sq_cm_or_ml_mg,Size_In_cm2,mapped,text,False,0,
+Celularity_IVR,Physician Signature,physician_signature,physican_name,mapped,text,False,0,
+Celularity_IVR,Date,date,patient_dob,mapped,text,False,0,
+Celularity_IVR,PATIENT INFORMATION: * Please submit copies of insurance cards (front & back) and patient demographics sheet,patient_information_submit_copies_of_insurance_cards_front_back_and_patient_demographics_sheet,patient_name,mapped,text,False,0,
+Celularity_IVR,Is Patient currently in a surgical global period? YES :unselected: NO,patient_currently_in_a_surgical_global_period_yes_unselected_no,patient_name,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,SERVICED BY;,serviced_by,serviced_by,unmapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,Membrane Wrap,membrane_wrap,Product_,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,Membrane Wrap hydr,membrane_wrap_hydr,Product_,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,Membrane Tri Layer,membrane_tri_layer,Product_,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,Revoshield,revoshield,Product_,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,Dermabind,dermabind,Product_,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,Esano aca,esano_aca,checkbox_no,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,REPRESENTATIVE NAME,representative_name,patient_name,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,ISO IF APPLICABLE,o_if_applicable,iso_if_applicable,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,ADDITIONAL EMAILS FOR NOTIFICATION (REQUIRES BAA),additional_emails_for_notification_requires_baa,checkbox_no,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,PHYSICIAN NAME,physician_name,patient_name,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,NPI,npi,physican_npi,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,PHYSICIAN SPECIALTY,physician_specialty,physican_name,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,TAX ID,tax_id,tax_id,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,FACILITY NAME,facility_name,facility_name,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,PTAN,ptan,physican_PTAN,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,FACILITY ADDRESS,facility_address,patient_address,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,MEDICAID #,medicaid,Medicaid_Number,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,"CITY, STATE, ZIP",city_state_zip,patient_city,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,PHONE #,phone,contact_phone,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,CONTACT NAME,contact_name,patient_name,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,FAX #,fax,contact_fax,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,CONTACT PH/EMAIL,contact_ph_email,Primary_Contact_Person_Phone,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,MANAGEMENT CO,management_co,Organization,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,PHYSICIAN OFFICE (POS 11),physician_office_pos_11,physican_name,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,HOSPITAL OUTPATIENT (POS22),hospital_outpatient_pos22,patient_name,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,SURGERY CENTER (POS 24),surgery_c_pos_24,place_of_service,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,HOME (POS12),home_pos12,place_of_service,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,NURSING CARE FACILITY (POS 32 ),nursing_c_facility_pos_32,place_of_service,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,OTHER (PLEASE SPECIFY),or_specify,POS_Other,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,PATIENT NAME,patient_name,patient_name,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,PATIENT DOB,patient_dob,patient_dob,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,PATIENT ADDRESS,patient_address,patient_address,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,PATIENT PHONE,patient_phone,patient_name,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,PATIENT FAX/EMAIL,patient_fax_email,patient_name,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,INSURANCE NAME,insurance_name,patient_name,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,POLICY NUMBER,policy_number,policy_number,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,PAYER PHONE,payer_phone,contact_phone,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,IN-NETWORK,in_network,Ins_Out_Of_Network,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,OUT-OF-NETWORK,out_of_network,Ins_In_Network,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,YES,yes,checkbox_yes,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,NO,no,diagnosis,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,"IF YES, PLEASE LIST CPT CODE(S) OF PREVIOUS SURGERY",if_yes_lt_cpt_code_s_of_previous_surgery,cpt_codes,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,SURGERY DATE,surgery_date,Date_of_Surgery,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,15271/15272,15271_15272,Cpt_Codes_15271-15272,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,"15273/15274
+:formula",15273_15274_formula,Cpt_Codes_15273-15274,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,15275/15276,15275_15276,Cpt_Codes_15275-15276,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,15277/15278,15277_15278,Cpt_Codes_15277-15278,mapped,text,False,0,:unselected:
+ACZ_&_ASSOCIATES_IVR,ICD-10 CODES,icd_10_codes,icd10_codes,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,TOTAL WOUND SIZE AND / OR MEDICAL HISTORY,total_wound_size_and_or_medical_htory,Wound_Sizes,mapped,text,False,0,
+ACZ_&_ASSOCIATES_IVR,TREATING PHYSICIAN AND FACILITY DEMOGRAPHIC INFORMATION,treating_physician_and_facility_demographic_information,physican_name,mapped,text,False,0,
+MedLife IVR,Distributor / Company,dtributor_company,Sales_Company,mapped,text,False,0,
+MedLife IVR,Physician Name,physician_name,patient_name,mapped,text,False,0,
+MedLife IVR,Practice Name,practice_name,patient_name,mapped,text,False,0,
+MedLife IVR,Physician PTAN,physician_ptan,physican_name,mapped,text,False,0,
+MedLife IVR,Practice PTAN,practice_ptan,Practice_PTAN,mapped,text,False,0,
+MedLife IVR,Physician NPI,physician_npi,physican_name,mapped,text,False,0,
+MedLife IVR,Practice NPI,practice_npi,physican_npi,mapped,text,False,0,
+MedLife IVR,TAX ID#,tax_id,Tax_ID,mapped,text,False,0,
+MedLife IVR,Office Contact Name,office_contact_name,patient_name,mapped,text,False,0,
+MedLife IVR,Office Contact Email,office_contact_email,Primary_Contact_Person_Email,mapped,text,False,0,
+MedLife IVR,Patient Name,patient_name,patient_name,mapped,text,False,0,
+MedLife IVR,Patient DOB,patient_dob,patient_dob,mapped,text,False,0,
+MedLife IVR,Primary Insurance,primary_insurance,primary_insurance,mapped,text,False,0,
+MedLife IVR,Member ID,member_id,policy_number,mapped,text,False,0,
+MedLife IVR,Secondary Insurance,secondary_insurance,secondary_insurance,mapped,text,False,0,
+MedLife IVR,"If yes, please list CPT code(s) of previous surgery",if_yes_lt_cpt_code_s_of_previous_surgery,cpt_codes,mapped,text,False,0,
+MedLife IVR,Surgery Date,surgery_date,Date_of_Surgery,mapped,text,False,0,
+MedLife IVR,Procedure Date,procedure_date,Date_of_Service,mapped,text,False,0,
+MedLife IVR,Wound Size,wound_size,Wound_Sizes,mapped,text,False,0,
+MedLife IVR,W_Total,w_total,Wound_Size_W,mapped,text,False,0,
+MedLife IVR,Wound location,wound_location,Wound_Location,mapped,text,False,0,
+MedLife IVR,Size of Graft Requested,size_of_graft_requested,Requested_Size,mapped,text,False,0,
+MedLife IVR,ICD-10,icd_10,icd10_codes,mapped,text,False,0,
+MedLife IVR,CPT,cpt,cpt_codes,mapped,text,False,0,
+MedLife IVR,HCPCS (when applicable,hcpcs_when_applicable,Q_Code,mapped,text,False,0,
+MedLife IVR,Please return via email to,return_via_email_to,return_via_email_to,unmapped,text,False,0,ivr@medlifesol.com
+MedLife IVR,1.,1,instruction_step_1,mapped,text,False,0,
+MedLife IVR,2.,2,instruction_step_2,mapped,text,False,0,
+MedLife IVR,3.,3,instruction_step_3,mapped,text,False,0,
+MedLife IVR,4.,4,instruction_step_4,mapped,text,False,0,
+Advanced Solution IVR,Fax,fax,fax_number,mapped,text,False,0,
+Advanced Solution IVR,email to,email_to,email_to,unmapped,text,False,0,Reimbursement@AdvancedSolution.Health
+Advanced Solution IVR,Office,office,POS_11,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Outpatient Hospital,outpatient_hospital,patient_name,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Ambulatory Surgical Center,ambulatory_surgical_c,POS_24,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Other,or,POS_12,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Facility Name,facility_name,facility_name,mapped,text,False,0,
+Advanced Solution IVR,Medicare Admin Contractor,medic_admin_contractor,POS_32,mapped,text,False,0,
+Advanced Solution IVR,Address,address,patient_address,mapped,text,False,0,
+Advanced Solution IVR,NPI,npi,physican_npi,mapped,text,False,0,
+Advanced Solution IVR,Contact Name,contact_name,patient_name,mapped,text,False,0,
+Advanced Solution IVR,TIN,tin,physican_TIN,mapped,text,False,0,
+Advanced Solution IVR,Phone,phone,patient_phone,mapped,text,False,0,
+Advanced Solution IVR,PTAN,ptan,physican_PTAN,mapped,text,False,0,
+Advanced Solution IVR,Physician Name,physician_name,patient_name,mapped,text,False,0,
+Advanced Solution IVR,Patient Name,patient_name,patient_name,mapped,text,False,0,
+Advanced Solution IVR,Address: [City / State / Zip],address_city_state_zip,patient_address,mapped,text,False,0,
+Advanced Solution IVR,Yes,yes,checkbox_yes,mapped,text,False,0,:unselected:
+Advanced Solution IVR,No,no,diagnosis,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Date of Birth,date_of_birth,patient_dob,mapped,text,False,0,
+Advanced Solution IVR,Subscriber Name,subscriber_name,patient_name,mapped,text,False,0,
+Advanced Solution IVR,Policy Number,policy_number,policy_number,mapped,text,False,0,
+Advanced Solution IVR,Subscriber DOB,subscriber_dob,patient_dob,mapped,text,False,0,
+Advanced Solution IVR,HMO,hmo,Ins_Plan_Type,mapped,text,False,0,:unselected:
+Advanced Solution IVR,"PPO
+Number",ppo_number,Ins_Plan_Type,mapped,text,False,0,:unselected:
+Advanced Solution IVR,PPO,ppo,Ins_Plan_Type,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Insurance Phone,insurance_phone,primary_insurance,mapped,text,False,0,
+Advanced Solution IVR,Insurance Phone Number,insurance_phone_number,primary_insurance,mapped,text,False,0,
+Advanced Solution IVR,Not Sure (Please verify),not_sure_verify,checkbox_no,mapped,text,False,0,
+Advanced Solution IVR,Diabetic Foot Ulcer,diabetic_foot_ulcer,Wound_Type,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Venous Leg Ulcer,venous_leg_ulcer,checkbox_no,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Pressure Ulcer,pressure_ulcer,Wound_Type,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Traumatic Burns,traumatic_burns,Wound_Type,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Radiation Burns,radiation_burns,Wound_Type,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Necrotizing Faciitis,necrotizing_faciit,Wound_Type,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Dehisced Surgical Wound,dehced_surgical_wound,Wound_Type,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Wound Size(s),wound_size_s,Wound_Sizes,mapped,text,False,0,
+Advanced Solution IVR,Application CPT(s),application_cpt_s,cpt_codes,mapped,text,False,0,
+Advanced Solution IVR,Date of Procedure,date_of_procedure,Date_of_Service,mapped,text,False,0,
+Advanced Solution IVR,ICD-10 Diagnosis Code(s),icd_10_diagnos_code_s,diagnosis,mapped,text,False,0,
+Advanced Solution IVR,CompleteAA,completeaa,Product_,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Membrane Wrap Hydro,membrane_wrap_hydro,Product_,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Membrane Wrap,membrane_wrap,Product_,mapped,text,False,0,:unselected:
+Advanced Solution IVR,WoundPlus,woundplus,Product_,mapped,text,False,0,:unselected:
+Advanced Solution IVR,CompleteFT,completeft,Product_,mapped,text,False,0,:unselected:
+Advanced Solution IVR,Please attach a,attach_a,attach_a,unmapped,text,False,0,:unselected:
+Advanced Solution IVR,CPT Code,cpt_code,cpt_codes,mapped,text,False,0,
+Advanced Solution IVR,Specialty Site Name (if different from above),specialty_site_name_if_different_from_above,patient_name,mapped,text,False,0,
+Advanced Solution IVR,Physician or Authorized Signature,physician_or_authorized_signature,physican_name,mapped,text,False,0,
+Advanced Solution IVR,Date,date,patient_dob,mapped,text,False,0,
+Q2 Restorigin IVR,Call,call,call,unmapped,text,False,0,1.888.694.6694
+Q2 Restorigin IVR,New Application,new_application,Order_Type,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Additional Application,additional_application,Order_Type,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Re-verification,re_verification,Order_Type,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,New Insurance,new_insurance,primary_insurance,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,12mm Disc,12mm_dc,Requested_Size,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,2×3cm,2_3cm,Requested_Size,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,5x5cm,5x5cm,Requested_Size,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Physician Office/Clinic (POS11),physician_office_clinic_pos11,physican_name,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Patient Home (POS12),patient_home_pos12,patient_name,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Assisted Living Facility (POS13),assted_living_facility_pos13,place_of_service,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,16mm Disc,16mm_dc,Requested_Size,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,2×4cm,2_4cm,Requested_Size,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,4×8cm,4_8cm,Requested_Size,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Nursing Facility (POS32),nursing_facility_pos32,place_of_service,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Skilled Nursing Facility (POS31),skilled_nursing_facility_pos31,place_of_service,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Other,or,other_specify,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,1.5x1.5cm,1_5x1_5cm,Requested_Size,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,4x4cm,4x4cm,Requested_Size,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,2×2cm,2_2cm,Requested_Size,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,4×6cm,4_6cm,Requested_Size,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Patient Name,patient_name,patient_name,mapped,text,False,0,
+Q2 Restorigin IVR,DOB,dob,patient_dob,mapped,text,False,0,
+Q2 Restorigin IVR,Male,male,patient_gender,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Female,female,patient_gender,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Address,address,patient_address,mapped,text,False,0,
+Q2 Restorigin IVR,City,city,patient_city,mapped,text,False,0,
+Q2 Restorigin IVR,State,state,patient_state,mapped,text,False,0,
+Q2 Restorigin IVR,Zip,zip,patient_zip,mapped,text,False,0,
+Q2 Restorigin IVR,Yes,yes,checkbox_yes,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,No,no,diagnosis,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Primary Insurance,primary_insurance,primary_insurance,mapped,text,False,0,
+Q2 Restorigin IVR,Secondary Insurance,secondary_insurance,secondary_insurance,mapped,text,False,0,
+Q2 Restorigin IVR,Payer Phone #,payer_phone,contact_phone,mapped,text,False,0,
+Q2 Restorigin IVR,Policy Number,policy_number,policy_number,mapped,text,False,0,
+Q2 Restorigin IVR,Physican Name,r_name,physican_name,mapped,text,False,0,
+Q2 Restorigin IVR,Physican ID #'s,r_id_s,physican_ID_Number,mapped,text,False,0,
+Q2 Restorigin IVR,NPI,npi,physican_npi,mapped,text,False,0,
+Q2 Restorigin IVR,Tax ID#,tax_id,Tax_ID,mapped,text,False,0,
+Q2 Restorigin IVR,Medicare Physican #,medic_r,Medicare_physican_Number,mapped,text,False,0,
+Q2 Restorigin IVR,Facility Name,facility_name,facility_name,mapped,text,False,0,
+Q2 Restorigin IVR,Facility ID #'s,facility_id_s,Facility_ID,mapped,text,False,0,
+Q2 Restorigin IVR,Facility Contact,facility_contact,Facility_Primary_Contact_Person,mapped,text,False,0,
+Q2 Restorigin IVR,Phone#,phone,contact_phone,mapped,text,False,0,
+Q2 Restorigin IVR,Fax#,fax,contact_fax,mapped,text,False,0,
+Q2 Restorigin IVR,Facility Contact Email,facility_contact_email,Facility_Primary_Contact_Person_Email,mapped,text,False,0,
+Q2 Restorigin IVR,15271/15272,15271_15272,Cpt_Codes_15271-15272,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,15273/15274,15273_15274,Cpt_Codes_15273-15274,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Q4191 Restorigin™,q4191_restorigin,Product_,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,15275/15276,15275_15276,Cpt_Codes_15275-15276,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,15277/15278,15277_15278,Cpt_Codes_15277-15278,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Anticipated Application Date,anticipated_application_date,anticipated_date,mapped,text,False,0,
+Q2 Restorigin IVR,Number of Anticipated Applications,number_of_anticipated_applications,Number_of_Intended,mapped,text,False,0,
+Q2 Restorigin IVR,"Diabetic Ulcer (Code Diabetes and Ulcer Locations Separately), 2 codes must be present on claim",diabetic_ulcer_code_diabetes_and_ulcer_locations_separately_2_codes_must_be_present_on_claim,diabetic_ulcer_coding_instructions,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,"Venous Ulcer (Code Venous and Ulcer Locations Separately), 2 codes must be present on claim",venous_ulcer_code_venous_and_ulcer_locations_separately_2_codes_must_be_present_on_claim,venous_ulcer_coding_instructions,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Surgical Dehiscence,surgical_dehcence,Wound_Type,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Pressure Ulcer,pressure_ulcer,Wound_Type,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Trauma Wounds,trauma_wounds,Wound_Type,mapped,text,False,0,:unselected:
+Q2 Restorigin IVR,Product Requested,product_requested,Product_,mapped,text,False,0,
+Q2 Restorigin IVR,unselected: 12mm Disc,unselected_12mm_dc,checkbox_unselected,mapped,text,False,0,
+Q2 Restorigin IVR,unselected: 16mm Disc,unselected_16mm_dc,checkbox_unselected,mapped,text,False,0,
+Q2 Restorigin IVR,unselected: 1.5x1.5cm,unselected_1_5x1_5cm,checkbox_unselected,mapped,text,False,0,
+Q2 Restorigin IVR,unselected: 2×2cm,unselected_2_2cm,checkbox_unselected,mapped,text,False,0,
+Celularity Order Form,Form Title,form_title,form_title,mapped,text,False,0,Manual Order Form
+Celularity Order Form,Order Type,order_type,Order_Type,mapped,text,False,0,
+Celularity Order Form,Date,date,patient_dob,mapped,text,False,0,
+Celularity Order Form,Order Taker,order_taker,Primary_Orderer,mapped,text,False,0,
+Celularity Order Form,Name,name,patient_name,mapped,text,False,0,
+Celularity Order Form,Address,address,patient_address,mapped,text,False,0,
+Celularity Order Form,City,city,patient_city,mapped,text,False,0,
+Celularity Order Form,State,state,patient_state,mapped,text,False,0,
+Celularity Order Form,Zip Code,zip_code,patient_zip,mapped,text,False,0,
+Celularity Order Form,Contact Name,contact_name,patient_name,mapped,text,False,0,
+Celularity Order Form,PO #,po,PO_Number,mapped,text,False,0,
+Celularity Order Form,Account No.,account_no,account_number,mapped,text,False,0,
+Celularity Order Form,Confirmation #,confirmation,Confirmation,mapped,text,False,0,
+Celularity Order Form,Phone #,phone,contact_phone,mapped,text,False,0,
+Celularity Order Form,Size,size,Product_Size,mapped,text,False,0,
+Celularity Order Form,Product Code (Box),product_code_box,Product_Code,mapped,text,False,0,
+Celularity Order Form,Quantity,quantity,Quantity,mapped,text,False,0,
+Celularity Order Form,Biovance® Human Amniotic Membrane allograft (1 unit per box),biovance_human_amniotic_membrane_allograft_1_unit_per_box,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance,biovance,Product_,mapped,text,False,0,"2cm x 4cm
+2cm x 4cm
+3L
+x 6cm"
+Celularity Order Form,Rebound Full Thickness Placental-Derived Allograft,rebound_full_thickness_placental_derived_allograft,Product_,mapped,text,False,0,"2cm x 2cm
+REB27222"
+Celularity Order Form,Matrix,matrix,Product_,mapped,text,False,0,2 x 2 cm
+Celularity Order Form,Biovance® Human Amniotic Membrane allograft,biovance_human_amniotic_membrane_allograft,Product_,mapped,text,False,0,
+Celularity Order Form,Interfyl™ Human Connective Tissue Matrix (1 unit per box),interfyl_human_connective_tsue_matrix_1_unit_per_box,Product_,mapped,text,False,0,
+Celularity Order Form,Interfyl™ Human Connective Tissue Matrix Flowable,interfyl_human_connective_tsue_matrix_flowable,Product_,mapped,text,False,0,
+Celularity Order Form,Interfyl™ Human Connective Tissue Matrix Particulate,interfyl_human_connective_tsue_matrix_particulate,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L (1 unit per box),biovance_3l_1_unit_per_box,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L Ocular 10mm Disc,biovance_3l_ocular_10mm_dc,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L Ocular 12mm Disc,biovance_3l_ocular_12mm_dc,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L Ocular 15mm Disc,biovance_3l_ocular_15mm_dc,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L Ocular 15mm x 20mm,biovance_3l_ocular_15mm_x_20mm,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L Ocular 25mm x 25mm,biovance_3l_ocular_25mm_x_25mm,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L Ocular 35mm x 35mm,biovance_3l_ocular_35mm_x_35mm,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L 2cm x 4cm,biovance_3l_2cm_x_4cm,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L 3cm x 6cm,biovance_3l_3cm_x_6cm,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L 4cm x 4cm,biovance_3l_4cm_x_4cm,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L 15mm,biovance_3l_15mm,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L 2.5cm x 2.5cm,biovance_3l_2_5cm_x_2_5cm,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L 3.5cm x 3.5cm,biovance_3l_3_5cm_x_3_5cm,Product_,mapped,text,False,0,
+Celularity Order Form,Biovance 3L 10cm x 12cm,biovance_3l_10cm_x_12cm,Product_,mapped,text,False,0,
+Celularity Order Form,Rebound (1 unit per box),rebound_1_unit_per_box,Product_,mapped,text,False,0,
+Celularity Order Form,Rebound Full Thickness Placental-Derived Allograft Matrix 2 x 2 cm,rebound_full_thickness_placental_derived_allograft_matrix_2_x_2_cm,Product_,mapped,text,False,0,
+Celularity Order Form,Rebound Full Thickness Placental-Derived Allograft Matrix 2 x 3 cm,rebound_full_thickness_placental_derived_allograft_matrix_2_x_3_cm,Product_,mapped,text,False,0,
+Celularity Order Form,Rebound Full Thickness Placental-Derived Allograft Matrix 2 x 4 cm,rebound_full_thickness_placental_derived_allograft_matrix_2_x_4_cm,Product_,mapped,text,False,0,
+Celularity Order Form,Rebound Full Thickness Placental-Derived Allograft Matrix 4 x 4 cm,rebound_full_thickness_placental_derived_allograft_matrix_4_x_4_cm,Product_,mapped,text,False,0,
+Celularity Order Form,Rebound Full Thickness Placental-Derived Allograft Matrix 4 x 8 cm,rebound_full_thickness_placental_derived_allograft_matrix_4_x_8_cm,Product_,mapped,text,False,0,
+MSC Crosstimber Order Form,Date of Order,date_of_order,Date_of_Order,mapped,text,False,0,
+MSC Crosstimber Order Form,Submit Orders to,submit_orders_to,submit_orders_to,unmapped,text,False,0,orders@crosstimbersales.com
+MSC Crosstimber Order Form,Order Number,order_number,Order_Number,mapped,text,False,0,
+MSC Crosstimber Order Form,PO#,po,PO_Number,mapped,text,False,0,
+MSC Crosstimber Order Form,Patient ID,patient_id,patient_name,mapped,text,False,0,
+MSC Crosstimber Order Form,Account Name,account_name,patient_name,mapped,text,False,0,
+MSC Crosstimber Order Form,Distributor,dtributor,Distributor_Name,mapped,text,False,0,
+MSC Crosstimber Order Form,Contact Name,contact_name,patient_name,mapped,text,False,0,
+MSC Crosstimber Order Form,Distributor Contact,dtributor_contact,Distributor_Contact,mapped,text,False,0,
+MSC Crosstimber Order Form,Contact e-mail,contact_e_mail,Primary_Contact_Person_Email,mapped,text,False,0,
+MSC Crosstimber Order Form,Distributor Number,dtributor_number,Distributor_Phone,mapped,text,False,0,
+MSC Crosstimber Order Form,Contact Number,contact_number,Primary_Contact_Person_Phone,mapped,text,False,0,
+MSC Crosstimber Order Form,Sales Rep,sales_rep,Sales_Rep,mapped,text,False,0,
+MSC Crosstimber Order Form,Quantity,quantity,Number_of,mapped,text,False,0,
+MSC Crosstimber Order Form,Description,description,Description,mapped,text,False,0,
+MSC Crosstimber Order Form,Unit Price,unit_price,Unit_Price,mapped,text,False,0,
+MSC Crosstimber Order Form,Amount,amount,Number_of,mapped,text,False,0,$ 0.00
+MSC Crosstimber Order Form,Time of Order,time_of_order,Time_of_Order,mapped,text,False,0,:selected:
+MSC Crosstimber Order Form,Sub-Total,sub_total,Sub_Total,mapped,text,False,0,$ 0.00
+MSC Crosstimber Order Form,Charge CC,charge_cc,Payment_Type_,mapped,text,False,0,:unselected:
+MSC Crosstimber Order Form,ACH,ach,Payment_Type_,mapped,text,False,0,:unselected:
+MSC Crosstimber Order Form,Discount,dcount,Total_Discount,mapped,text,False,0,
+MSC Crosstimber Order Form,Total,total,Total_Price,mapped,text,False,0,$ 0.00
+MSC Crosstimber Order Form,FedEx,fedex,Shipping_Carrier,mapped,text,False,0,:unselected:
+MSC Crosstimber Order Form,Pick Up,pick_up,Shipping_Carrier,mapped,text,False,0,:unselected:
+MSC Crosstimber Order Form,Signature Required,signature_required,Shipping_Type,mapped,text,False,0,:unselected:
+MSC Crosstimber Order Form,Multi-piece Shipment,multi_piece_shipment,Shipping_Type,mapped,text,False,0,:unselected:
+MSC Crosstimber Order Form,Date of Pick Up,date_of_pick_up,Date_of_Pickup,mapped,text,False,0,
+MSC Crosstimber Order Form,Time of Pick Up,time_of_pick_up,Time_of_Pickup,mapped,text,False,0,
+MSC Crosstimber Order Form,Date to Receive,date_to_receive,Date_to_Recieve,mapped,text,False,0,
+MSC Crosstimber Order Form,Time to Receive,time_to_receive,Time_to_Recieve,mapped,text,False,0,
+MSC Crosstimber Order Form,By,by,by,unmapped,text,False,0,
+MSC Crosstimber Order Form,Facility or Office,facility_or_office,POS_11,mapped,text,False,0,
+MSC Crosstimber Order Form,Ship to Address,ship_to_address,patient_address,mapped,text,False,0,
+MSC Crosstimber Order Form,Address 2,address_2,patient_address,mapped,text,False,0,
+MSC Crosstimber Order Form,City,city,patient_city,mapped,text,False,0,
+MSC Crosstimber Order Form,State,state,patient_state,mapped,text,False,0,
+MSC Crosstimber Order Form,Zip,zip,patient_zip,mapped,text,False,0,
+MSC Crosstimber Order Form,Notes,notes,notes,mapped,text,False,0,
+MSC New Client Form Template,Sales Rep,sales_rep,Sales_Rep,mapped,text,False,0,
+MSC New Client Form Template,Physican Name,r_name,physican_name,mapped,text,False,0,
+MSC New Client Form Template,Tax ID Number,tax_id_number,Tax_ID,mapped,text,False,0,
+MSC New Client Form Template,Practice Name,practice_name,patient_name,mapped,text,False,0,
+MSC New Client Form Template,Ship To,ship_to,Ship_To,mapped,text,False,0,
+MSC New Client Form Template,City,city,patient_city,mapped,text,False,0,
+MSC New Client Form Template,State,state,patient_state,mapped,text,False,0,
+MSC New Client Form Template,ZIP,zip,patient_zip,mapped,text,False,0,
+MSC New Client Form Template,Contact Name,contact_name,patient_name,mapped,text,False,0,
+MSC New Client Form Template,Contact Phone,contact_phone,contact_phone,mapped,text,False,0,
+MSC New Client Form Template,Contact Email,contact_email,Primary_Contact_Person_Email,mapped,text,False,0,
+MSC New Client Form Template,Practice Phone,practice_phone,contact_phone,mapped,text,False,0,
+MSC New Client Form Template,Practice Fax,practice_fax,contact_fax,mapped,text,False,0,
+MSC New Client Form Template,Practice Email,practice_email,Facility_Email,mapped,text,False,0,
+MSC New Client Form Template,Individual NPI,individual_npi,physican_npi,mapped,text,False,0,
+MSC New Client Form Template,Group NPI,group_npi,physican_npi,mapped,text,False,0,
+MSC New Client Form Template,PTAN,ptan,physican_PTAN,mapped,text,False,0,
+MSC New Client Form Template,Bill To,bill_to,Bill_To,mapped,text,False,0,
+MSC New Client Form Template,Accounts Payable Contact Name,accounts_payable_contact_name,patient_name,mapped,text,False,0,
+MSC New Client Form Template,Accounts Payable Phone,accounts_payable_phone,account_number,mapped,text,False,0,
+MSC New Client Form Template,Accounts Payable Email,accounts_payable_email,account_number,mapped,text,False,0,
+MSC New Client Form Template,Email,email,patient_email,mapped,text,False,0,
+MSC New Client Form Template,Internal Biller,internal_biller,Biller_Type,mapped,text,False,0,:unselected:
+MSC New Client Form Template,3rd Party Biller,3rd_party_biller,Biller_Type,mapped,text,False,0,:unselected:
+MSC New Client Form Template,Phone,phone,patient_phone,mapped,text,False,0,
+MSC New Client Form Template,Owner/Physican Signature,owner_r_signature,physican_signature,mapped,text,False,0,
+MSC New Client Form Template,Date,date,patient_dob,mapped,text,False,0,
+MSC New Client Form Template,Please send completed form to,send_completed_form_to,send_completed_form_to,unmapped,text,False,0,ashleyo@mscwoundcare.com
+MSC New Client Form Template,Please contact Ashley at,contact_ashley_at,contact_ashley_at,unmapped,text,False,0,650-669-1100

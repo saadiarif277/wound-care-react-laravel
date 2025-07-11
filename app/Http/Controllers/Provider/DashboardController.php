@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order\ProductRequest;
+use App\Models\Order\Order;
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Notification;
 use Illuminate\Http\Request;
@@ -260,31 +261,24 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get Docuseal documents for episode
+     * Get Docuseal documents for episode using new document relationships
      */
     private function getDocusealDocuments($episode)
     {
-        $documents = [];
-
-        // Add signed document if available
-        if ($episode->docuseal_signed_document_url) {
-            $documents[] = [
-                'id' => 1,
-                'name' => 'Signed IVR Document',
-                'url' => $episode->docuseal_signed_document_url,
-            ];
-        }
-
-        // TODO: Add more documents when Document model is available
-        // $episode->docusealDocuments()->each(function ($doc) use (&$documents) {
-        //     $documents[] = [
-        //         'id' => $doc->id,
-        //         'name' => $doc->name,
-        //         'url' => $doc->url,
-        //     ];
-        // });
-
-        return $documents;
+        return $episode->docusealSubmissions()
+            ->where('status', 'completed')
+            ->get()
+            ->map(function ($submission) {
+                return [
+                    'id' => $submission->id,
+                    'name' => $submission->document_name ?? ($submission->document_type === 'IVR' ? 'IVR Form' : 'Document'),
+                    'filename' => $submission->document_name ?? 'document.pdf',
+                    'url' => route('api.v1.documents.download', $submission->id),
+                    'type' => $submission->document_type,
+                    'completed_at' => $submission->completed_at,
+                ];
+            })
+            ->toArray();
     }
 
     /**

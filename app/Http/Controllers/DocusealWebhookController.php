@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\ProductRequest;
+use App\Models\Order\Order;
+use App\Models\Docuseal\DocusealSubmission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -77,6 +79,7 @@ class DocusealWebhookController extends Controller
     {
         $submissionId = $data['submission']['id'] ?? $data['submission_id'] ?? null;
         $submitterEmail = $data['email'] ?? null;
+        $documents = $data['documents'] ?? [];
 
         if (!$submissionId) {
             Log::warning('Form completed webhook missing submission ID');
@@ -87,60 +90,115 @@ class DocusealWebhookController extends Controller
             'submission_id' => $submissionId,
             'submitter_email' => $submitterEmail,
             'template_name' => $data['template']['name'] ?? 'Unknown',
+            'document_count' => count($documents),
         ]);
 
-        // Extract patient information from the form values
-        $patientInfo = $this->extractPatientInfo($data['values'] ?? []);
+        // Find existing DocuSeal submission record
+        $docusealSubmission = DocusealSubmission::where('docuseal_submission_id', $submissionId)->first();
+        
+        if (!$docusealSubmission) {
+            // Try to find episode by extracted patient info for backwards compatibility
+            $patientInfo = $this->extractPatientInfo($data['values'] ?? []);
+            $episode = $this->findEpisodeByPatientInfo($patientInfo, $data);
+            
+            if (!$episode) {
+                Log::warning('Could not find episode or DocuSeal submission record', [
+                    'submission_id' => $submissionId,
+                    'patient_info' => $patientInfo,
+                ]);
+                return;
+            }
 
-        // Find the episode based on patient information
-        $episode = $this->findEpisodeByPatientInfo($patientInfo, $data);
-
-        if ($episode) {
-            // Determine if this is an IVR or order form based on template name/type
+            // Create submission record if not found (backwards compatibility)
             $templateName = $data['template']['name'] ?? '';
             $isOrderForm = $this->isOrderFormTemplate($templateName, $data);
-
-            if ($isOrderForm) {
-                // Handle order form completion
-                $this->storeOrderFormDocument($episode, $data);
-
-                // Update order form status
-                $episode->update([
-                    'order_form_status' => 'completed',
-                    'order_form_submission_id' => $submissionId,
-                    'order_form_completed_at' => now(),
-                ]);
-
-                Log::info('Episode order form status updated', [
-                    'episode_id' => $episode->id,
-                    'submission_id' => $submissionId,
+            
+            $docusealSubmission = DocusealSubmission::create([
+                'order_id' => $episode->orders->first()?->id,
+                'docuseal_submission_id' => $submissionId,
+                'docuseal_template_id' => $data['template']['id'] ?? null,
+                'document_type' => $isOrderForm ? 'OrderForm' : 'IVR',
+                'status' => 'pending',
+                'folder_id' => $data['template']['folder_name'] ?? 'Default',
+                'metadata' => [
                     'template_name' => $templateName,
-                ]);
-            } else {
-                // Handle IVR completion (existing logic)
-                $this->storeIVRDocument($episode, $data);
-
-                // Update episode status if it's waiting for IVR
-                if ($episode->status === 'ready_for_review' && $episode->ivr_status !== 'provider_completed') {
-                    $episode->update([
-                        'ivr_status' => 'provider_completed',
-                        'docuseal_submission_id' => $submissionId,
-                        'docuseal_status' => 'completed',
-                        'docuseal_signed_at' => now(),
-                    ]);
-
-                    Log::info('Episode IVR status updated', [
-                        'episode_id' => $episode->id,
-                        'submission_id' => $submissionId,
-                    ]);
-                }
-            }
-        } else {
-            Log::warning('Could not find episode for completed IVR', [
-                'submission_id' => $submissionId,
-                'patient_info' => $patientInfo,
+                    'submitter_email' => $submitterEmail,
+                ]
             ]);
         }
+
+        // Update submission with completion data
+        $documentUrl = !empty($documents) ? $documents[0]['url'] : null;
+        
+        $docusealSubmission->update([
+            'status' => 'completed',
+            'document_url' => $documentUrl,
+            'completed_at' => now(),
+            'metadata' => array_merge($docusealSubmission->metadata ?? [], [
+                'completed_at' => now()->toIso8601String(),
+                'documents' => $documents,
+                'audit_log_url' => $data['audit_log_url'] ?? null,
+                'form_values' => $data['values'] ?? [],
+                'submitter_info' => [
+                    'email' => $submitterEmail,
+                    'ip' => $data['ip'] ?? null,
+                    'user_agent' => $data['ua'] ?? null,
+                ]
+            ])
+        ]);
+
+        // Update episode status based on document type
+        $episode = $docusealSubmission->order?->episode ?? PatientManufacturerIVREpisode::find($docusealSubmission->order?->episode_id);
+        
+        if ($episode && $docusealSubmission->document_type === 'IVR') {
+            $this->updateEpisodeIVRStatus($episode, $docusealSubmission);
+        } elseif ($episode && $docusealSubmission->document_type === 'OrderForm') {
+            $this->updateEpisodeOrderFormStatus($episode, $docusealSubmission);
+        }
+
+        Log::info('Document completion processed successfully', [
+            'submission_id' => $submissionId,
+            'document_type' => $docusealSubmission->document_type,
+            'episode_id' => $episode?->id,
+            'document_url' => $documentUrl,
+        ]);
+    }
+
+    /**
+     * Update episode IVR status when IVR document is completed
+     */
+    private function updateEpisodeIVRStatus(PatientManufacturerIVREpisode $episode, DocusealSubmission $submission): void
+    {
+        if ($episode->status === 'ready_for_review' && $episode->ivr_status !== 'provider_completed') {
+            $episode->update([
+                'ivr_status' => 'provider_completed',
+                'docuseal_submission_id' => $submission->docuseal_submission_id,
+                'docuseal_status' => 'completed',
+                'completed_at' => now(),
+            ]);
+
+            Log::info('Episode IVR status updated', [
+                'episode_id' => $episode->id,
+                'submission_id' => $submission->docuseal_submission_id,
+            ]);
+        }
+    }
+
+    /**
+     * Update episode order form status when order form is completed  
+     */
+    private function updateEpisodeOrderFormStatus(PatientManufacturerIVREpisode $episode, DocusealSubmission $submission): void
+    {
+        $episode->update([
+            'order_form_status' => 'completed',
+            'order_form_submission_id' => $submission->docuseal_submission_id,
+            'order_form_completed_at' => now(),
+        ]);
+
+        Log::info('Episode order form status updated', [
+            'episode_id' => $episode->id,
+            'submission_id' => $submission->docuseal_submission_id,
+        ]);
     }
 
     /**

@@ -38,6 +38,7 @@ class ClinicalContextBuilderService
                 'patient_id' => $patientId,
                 'timestamp' => now()->toISOString(),
                 'demographics' => $this->getPatientDemographics($patientId),
+                'practitioner' => $this->fhirService->getLinkedPractitioner($patientId) ?? [],
                 'clinical_data' => $this->getClinicalData($patientId),
                 'care_history' => $this->getCareHistory($patientId),
                 'risk_factors' => $this->calculateRiskFactors($patientId),
@@ -45,6 +46,13 @@ class ClinicalContextBuilderService
                 'care_gaps' => $this->identifyCareGaps($patientId),
                 'quality_metrics' => $this->getQualityMetrics($patientId)
             ];
+
+            Log::info('Practitioner data in context', [
+                'patient_id' => $patientId,
+                'name' => $context['practitioner']['name'][0]['text'] ?? 'missing',
+                'npi' => collect($context['practitioner']['identifier'] ?? [])->firstWhere('system', 'http://hl7.org/fhir/sid/us-npi')['value'] ?? 'missing',
+                'has_data' => !empty($context['practitioner']),
+            ]);
 
             // Add order-specific context if provided
             if (isset($options['order_id'])) {

@@ -45,7 +45,7 @@ class ProcessFormWithAI extends Command
 
         // Get Python executable and venv path from config
         $pythonExec = config('services.python.executable', env('PYTHON_EXECUTABLE', 'python3'));
-        $venvPath = config('services.python.venv_path', env('PYTHON_VENV_PATH', './venv'));
+        $venvPath = config('services.python.venv_path', env('PYTHON_VENV_PATH', './Scripts/.venv'));
         
         // Use venv Python if available
         $venvPython = base_path("{$venvPath}/bin/python");

@@ -19,6 +19,9 @@ use App\Logging\PhiSafeLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Exception;
+use App\Services\CanonicalFieldService;
+use App\Services\FhirService;
+use Illuminate\Support\Facades\Log;
 
 class QuickRequestOrchestrator
 {
@@ -32,10 +35,12 @@ class QuickRequestOrchestrator
         protected FhirToIvrFieldMapper $fhirMapper,
         protected OptimizedMedicalAiService $optimizedMedicalAi,
         protected PhiSafeLogger $logger,
-        protected ?FieldMappingMetricsService $metricsService = null
+        protected ?FieldMappingMetricsService $metricsService = null,
+        protected ?CanonicalFieldService $canonicalFieldService = null
     ) {
-        // Initialize metrics service if not provided
+        // Initialize services if not provided
         $this->metricsService = $metricsService ?? app(FieldMappingMetricsService::class);
+        $this->canonicalFieldService = $canonicalFieldService ?? app(CanonicalFieldService::class);
     }
 
         /**
@@ -52,7 +57,20 @@ class QuickRequestOrchestrator
 
             // Step 2: Create or find provider in FHIR
             $providerFhirId = $this->providerHandler->createOrUpdateProvider($data['provider']);
-
+            
+            // Link practitioner to patient if not already linked
+            $fhirService = app(FhirService::class);
+            $patient = $fhirService->getPatientById($patientFhirId);
+            if ($patient && empty($patient['generalPractitioner'])) {
+                $patient['generalPractitioner'] = [
+                    [
+                        'reference' => "Practitioner/{$providerFhirId}"
+                    ]
+                ];
+                $fhirService->updatePatient($patientFhirId, $patient);
+                Log::debug('Linked practitioner to patient', ['patient_id' => $patientFhirId, 'practitioner_id' => $providerFhirId]);
+            }
+            
             // Step 3: Create or find organization in FHIR (using organization data, not facility data)
             $organizationFhirId = $this->providerHandler->createOrUpdateOrganization($data['organization'] ?? $data['facility']);
 
@@ -521,6 +539,37 @@ class QuickRequestOrchestrator
             // Use FhirToIvrFieldMapper to extract comprehensive data
             $aggregatedData = $this->fhirMapper->extractDataFromFhir($fhirIds, $metadata);
             
+            // Insurance fallback from metadata if not in FHIR data
+            if (empty($aggregatedData['primary_insurance_name']) && isset($metadata['insurance_data'])) {
+                Log::debug('Using insurance fallback from metadata', ['episode_id' => $episode->id]);
+                $insuranceData = $metadata['insurance_data'];
+                
+                // Handle both array and object formats
+                if (isset($insuranceData[0])) {  // Array format
+                    foreach ($insuranceData as $policy) {
+                        $policyType = $policy['policy_type'] ?? '';
+                        if ($policyType === 'primary') {
+                            $aggregatedData['primary_insurance_name'] = $policy['payer_name'] ?? '';
+                            $aggregatedData['primary_member_id'] = $policy['member_id'] ?? '';
+                            $aggregatedData['insurance_name'] = $policy['payer_name'] ?? '';
+                            $aggregatedData['insurance_member_id'] = $policy['member_id'] ?? '';
+                        } elseif ($policyType === 'secondary') {
+                            $aggregatedData['secondary_insurance_name'] = $policy['payer_name'] ?? '';
+                            $aggregatedData['secondary_member_id'] = $policy['member_id'] ?? '';
+                        }
+                    }
+                } else {  // Object format
+                    $aggregatedData['primary_insurance_name'] = $insuranceData['primary_name'] ?? '';
+                    $aggregatedData['primary_member_id'] = $insuranceData['primary_member_id'] ?? '';
+                    $aggregatedData['insurance_name'] = $insuranceData['primary_name'] ?? '';
+                    $aggregatedData['insurance_member_id'] = $insuranceData['primary_member_id'] ?? '';
+                    if (!empty($insuranceData['has_secondary_insurance'])) {
+                        $aggregatedData['secondary_insurance_name'] = $insuranceData['secondary_insurance_name'] ?? '';
+                        $aggregatedData['secondary_member_id'] = $insuranceData['secondary_member_id'] ?? '';
+                    }
+                }
+            }
+            
             // Get current user as sales rep/contact
             $currentUser = Auth::user();
             if ($currentUser) {
@@ -640,49 +689,53 @@ class QuickRequestOrchestrator
             // Provider data (from provider profile)
             if (isset($metadata['provider_data'])) {
                 $providerData = $metadata['provider_data'];
-                $aggregatedData['provider_name'] = $providerData['name'] ?? '';
-                $aggregatedData['provider_first_name'] = $providerData['first_name'] ?? '';
-                $aggregatedData['provider_last_name'] = $providerData['last_name'] ?? '';
-                $aggregatedData['provider_npi'] = $providerData['npi'] ?? '';
-                $aggregatedData['provider_email'] = $providerData['email'] ?? '';
-                $aggregatedData['provider_phone'] = $providerData['phone'] ?? '';
-                $aggregatedData['provider_specialty'] = $providerData['specialty'] ?? '';
-                $aggregatedData['provider_credentials'] = $providerData['credentials'] ?? '';
-                $aggregatedData['provider_license_number'] = $providerData['license_number'] ?? '';
-                $aggregatedData['provider_license_state'] = $providerData['license_state'] ?? '';
-                $aggregatedData['provider_dea_number'] = $providerData['dea_number'] ?? '';
-                $aggregatedData['provider_ptan'] = $providerData['ptan'] ?? '';
-                $aggregatedData['provider_tax_id'] = $providerData['tax_id'] ?? '';
-                $aggregatedData['practice_name'] = $providerData['practice_name'] ?? '';
+                
+                // Use CanonicalFieldService for mapping provider fields
+                $aggregatedData['provider_name'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_name', $providerData) ?? $providerData['name'] ?? '';
+                $aggregatedData['provider_first_name'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_first_name', $providerData) ?? $providerData['first_name'] ?? '';
+                $aggregatedData['provider_last_name'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_last_name', $providerData) ?? $providerData['last_name'] ?? '';
+                $aggregatedData['provider_npi'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_npi', $providerData) ?? $providerData['npi'] ?? '';
+                $aggregatedData['provider_email'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_email', $providerData) ?? $providerData['email'] ?? '';
+                $aggregatedData['provider_phone'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_phone', $providerData) ?? $providerData['phone'] ?? '';
+                $aggregatedData['provider_specialty'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_specialty', $providerData) ?? $providerData['specialty'] ?? '';
+                $aggregatedData['provider_credentials'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_credentials', $providerData) ?? $providerData['credentials'] ?? '';
+                $aggregatedData['provider_license_number'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_license_number', $providerData) ?? $providerData['license_number'] ?? '';
+                $aggregatedData['provider_license_state'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_license_state', $providerData) ?? $providerData['license_state'] ?? '';
+                $aggregatedData['provider_dea_number'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_dea_number', $providerData) ?? $providerData['dea_number'] ?? '';
+                $aggregatedData['provider_ptan'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_ptan', $providerData) ?? $providerData['ptan'] ?? '';
+                $aggregatedData['provider_tax_id'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_tax_id', $providerData) ?? $providerData['tax_id'] ?? '';
+                $aggregatedData['practice_name'] = $this->canonicalFieldService->getFieldValue('provider', 'practice_name', $providerData) ?? $providerData['practice_name'] ?? '';
                 
                 // Create physician aliases for DocuSeal compatibility
-                $aggregatedData['physician_name'] = $providerData['name'] ?? '';
-                $aggregatedData['physician_npi'] = $providerData['npi'] ?? '';
-                $aggregatedData['physician_ptan'] = $providerData['ptan'] ?? '';
-                $aggregatedData['physician_specialty'] = $providerData['specialty'] ?? '';
-                $aggregatedData['provider_medicaid'] = $providerData['medicaid_number'] ?? '';
+                $aggregatedData['physician_name'] = $aggregatedData['provider_name'];
+                $aggregatedData['physician_npi'] = $aggregatedData['provider_npi'];
+                $aggregatedData['physician_ptan'] = $aggregatedData['provider_ptan'];
+                $aggregatedData['physician_specialty'] = $aggregatedData['provider_specialty'];
+                $aggregatedData['provider_medicaid'] = $this->canonicalFieldService->getFieldValue('provider', 'provider_medicaid', $providerData) ?? $providerData['medicaid_number'] ?? '';
             }
             
             // Facility data (from selected facility)
             if (isset($metadata['facility_data'])) {
                 $facilityData = $metadata['facility_data'];
-                $aggregatedData['facility_name'] = $facilityData['name'] ?? '';
-                $aggregatedData['facility_address'] = $facilityData['address'] ?? '';
-                $aggregatedData['facility_address_line1'] = $facilityData['address_line1'] ?? '';
-                $aggregatedData['facility_address_line2'] = $facilityData['address_line2'] ?? '';
-                $aggregatedData['facility_city'] = $facilityData['city'] ?? '';
-                $aggregatedData['facility_state'] = $facilityData['state'] ?? '';
-                $aggregatedData['facility_zip_code'] = $facilityData['zip_code'] ?? '';
-                $aggregatedData['facility_phone'] = $facilityData['phone'] ?? '';
-                $aggregatedData['facility_fax'] = $facilityData['fax'] ?? '';
-                $aggregatedData['facility_email'] = $facilityData['email'] ?? '';
-                $aggregatedData['facility_npi'] = $facilityData['npi'] ?? '';
-                $aggregatedData['facility_group_npi'] = $facilityData['group_npi'] ?? '';
-                $aggregatedData['facility_ptan'] = $facilityData['ptan'] ?? '';
-                $aggregatedData['facility_tax_id'] = $facilityData['tax_id'] ?? '';
-                $aggregatedData['facility_type'] = $facilityData['facility_type'] ?? '';
-                $aggregatedData['place_of_service'] = $facilityData['place_of_service'] ?? '';
-                $aggregatedData['facility_medicaid'] = $facilityData['medicaid_number'] ?? '';
+                
+                // Use CanonicalFieldService for mapping facility fields
+                $aggregatedData['facility_name'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_name', $facilityData) ?? $facilityData['name'] ?? '';
+                $aggregatedData['facility_address'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_address', $facilityData) ?? $facilityData['address'] ?? '';
+                $aggregatedData['facility_address_line1'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_address_line1', $facilityData) ?? $facilityData['address_line1'] ?? '';
+                $aggregatedData['facility_address_line2'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_address_line2', $facilityData) ?? $facilityData['address_line2'] ?? '';
+                $aggregatedData['facility_city'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_city', $facilityData) ?? $facilityData['city'] ?? '';
+                $aggregatedData['facility_state'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_state', $facilityData) ?? $facilityData['state'] ?? '';
+                $aggregatedData['facility_zip_code'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_zip_code', $facilityData) ?? $facilityData['zip_code'] ?? '';
+                $aggregatedData['facility_phone'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_phone', $facilityData) ?? $facilityData['phone'] ?? '';
+                $aggregatedData['facility_fax'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_fax', $facilityData) ?? $facilityData['fax'] ?? '';
+                $aggregatedData['facility_email'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_email', $facilityData) ?? $facilityData['email'] ?? '';
+                $aggregatedData['facility_npi'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_npi', $facilityData) ?? $facilityData['npi'] ?? '';
+                $aggregatedData['facility_group_npi'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_group_npi', $facilityData) ?? $facilityData['group_npi'] ?? '';
+                $aggregatedData['facility_ptan'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_ptan', $facilityData) ?? $facilityData['ptan'] ?? '';
+                $aggregatedData['facility_tax_id'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_tax_id', $facilityData) ?? $facilityData['tax_id'] ?? '';
+                $aggregatedData['facility_type'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_type', $facilityData) ?? $facilityData['facility_type'] ?? '';
+                $aggregatedData['place_of_service'] = $this->canonicalFieldService->getFieldValue('facility', 'place_of_service', $facilityData) ?? $facilityData['place_of_service'] ?? '';
+                $aggregatedData['facility_medicaid'] = $this->canonicalFieldService->getFieldValue('facility', 'facility_medicaid', $facilityData) ?? $facilityData['medicaid_number'] ?? '';
                 
                 // Add city_state_zip field for BioWound
                 $aggregatedData['city_state_zip'] = trim(
@@ -803,7 +856,7 @@ class QuickRequestOrchestrator
             }
             
             // Insurance data (from form)
-            if (isset($metadata['insurance_data'])) {
+            if (empty($aggregatedData['primary_insurance_name']) && isset($metadata['insurance_data'])) {
                 $insuranceData = $metadata['insurance_data'];
                 
                 // Handle both array and object formats
@@ -901,6 +954,19 @@ class QuickRequestOrchestrator
                     $aggregatedData['q4267'] = in_array('Q4267', $productCodes);
                     $aggregatedData['q4265'] = in_array('Q4265', $productCodes);
                 }
+            }
+            
+            // Additional manufacturer-specific checkbox mapping for Celularity
+            if ($episode->manufacturer_name === 'Celularity') {
+                $productNames = [];
+                foreach ($metadata['order_details']['products'] ?? [] as $selectedProduct) {
+                    if (isset($selectedProduct['product']['name'])) {
+                        $productNames[] = $selectedProduct['product']['name'];
+                    }
+                }
+                $aggregatedData['biovance'] = in_array('Biovance', $productNames);
+                $aggregatedData['biovance_3l'] = in_array('Biovance 3L', $productNames);
+                $aggregatedData['interfyl'] = in_array('Interfyl', $productNames);
             }
             
             $this->logger->info('Prepared comprehensive Docuseal data from orchestrator', [
@@ -1157,11 +1223,22 @@ class QuickRequestOrchestrator
             // Get base data from orchestrator
             $baseData = $this->prepareDocusealData($episode);
 
-            // Determine manufacturer form ID
-            $manufacturerFormId = $this->getManufacturerFormId($episode);
+            // Explicitly add practitioner data if available
+            if (isset($baseData['practitioner_fhir_id'])) {
+                $practitioner = app(FhirService::class)->getPractitionerById($baseData['practitioner_fhir_id']);
+                if ($practitioner) {
+                    $preFillData = array_merge($baseData, [
+                        'physician_name' => $practitioner['name'][0]['text'] ?? '',
+                        'physician_npi' => collect($practitioner['identifier'] ?? [])->firstWhere('system', 'http://hl7.org/fhir/sid/us-npi')['value'] ?? '',
+                        'physician_address' => $practitioner['address'][0]['text'] ?? '',
+                    ]);
+                }
+            }
+            
+            $docusealTemplateId = $this->getManufacturerFormId($episode);
 
             // Use AI service for enhanced field mapping
-            $aiEnhancedData = $this->callAIServiceForMapping($baseData, $manufacturerFormId, $episode);
+            $aiEnhancedData = $this->callAIServiceForMapping($baseData, $docusealTemplateId, $episode);
 
             // Merge AI enhancements with base data
             $finalData = $this->mergeDataWithAIEnhancements($baseData, $aiEnhancedData);

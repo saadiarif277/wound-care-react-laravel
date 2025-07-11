@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Fragment, useMemo } from 'react';
+import React, { useEffect, useState, Fragment, useMemo, useCallback } from 'react';
 import { Head } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { Dialog, Transition } from '@headlessui/react';
@@ -12,9 +12,9 @@ import {
   CheckSquare, AlertTriangle, Info, MapIcon,
   MapPin, GitBranch, Wand2, FileCheck, ArrowLeftRight,
   Layers, Target, Sparkles, ClipboardCheck, FileJson,
-  Activity, Shield, Brain, Workflow
+  Activity, Shield, Brain, Workflow, Grid, List,
+  Moon, Sun, Loader2, Check
 } from 'lucide-react';
-// import { FieldMappingInterface } from '@/Components/Admin/Docuseal/FieldMappingInterface';
 import { MappingStatsDashboard } from '@/Components/Admin/DocuSeal/MappingStatsDashboard';
 import { BulkMappingModal } from '@/Components/Admin/DocuSeal/BulkMappingModal';
 import { ValidationReportModal } from '@/Components/Admin/DocuSeal/ValidationReportModal';
@@ -51,7 +51,6 @@ interface Template {
   last_extracted_at?: string;
   created_at: string;
   updated_at: string;
-  // Computed metrics
   field_coverage_percentage?: number;
   submission_count?: number;
   success_rate?: number;
@@ -74,13 +73,13 @@ interface SyncStatus {
   errors: number;
 }
 
-// Main Component
 export default function Templates() {
   // Core state
   const [templates, setTemplates] = useState<Template[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [darkMode, setDarkMode] = useState(false);
 
   // Sync state
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
@@ -95,15 +94,15 @@ export default function Templates() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedManufacturer, setSelectedManufacturer] = useState<string>('all');
   const [selectedDocType, setSelectedDocType] = useState<string>('all');
-  const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [filter, setFilter] = useState<string>('all');
 
   // Modal state
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
 
-  // Mapping-specific state
+  // Intelligence/Mapping state
   const [mappingMode, setMappingMode] = useState<'view' | 'edit'>('view');
   const [selectedTemplateForMapping, setSelectedTemplateForMapping] = useState<Template | null>(null);
   const [showMappingModal, setShowMappingModal] = useState(false);
@@ -117,6 +116,10 @@ export default function Templates() {
   const [importExportTemplate, setImportExportTemplate] = useState<Template | null>(null);
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false);
   const [selectedTemplateForAI, setSelectedTemplateForAI] = useState<Template | null>(null);
+  
+  // Manufacturer section expansion state
+  const [expandedManufacturers, setExpandedManufacturers] = useState<Record<string, boolean>>({});
+  const [expandAll, setExpandAll] = useState(false);
 
   // Computed values
   const manufacturers = useMemo(() => {
@@ -141,23 +144,50 @@ export default function Templates() {
       const matchesDocType = selectedDocType === 'all' ||
         template.document_type === selectedDocType;
 
-      return matchesSearch && matchesManufacturer && matchesDocType;
-    });
-  }, [templates, searchTerm, selectedManufacturer, selectedDocType]);
+      const matchesFilter = filter === 'all' || 
+        (filter === 'active' && template.is_active) ||
+        (filter === 'inactive' && !template.is_active) ||
+        (filter === 'needs_attention' && (template.field_coverage_percentage || 0) < 70);
 
-  // Group templates by manufacturer for grid view
-  const groupedTemplates = useMemo(() => {
-    const groups: Record<string, Template[]> = {};
-    filteredTemplates.forEach(template => {
-      const mfg = template.manufacturer?.name || 'Unknown';
-      if (!groups[mfg]) groups[mfg] = [];
-      groups[mfg].push(template);
+      return matchesSearch && matchesManufacturer && matchesDocType && matchesFilter;
     });
-    return groups;
+  }, [templates, searchTerm, selectedManufacturer, selectedDocType, filter]);
+
+  // Group templates by manufacturer
+  const templatesByManufacturer = useMemo(() => {
+    const grouped = filteredTemplates.reduce((acc, template) => {
+      const manufacturerName = template.manufacturer?.name || 'Unassigned';
+      if (!acc[manufacturerName]) {
+        acc[manufacturerName] = [];
+      }
+      acc[manufacturerName].push(template);
+      return acc;
+    }, {} as Record<string, Template[]>);
+    
+    // Sort manufacturers alphabetically, but put 'Unassigned' at the end
+    const sortedManufacturers = Object.keys(grouped).sort((a, b) => {
+      if (a === 'Unassigned') return 1;
+      if (b === 'Unassigned') return -1;
+      return a.localeCompare(b);
+    });
+    
+    return sortedManufacturers.map(manufacturerName => ({
+      name: manufacturerName,
+      templates: grouped[manufacturerName],
+      stats: {
+        totalTemplates: grouped[manufacturerName].length,
+        activeTemplates: grouped[manufacturerName].filter(t => t.is_active).length,
+        avgCoverage: Math.round(
+          grouped[manufacturerName].reduce((sum, t) => sum + (t.field_coverage_percentage || 0), 0) / 
+          grouped[manufacturerName].length
+        ),
+        needsAttention: grouped[manufacturerName].filter(t => (t.field_coverage_percentage || 0) < 70).length
+      }
+    }));
   }, [filteredTemplates]);
 
   // API Functions
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -165,7 +195,6 @@ export default function Templates() {
       setTemplates(response.data.templates || []);
       setStats(response.data.stats);
 
-      // Update sync status if available
       if (response.data.sync_status) {
         setSyncStatus(response.data.sync_status);
       }
@@ -174,16 +203,16 @@ export default function Templates() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const syncTemplates = async (force = false) => {
+  const syncTemplates = useCallback(async (force = false) => {
     setSyncStatus(prev => ({ ...prev, is_syncing: true }));
     setError(null);
 
     try {
       const response = await axios.post('/api/v1/admin/docuseal/sync', {
         force,
-        queue: true // Use queue for large syncs
+        queue: true
       });
 
       if (response.data.success) {
@@ -195,67 +224,24 @@ export default function Templates() {
           errors: response.data.errors || 0
         });
 
-        // Refresh templates after sync
         await fetchTemplates();
       }
     } catch (e: any) {
       setError(e.response?.data?.message || 'Sync failed');
       setSyncStatus(prev => ({ ...prev, is_syncing: false }));
     }
-  };
+  }, [fetchTemplates]);
 
-  const testSync = async () => {
-    try {
-      const response = await axios.post('/api/v1/admin/docuseal/test-sync');
-      alert(`Sync Test Results:\n${response.data.message}`);
-    } catch (e: any) {
-      alert(`Test failed: ${e.response?.data?.message || e.message}`);
-    }
-  };
-
-  // Helper Functions
-  const getTemplateStatusColor = (template: Template) => {
-    const coverage = template.field_coverage_percentage || 0;
-    if (coverage >= 90) return 'text-green-600 bg-green-50 border-green-200';
-    if (coverage >= 70) return 'text-blue-600 bg-blue-50 border-blue-200';
-    if (coverage >= 50) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-    return 'text-red-600 bg-red-50 border-red-200';
-  };
-
-  const getTemplateStatusText = (template: Template) => {
-    if (!template.is_active) return 'Inactive';
-
-    const coverage = template.field_coverage_percentage || 0;
-    const fieldCount = Object.keys(template.field_mappings || {}).length;
-
-    if (fieldCount === 0) return 'Not Configured';
-    if (coverage >= 90) return 'Excellent';
-    if (coverage >= 70) return 'Good';
-    if (coverage >= 50) return 'Fair';
-    return 'Needs Work';
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Mapping-related functions
-  const fetchCanonicalFields = async () => {
+  const fetchCanonicalFields = useCallback(async () => {
     try {
       const response = await axios.get('/api/v1/admin/docuseal/canonical-fields');
       setCanonicalFields(response.data.fields || []);
     } catch (error) {
       console.error('Failed to load canonical fields:', error);
     }
-  };
+  }, []);
 
-  const fetchMappingStats = async (templateIds: string[]) => {
+  const fetchMappingStats = useCallback(async (templateIds: string[]) => {
     try {
       const stats: Record<string, MappingStatistics> = {};
       await Promise.all(
@@ -264,7 +250,6 @@ export default function Templates() {
             const response = await axios.get(`/api/v1/admin/docuseal/templates/${id}/mapping-stats`);
             stats[id] = response.data;
           } catch (err) {
-            // Handle individual template errors without failing all
             console.warn(`Failed to load mapping stats for template ${id}:`, err);
             stats[id] = {
               totalFields: 0,
@@ -277,11 +262,7 @@ export default function Templates() {
               coveragePercentage: 0,
               requiredCoveragePercentage: 0,
               highConfidenceCount: 0,
-              validationStatus: {
-                valid: 0,
-                warning: 0,
-                error: 0
-              },
+              validationStatus: { valid: 0, warning: 0, error: 0 },
               lastUpdated: null,
               lastUpdatedBy: null
             };
@@ -292,21 +273,14 @@ export default function Templates() {
     } catch (error) {
       console.error('Failed to load mapping statistics:', error);
     }
-  };
+  }, []);
 
-  const openMappingInterface = (template: Template) => {
-    setSelectedTemplateForMapping(template);
-    setShowMappingModal(true);
-    setMappingMode('edit');
-  };
-
-  const handleMappingUpdate = async (templateId: string) => {
-    // Refresh stats after mapping changes
+  const handleMappingUpdate = useCallback(async (templateId: string) => {
     await fetchMappingStats([templateId]);
     await fetchTemplates();
-  };
+  }, [fetchMappingStats, fetchTemplates]);
 
-  const validateTemplate = async (template: Template) => {
+  const validateTemplate = useCallback(async (template: Template) => {
     try {
       const response = await axios.post(
         `/api/v1/admin/docuseal/templates/${template.id}/field-mappings/validate`
@@ -317,226 +291,485 @@ export default function Templates() {
     } catch (error) {
       console.error('Failed to validate template:', error);
     }
+  }, []);
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getStatusColor = (template: Template) => {
+    const coverage = template.field_coverage_percentage || 0;
+    if (coverage >= 90) return 'bg-green-500';
+    if (coverage >= 70) return 'bg-blue-500';
+    if (coverage >= 50) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getStatusText = (template: Template) => {
+    if (!template.is_active) return 'Inactive';
+    const coverage = template.field_coverage_percentage || 0;
+    const fieldCount = Object.keys(template.field_mappings || {}).length;
+    
+    if (fieldCount === 0) return 'Not Configured';
+    if (coverage >= 90) return 'Excellent';
+    if (coverage >= 70) return 'Good';
+    if (coverage >= 50) return 'Fair';
+    return 'Needs Work';
+  };
+
+  // Manufacturer section helper functions
+  const toggleManufacturer = (manufacturerName: string) => {
+    setExpandedManufacturers(prev => ({
+      ...prev,
+      [manufacturerName]: !prev[manufacturerName]
+    }));
+  };
+
+  const toggleExpandAll = () => {
+    const newExpandAll = !expandAll;
+    setExpandAll(newExpandAll);
+    
+    const newExpanded: Record<string, boolean> = {};
+    templatesByManufacturer.forEach(({ name }) => {
+      newExpanded[name] = newExpandAll;
+    });
+    setExpandedManufacturers(newExpanded);
+  };
+
+  const isManufacturerExpanded = (manufacturerName: string) => {
+    return expandedManufacturers[manufacturerName] ?? false;
+  };
+
+  // Stats Component
+  const StatCard = ({ icon: Icon, label, value, color }: any) => (
+    <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 border ${darkMode ? 'border-gray-700' : 'border-gray-200'} hover:scale-105 transition-transform`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{label}</p>
+          <p className="text-3xl font-bold mt-2">{value}</p>
+        </div>
+        <div className={`p-3 rounded-lg ${color}`}>
+          <Icon className="w-6 h-6" />
+        </div>
+      </div>
+    </div>
+  );
+
+  // Manufacturer Section Component
+  const ManufacturerSection = ({ 
+    name, 
+    templates, 
+    stats, 
+    isExpanded, 
+    onToggle 
+  }: { 
+    name: string; 
+    templates: Template[]; 
+    stats: any; 
+    isExpanded: boolean; 
+    onToggle: () => void;
+  }) => {
+    // Group templates by document type for better organization
+    const templatesByType = templates.reduce((acc, template) => {
+      const type = template.document_type;
+      if (!acc[type]) {
+        acc[type] = [];
+      }
+      acc[type].push(template);
+      return acc;
+    }, {} as Record<string, Template[]>);
+
+    // Get folder info from first template with extraction metadata
+    const folderInfo = templates.find(t => t.extraction_metadata?.folder_info)?.extraction_metadata?.folder_info;
+
+    return (
+      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl border ${darkMode ? 'border-gray-700' : 'border-gray-200'} overflow-hidden`}>
+        <div 
+          className={`p-6 cursor-pointer ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors`}
+          onClick={onToggle}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`p-2 rounded-lg ${name === 'Unassigned' ? 'bg-gray-500' : 'bg-blue-500'} bg-opacity-20`}>
+                {name === 'Unassigned' ? (
+                  <AlertTriangle className={`w-6 h-6 ${name === 'Unassigned' ? 'text-gray-500' : 'text-blue-500'}`} />
+                ) : (
+                  <Package className={`w-6 h-6 ${name === 'Unassigned' ? 'text-gray-500' : 'text-blue-500'}`} />
+                )}
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold">{name}</h3>
+                <div className="flex items-center gap-4">
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {stats.totalTemplates} templates • {stats.activeTemplates} active
+                  </p>
+                  {folderInfo && (
+                    <span className={`text-xs px-2 py-1 rounded-full ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                      Folder: {folderInfo.folder_name}
+                    </span>
+                  )}
+                </div>
+                {/* Show template types summary */}
+                <div className="flex items-center gap-2 mt-1">
+                  {Object.entries(templatesByType).map(([type, typeTemplates]) => (
+                    <span 
+                      key={type} 
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        type === 'InsuranceVerification' || type === 'IVR'
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                          : type === 'OrderForm'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300'
+                      }`}
+                    >
+                      {type === 'InsuranceVerification' ? 'IVR' : type} ({typeTemplates.length})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-lg font-semibold text-blue-500">{stats.avgCoverage}%</div>
+                  <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Avg Coverage</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-green-500">{stats.activeTemplates}</div>
+                  <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Active</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-red-500">{stats.needsAttention}</div>
+                  <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Need Work</div>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  stats.avgCoverage >= 80 
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
+                    : stats.avgCoverage >= 60 
+                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' 
+                    : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                }`}>
+                  {stats.avgCoverage >= 80 ? 'Excellent' : stats.avgCoverage >= 60 ? 'Good' : 'Needs Work'}
+                </div>
+                {isExpanded ? (
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                ) : (
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {isExpanded && (
+          <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} p-6`}>
+            {/* Group templates by type for better organization */}
+            <div className="space-y-6">
+              {Object.entries(templatesByType).map(([type, typeTemplates]) => (
+                <div key={type}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className={`p-2 rounded-lg ${
+                      type === 'InsuranceVerification' || type === 'IVR'
+                        ? 'bg-blue-500 bg-opacity-20'
+                        : type === 'OrderForm'
+                        ? 'bg-green-500 bg-opacity-20'
+                        : 'bg-gray-500 bg-opacity-20'
+                    }`}>
+                      {type === 'InsuranceVerification' || type === 'IVR' ? (
+                        <FileCheck className={`w-5 h-5 ${
+                          type === 'InsuranceVerification' || type === 'IVR' ? 'text-blue-500' : 'text-gray-500'
+                        }`} />
+                      ) : type === 'OrderForm' ? (
+                        <ClipboardCheck className="w-5 h-5 text-green-500" />
+                      ) : (
+                        <FileText className="w-5 h-5 text-gray-500" />
+                      )}
+                    </div>
+                    <h4 className="text-lg font-semibold">
+                      {type === 'InsuranceVerification' ? 'IVR Templates' : `${type} Templates`}
+                    </h4>
+                    <span className={`text-sm px-2 py-1 rounded-full ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                      {typeTemplates.length}
+                    </span>
+                  </div>
+                  
+                  <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+                    {typeTemplates.map(template => (
+                      <TemplateCard key={template.id} template={template} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Template Card Component
+  const TemplateCard = ({ template }: { template: Template }) => {
+    const statusColor = getStatusColor(template);
+    const statusText = getStatusText(template);
+    const coverage = template.field_coverage_percentage || 0;
+
+    return (
+      <div 
+        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 border ${darkMode ? 'border-gray-700' : 'border-gray-200'} hover:shadow-xl transition-all cursor-pointer group relative`}
+        onClick={() => {
+          setSelectedTemplate(template);
+          setShowDetailsModal(true);
+        }}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-500 bg-opacity-20 rounded-lg">
+              <FileText className="w-6 h-6 text-blue-500" />
+            </div>
+            {template.is_default && (
+              <div className="p-1 bg-yellow-500 bg-opacity-20 rounded-full">
+                <Star className="w-4 h-4 text-yellow-500 fill-current" />
+              </div>
+            )}
+          </div>
+          <div className={`px-3 py-1 rounded-full ${statusColor} bg-opacity-20 flex items-center gap-1`}>
+            <div className={`w-2 h-2 rounded-full ${statusColor}`} />
+            <span className={`text-xs font-semibold ${statusColor.replace('bg-', 'text-')}`}>
+              {statusText.toUpperCase()}
+            </span>
+          </div>
+        </div>
+        
+        <h3 className="font-semibold text-lg mb-2 line-clamp-2">{template.template_name}</h3>
+        
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              {template.manufacturer?.name || 'Unknown'}
+            </span>
+            <span className={`text-xs px-2 py-1 rounded-full ${
+              template.document_type === 'InsuranceVerification' || template.document_type === 'IVR'
+                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                : template.document_type === 'OrderForm'
+                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                : 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300'
+            }`}>
+              {template.document_type === 'InsuranceVerification' ? 'IVR' : template.document_type}
+            </span>
+          </div>
+          
+          <div className="flex items-center justify-between text-xs">
+            <span className={`font-mono ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              ID: {template.docuseal_template_id}
+            </span>
+            <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>
+              {formatDate(template.updated_at)}
+            </span>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Field Coverage</span>
+              <span className="font-semibold">{coverage}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all ${statusColor}`}
+                style={{ width: `${coverage}%` }}
+              />
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>{Object.keys(template.field_mappings || {}).length} fields</span>
+          </div>
+        </div>
+
+        {/* Intelligence Actions */}
+        {mappingMode === 'edit' && (
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+            <div className="flex gap-2">
+              <button
+                onClick={() => validateTemplate(template)}
+                className="flex-1 px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                title="Validate Mappings"
+              >
+                <Shield className="w-4 h-4" />
+                Validate
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedTemplateForAI(template);
+                  setShowAIAnalyzer(true);
+                }}
+                className="flex-1 px-3 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white text-sm rounded-lg hover:from-purple-600 hover:to-blue-600 transition-colors flex items-center justify-center gap-2"
+                title="AI Analysis"
+              >
+                <Brain className="w-4 h-4" />
+                AI Analyze
+              </button>
+            </div>
+          </div>
+        )}
+
+        <ChevronRight className="w-5 h-5 absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+    );
   };
 
   useEffect(() => {
     fetchTemplates();
     fetchCanonicalFields();
-  }, []);
+  }, [fetchTemplates, fetchCanonicalFields]);
 
   useEffect(() => {
     if (templates.length > 0 && mappingMode === 'edit') {
       const templateIds = templates.map(t => t.id);
       fetchMappingStats(templateIds);
     }
-  }, [templates, mappingMode]);
+  }, [templates, mappingMode, fetchMappingStats]);
 
   return (
     <MainLayout>
-      <Head title="Docuseal Templates" />
+      <Head title="DocuSeal Templates" />
 
-      <div className="min-h-screen bg-gray-50">
+      <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} transition-colors`}>
         {/* Header */}
-        <div className="bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="py-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Docuseal Templates</h1>
-                  <p className="mt-2 text-gray-600">
-                    Manage manufacturer IVR forms and automation templates
-                  </p>
+        <header className={`${darkMode ? 'bg-gray-800' : 'bg-white'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-500 rounded-lg">
+                  <FileText className="w-6 h-6 text-white" />
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowSyncModal(true)}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
-                  >
-                    <Settings className="w-4 h-4" />
-                    Sync Options
-                  </button>
-
-                  <button
-                    onClick={testSync}
-                    className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
-                  >
-                    <Zap className="w-4 h-4" />
-                    Test Sync
-                  </button>
-
-                  <button
-                    onClick={() => syncTemplates(false)}
-                    disabled={syncStatus.is_syncing}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {syncStatus.is_syncing ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Syncing...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4" />
-                        Sync Templates
-                      </>
-                    )}
-                  </button>
-
-                  {/* Mapping Controls */}
-                  <div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-300">
-                    <button
-                      onClick={() => setMappingMode(mappingMode === 'view' ? 'edit' : 'view')}
-                      className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors flex items-center gap-2"
-                    >
-                      <MapIcon className="w-4 h-4" />
-                      {mappingMode === 'view' ? 'Edit Mappings' : 'View Mode'}
-                    </button>
-
-                    {mappingMode === 'edit' && (
-                      <>
-                        <button
-                          onClick={() => {
-                            const firstTemplate = filteredTemplates[0];
-                            if (firstTemplate) {
-                              setBulkMappingTemplateId(firstTemplate.id);
-                              setShowBulkMappingModal(true);
-                            }
-                          }}
-                          className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2"
-                        >
-                          <Layers className="w-4 h-4" />
-                          Bulk Operations
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            const firstTemplate = filteredTemplates[0];
-                            if (firstTemplate) {
-                              setImportExportTemplate(firstTemplate);
-                              setShowImportExportModal(true);
-                            }
-                          }}
-                         className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors flex items-center gap-2"
-                        >
-                          <FileJson className="w-4 h-4" />
-                          Import/Export
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setShowAIAnalyzer(true);
-                          }}
-                          className="px-4 py-2 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 rounded-lg hover:from-purple-200 hover:to-blue-200 transition-colors flex items-center gap-2"
-                        >
-                          <Brain className="w-4 h-4" />
-                          AI Analyzer
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
+                <h1 className="text-2xl font-bold">DocuSeal Templates</h1>
+                <span className="px-3 py-1 bg-blue-500 bg-opacity-20 text-blue-500 rounded-full text-xs font-semibold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  AI-Powered
+                </span>
               </div>
+              
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
+                >
+                  {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
+                
+                <button
+                  onClick={() => setMappingMode(mappingMode === 'view' ? 'edit' : 'view')}
+                  className={`px-4 py-2 ${mappingMode === 'edit' ? 'bg-purple-500 text-white' : 'bg-purple-100 text-purple-700 dark:bg-purple-800 dark:text-purple-200'} rounded-lg hover:bg-purple-600 hover:text-white transition-colors flex items-center gap-2`}
+                >
+                  <Brain className="w-4 h-4" />
+                  {mappingMode === 'view' ? 'Enable Intelligence' : 'Intelligence Active'}
+                </button>
 
-              {/* Stats Dashboard */}
-              {stats && (
-                <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-6">
-                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                    <div className="flex items-center">
-                      <FileText className="w-8 h-8 text-blue-600" />
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-blue-900">Total Templates</p>
-                        <p className="text-2xl font-bold text-blue-600">{stats.total_templates}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-green-50 rounded-xl p-4 border border-green-100">
-                    <div className="flex items-center">
-                      <CheckCircle2 className="w-8 h-8 text-green-600" />
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-green-900">Active</p>
-                        <p className="text-2xl font-bold text-green-600">{stats.active_templates}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
-                    <div className="flex items-center">
-                      <Package className="w-8 h-8 text-purple-600" />
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-purple-900">Manufacturers</p>
-                        <p className="text-2xl font-bold text-purple-600">{stats.manufacturers_covered}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100">
-                    <div className="flex items-center">
-                      <BarChart3 className="w-8 h-8 text-yellow-600" />
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-yellow-900">Avg Coverage</p>
-                        <p className="text-2xl font-bold text-yellow-600">{stats.avg_field_coverage}%</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-                    <div className="flex items-center">
-                      <TrendingUp className="w-8 h-8 text-indigo-600" />
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-indigo-900">Submissions</p>
-                        <p className="text-2xl font-bold text-indigo-600">{stats.total_submissions}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-red-50 rounded-xl p-4 border border-red-100">
-                    <div className="flex items-center">
-                      <AlertTriangle className="w-8 h-8 text-red-600" />
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-red-900">Need Attention</p>
-                        <p className="text-2xl font-bold text-red-600">{stats.templates_needing_attention}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Mapping Stats Dashboard */}
-              {mappingMode === 'edit' && stats && (
-                <MappingStatsDashboard
-                  templates={templates}
-                  mappingStats={mappingStats}
-                  canonicalFields={canonicalFields}
-                />
-              )}
+                <button
+                  onClick={() => syncTemplates(false)}
+                  disabled={syncStatus.is_syncing}
+                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {syncStatus.is_syncing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      Sync Templates
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* Filters and Search */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+        {/* Stats Section */}
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {stats && (
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
+              <StatCard 
+                icon={FileText} 
+                label="Total Templates" 
+                value={stats.total_templates} 
+                color="bg-blue-500 bg-opacity-20 text-blue-500" 
+              />
+              <StatCard 
+                icon={CheckCircle2} 
+                label="Active" 
+                value={stats.active_templates} 
+                color="bg-green-500 bg-opacity-20 text-green-500" 
+              />
+              <StatCard 
+                icon={Package} 
+                label="Manufacturers" 
+                value={stats.manufacturers_covered} 
+                color="bg-purple-500 bg-opacity-20 text-purple-500" 
+              />
+              <StatCard 
+                icon={BarChart3} 
+                label="Avg Coverage" 
+                value={`${stats.avg_field_coverage}%`} 
+                color="bg-yellow-500 bg-opacity-20 text-yellow-500" 
+              />
+              <StatCard 
+                icon={TrendingUp} 
+                label="Submissions" 
+                value={stats.total_submissions} 
+                color="bg-indigo-500 bg-opacity-20 text-indigo-500" 
+              />
+              <StatCard 
+                icon={AlertTriangle} 
+                label="Need Attention" 
+                value={stats.templates_needing_attention} 
+                color="bg-red-500 bg-opacity-20 text-red-500" 
+              />
+            </div>
+          )}
+
+          {/* Intelligence Stats Dashboard */}
+          {mappingMode === 'edit' && stats && (
+            <div className="mb-8">
+              <MappingStatsDashboard
+                templates={templates}
+                mappingStats={mappingStats}
+                canonicalFields={canonicalFields}
+              />
+            </div>
+          )}
+
+          {/* Controls */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 border ${darkMode ? 'border-gray-700' : 'border-gray-200'} mb-8`}>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              {/* Search */}
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search templates..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {/* Filters */}
-              <div className="flex items-center gap-3">
-                <select
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search templates..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`pl-10 pr-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'} border focus:outline-none focus:border-blue-500`}
+                  />
+                </div>
+                
+                <select 
                   value={selectedManufacturer}
                   onChange={(e) => setSelectedManufacturer(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'} border focus:outline-none focus:border-blue-500`}
                 >
                   <option value="all">All Manufacturers</option>
                   {manufacturers.map(mfg => (
@@ -544,10 +777,10 @@ export default function Templates() {
                   ))}
                 </select>
 
-                <select
+                <select 
                   value={selectedDocType}
                   onChange={(e) => setSelectedDocType(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'} border focus:outline-none focus:border-blue-500`}
                 >
                   <option value="all">All Types</option>
                   {documentTypes.map(type => (
@@ -555,55 +788,69 @@ export default function Templates() {
                   ))}
                 </select>
 
-                {/* View Mode Toggle */}
-                <div className="flex rounded-lg border border-gray-300 p-1">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-2 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                    <Package className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-2 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                    <FileText className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Active Filters Display */}
-            {(searchTerm || selectedManufacturer !== 'all' || selectedDocType !== 'all') && (
-              <div className="mt-3 flex items-center gap-2 text-sm">
-                <span className="text-gray-500">Active filters:</span>
-                {searchTerm && (
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                    Search: "{searchTerm}"
-                  </span>
-                )}
-                {selectedManufacturer !== 'all' && (
-                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
-                    {selectedManufacturer}
-                  </span>
-                )}
-                {selectedDocType !== 'all' && (
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                    {selectedDocType}
-                  </span>
-                )}
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSelectedManufacturer('all');
-                    setSelectedDocType('all');
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
+                <select 
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'} border focus:outline-none focus:border-blue-500`}
                 >
-                  <X className="w-4 h-4" />
+                  <option value="all">All Templates</option>
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Inactive Only</option>
+                  <option value="needs_attention">Needs Attention</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleExpandAll}
+                  className={`px-4 py-2 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} rounded-lg transition-colors flex items-center gap-2`}
+                >
+                  {expandAll ? (
+                    <>
+                      <ChevronDown className="w-4 h-4" />
+                      Collapse All
+                    </>
+                  ) : (
+                    <>
+                      <ChevronRight className="w-4 h-4" />
+                      Expand All
+                    </>
+                  )}
+                </button>
+                
+                {mappingMode === 'edit' && (
+                  <div className="flex items-center gap-2 mr-4">
+                    <button
+                      onClick={() => setShowBulkMappingModal(true)}
+                      className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center gap-2"
+                    >
+                      <Layers className="w-4 h-4" />
+                      Bulk Operations
+                    </button>
+                    <button
+                      onClick={() => setShowAIAnalyzer(true)}
+                      className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-colors flex items-center gap-2"
+                    >
+                      <Brain className="w-4 h-4" />
+                      AI Analyzer
+                    </button>
+                  </div>
+                )}
+                
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-blue-500 text-white' : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
+                >
+                  <Grid className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-blue-500 text-white' : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
+                >
+                  <List className="w-5 h-5" />
                 </button>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Error Display */}
@@ -620,320 +867,51 @@ export default function Templates() {
             </div>
           )}
 
-          {/* Loading State */}
+          {/* Templates Display */}
           {loading ? (
             <div className="text-center py-12">
-              <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-              <p className="text-gray-500">Loading templates...</p>
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+              <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Loading templates...</p>
+            </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-12 text-center`}>
+              <FileText className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-xl font-semibold mb-2">No templates found</h3>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-4`}>
+                {templates.length === 0
+                  ? "No templates have been synced yet. Click 'Sync Templates' to get started."
+                  : "No templates match your current filters. Try adjusting your search criteria."
+                }
+              </p>
+              {templates.length === 0 && (
+                <button
+                  onClick={() => syncTemplates(false)}
+                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  Sync Templates Now
+                </button>
+              )}
             </div>
           ) : (
-            /* Templates Display */
             <div className="space-y-6">
-              {filteredTemplates.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No templates found</h3>
-                  <p className="text-gray-500 mb-4">
-                    {templates.length === 0
-                      ? "No templates have been synced yet. Click 'Sync Templates' to get started."
-                      : "No templates match your current filters. Try adjusting your search criteria."
-                    }
+              {templatesByManufacturer.map(({ name, templates, stats }) => (
+                <ManufacturerSection
+                  key={name}
+                  name={name}
+                  templates={templates}
+                  stats={stats}
+                  isExpanded={isManufacturerExpanded(name)}
+                  onToggle={() => toggleManufacturer(name)}
+                />
+              ))}
+              
+              {templatesByManufacturer.length === 0 && (
+                <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-12 text-center`}>
+                  <Package className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-xl font-semibold mb-2">No manufacturers found</h3>
+                  <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-4`}>
+                    Templates don't have manufacturer assignments yet.
                   </p>
-                  {templates.length === 0 && (
-                    <button
-                      onClick={() => syncTemplates(false)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                    >
-                      Sync Templates Now
-                    </button>
-                  )}
-                </div>
-              ) : viewMode === 'grid' ? (
-                /* Grid View */
-                Object.entries(groupedTemplates).map(([manufacturer, manufacturerTemplates]) => (
-                  <div key={manufacturer} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <Package className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <h2 className="text-xl font-bold text-gray-900">{manufacturer}</h2>
-                            <p className="text-sm text-gray-600">
-                              {manufacturerTemplates.length} template{manufacturerTemplates.length !== 1 ? 's' : ''}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="text-sm text-gray-500">Avg Coverage</div>
-                          <div className="text-lg font-bold text-gray-900">
-                            {Math.round(manufacturerTemplates.reduce((sum, t) => sum + (t.field_coverage_percentage || 0), 0) / manufacturerTemplates.length)}%
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {manufacturerTemplates.map(template => (
-                          <div
-                            key={template.id}
-                            className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                            onClick={() => {
-                              setSelectedTemplate(template);
-                              setShowDetailsModal(true);
-                            }}
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex-1">
-                                <h3 className="font-semibold text-gray-900 line-clamp-2 mb-1">
-                                  {template.template_name}
-                                </h3>
-                                <span className="inline-block px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
-                                  {template.document_type}
-                                </span>
-                              </div>
-                              {template.is_default && (
-                                <Star className="w-4 h-4 text-yellow-500 flex-shrink-0 ml-2" />
-                              )}
-                            </div>
-
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">Field Coverage</span>
-                                <span className="font-semibold text-gray-900">
-                                  {template.field_coverage_percentage || 0}%
-                                </span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-blue-600 h-2 rounded-full transition-all"
-                                  style={{ width: `${template.field_coverage_percentage || 0}%` }}
-                                />
-                              </div>
-
-                              <div className="flex items-center justify-between text-xs text-gray-500">
-                                <span>{Object.keys(template.field_mappings || {}).length} fields</span>
-                                <span className={`px-2 py-1 rounded-full border ${getTemplateStatusColor(template)}`}>
-                                  {getTemplateStatusText(template)}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Mapping Section */}
-                            {mappingMode === 'edit' && (
-                              <div className="mt-3 pt-3 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-sm font-medium text-gray-700">Field Mapping</span>
-                                  <span className={`text-sm font-bold ${
-                                    (mappingStats[template.id]?.coveragePercentage || 0) >= 80 ? 'text-green-600' : 'text-orange-600'
-                                  }`}>
-                                    {mappingStats[template.id]?.coveragePercentage || 0}%
-                                  </span>
-                                </div>
-
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2 text-xs text-gray-600">
-                                    <Target className="w-3 h-3" />
-                                    <span>{mappingStats[template.id]?.mappedFields || 0} / {mappingStats[template.id]?.totalFields || 0} fields mapped</span>
-                                  </div>
-
-                                  {mappingStats[template.id]?.validationStatus?.error != null && mappingStats[template.id]?.validationStatus?.error! > 0 && (
-                                    <div className="flex items-center gap-2 text-xs text-red-600">
-                                      <AlertCircle className="w-3 h-3" />
-                                      <span>{mappingStats[template.id]?.validationStatus.error} validation errors</span>
-                                    </div>
-                                  )}
-
-                                  <div className="flex gap-2">
-                                    {/* Configure button temporarily disabled after cleanup */}
-                                    {/* <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openMappingInterface(template);
-                                      }}
-                                      className="flex-1 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
-                                    >
-                                      <MapPin className="w-3 h-3" />
-                                      Configure
-                                    </button> */}
-
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        validateTemplate(template);
-                                      }}
-                                      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                                      title="Validate Mappings"
-                                    >
-                                      <Shield className="w-3 h-3" />
-                                    </button>
-
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedTemplateForAI(template);
-                                        setShowAIAnalyzer(true);
-                                      }}
-                                      className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors"
-                                      title="AI Analysis"
-                                    >
-                                      <Brain className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                /* List View */
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Template
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Manufacturer
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Type
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Coverage
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Last Updated
-                          </th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredTemplates.map(template => (
-                          <tr key={template.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <FileText className="w-5 h-5 text-gray-400 mr-3" />
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {template.template_name}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    ID: {template.docuseal_template_id}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <Package className="w-4 h-4 text-gray-400 mr-2" />
-                                <span className="text-sm text-gray-900">
-                                  {template.manufacturer?.name || 'Unknown'}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="inline-flex px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
-                                {template.document_type}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="w-16 bg-gray-200 rounded-full h-2 mr-3">
-                                  <div
-                                    className="bg-blue-600 h-2 rounded-full"
-                                    style={{ width: `${template.field_coverage_percentage || 0}%` }}
-                                  />
-                                </div>
-                                <span className="text-sm text-gray-900">
-                                  {template.field_coverage_percentage || 0}%
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs rounded-full border ${getTemplateStatusColor(template)}`}>
-                                {getTemplateStatusText(template)}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formatDate(template.updated_at)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={() => {
-                                    setSelectedTemplate(template);
-                                    setShowDetailsModal(true);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-900"
-                                  title="View Details"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                {mappingMode === 'edit' && (
-                                  <>
-                                    {/* Configure Mappings button temporarily disabled after cleanup */}
-                                    {/* <button
-                                      onClick={() => openMappingInterface(template)}
-                                      className="text-purple-600 hover:text-purple-900"
-                                      title="Configure Mappings"
-                                    >
-                                      <MapPin className="w-4 h-4" />
-                                    </button> */}
-                                    <button
-                                      onClick={() => validateTemplate(template)}
-                                      className="text-indigo-600 hover:text-indigo-900"
-                                      title="Validate Mappings"
-                                    >
-                                      <Shield className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setSelectedTemplateForAI(template);
-                                        setShowAIAnalyzer(true);
-                                      }}
-                                      className="text-purple-600 hover:text-purple-900"
-                                      title="AI Analysis"
-                                    >
-                                      <Brain className="w-4 h-4" />
-                                    </button>
-                                  </>
-                                )}
-                                <button
-                                  onClick={() => window.open(`https://app.docuseal.com/templates/${template.docuseal_template_id}/edit`, '_blank')}
-                                  className="text-green-600 hover:text-green-900"
-                                  title="Edit in Docuseal"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => window.open(`https://app.docuseal.com/templates/${template.docuseal_template_id}`, '_blank')}
-                                  className="text-gray-600 hover:text-gray-900"
-                                  title="Open in Docuseal"
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
               )}
             </div>
@@ -953,7 +931,7 @@ export default function Templates() {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black bg-opacity-25" />
+            <div className="fixed inset-0 bg-black bg-opacity-50" />
           </Transition.Child>
 
           <div className="fixed inset-0 overflow-y-auto">
@@ -967,38 +945,37 @@ export default function Templates() {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                <Dialog.Panel className={`w-full max-w-4xl transform overflow-hidden rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 text-left align-middle shadow-xl transition-all`}>
                   {selectedTemplate && (
                     <>
                       <div className="flex items-center justify-between mb-6">
                         <div>
-                          <Dialog.Title className="text-2xl font-bold text-gray-900">
+                          <Dialog.Title className="text-2xl font-bold">
                             {selectedTemplate.template_name}
                           </Dialog.Title>
-                          <p className="text-gray-600 mt-1">
+                          <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mt-1`}>
                             {selectedTemplate.manufacturer?.name} • {selectedTemplate.document_type}
                           </p>
                         </div>
                         <button
                           onClick={() => setShowDetailsModal(false)}
-                          className="text-gray-400 hover:text-gray-600"
+                          className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'}`}
                         >
                           <X className="w-6 h-6" />
                         </button>
                       </div>
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Template Info */}
                         <div className="space-y-4">
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <h3 className="font-semibold text-gray-900 mb-3">Template Information</h3>
+                          <div className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4`}>
+                            <h3 className="font-semibold mb-3">Template Information</h3>
                             <dl className="space-y-2 text-sm">
                               <div className="flex justify-between">
-                                <dt className="text-gray-600">Docuseal ID:</dt>
-                                <dd className="font-mono text-gray-900">{selectedTemplate.docuseal_template_id}</dd>
+                                <dt className={darkMode ? 'text-gray-400' : 'text-gray-600'}>DocuSeal ID:</dt>
+                                <dd className="font-mono">{selectedTemplate.docuseal_template_id}</dd>
                               </div>
                               <div className="flex justify-between">
-                                <dt className="text-gray-600">Status:</dt>
+                                <dt className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Status:</dt>
                                 <dd>
                                   {selectedTemplate.is_active ? (
                                     <span className="text-green-600">Active</span>
@@ -1008,36 +985,35 @@ export default function Templates() {
                                 </dd>
                               </div>
                               <div className="flex justify-between">
-                                <dt className="text-gray-600">Default:</dt>
+                                <dt className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Default:</dt>
                                 <dd>
                                   {selectedTemplate.is_default ? (
                                     <span className="text-blue-600">Yes</span>
                                   ) : (
-                                    <span className="text-gray-500">No</span>
+                                    <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>No</span>
                                   )}
                                 </dd>
                               </div>
                               <div className="flex justify-between">
-                                <dt className="text-gray-600">Last Updated:</dt>
+                                <dt className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Last Updated:</dt>
                                 <dd>{formatDate(selectedTemplate.updated_at)}</dd>
                               </div>
                             </dl>
                           </div>
 
-                          {/* Field Mappings Preview */}
-                          <div className="bg-blue-50 rounded-lg p-4">
-                            <h3 className="font-semibold text-blue-900 mb-3">Field Mappings</h3>
+                          <div className={`${darkMode ? 'bg-blue-900' : 'bg-blue-50'} rounded-lg p-4`}>
+                            <h3 className={`font-semibold ${darkMode ? 'text-blue-200' : 'text-blue-900'} mb-3`}>Field Mappings</h3>
                             <div className="space-y-2">
                               <div className="flex justify-between">
-                                <span className="text-blue-700">Total Fields:</span>
+                                <span className={darkMode ? 'text-blue-300' : 'text-blue-700'}>Total Fields:</span>
                                 <span className="font-semibold">{Object.keys(selectedTemplate.field_mappings || {}).length}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-blue-700">Coverage:</span>
+                                <span className={darkMode ? 'text-blue-300' : 'text-blue-700'}>Coverage:</span>
                                 <span className="font-semibold">{selectedTemplate.field_coverage_percentage || 0}%</span>
                               </div>
                               <div className="mt-3">
-                                <div className="bg-blue-200 rounded-full h-3">
+                                <div className={`${darkMode ? 'bg-blue-800' : 'bg-blue-200'} rounded-full h-3`}>
                                   <div
                                     className="bg-blue-600 h-3 rounded-full transition-all"
                                     style={{ width: `${selectedTemplate.field_coverage_percentage || 0}%` }}
@@ -1048,40 +1024,38 @@ export default function Templates() {
                           </div>
                         </div>
 
-                        {/* Sample Fields */}
                         <div className="space-y-4">
-                          <div className="bg-green-50 rounded-lg p-4">
-                            <h3 className="font-semibold text-green-900 mb-3">Sample Fields</h3>
+                          <div className={`${darkMode ? 'bg-green-900' : 'bg-green-50'} rounded-lg p-4`}>
+                            <h3 className={`font-semibold ${darkMode ? 'text-green-200' : 'text-green-900'} mb-3`}>Sample Fields</h3>
                             <div className="space-y-2 max-h-64 overflow-y-auto">
                               {Object.entries(selectedTemplate.field_mappings || {}).slice(0, 10).map(([field, mapping]: [string, any]) => (
                                 <div key={field} className="flex justify-between text-sm">
-                                  <span className="text-green-700 font-mono">{field}</span>
-                                  <span className="text-green-600">{mapping?.system_field || 'unmapped'}</span>
+                                  <span className={`${darkMode ? 'text-green-300' : 'text-green-700'} font-mono`}>{field}</span>
+                                  <span className={darkMode ? 'text-green-400' : 'text-green-600'}>{mapping?.system_field || 'unmapped'}</span>
                                 </div>
                               ))}
                               {Object.keys(selectedTemplate.field_mappings || {}).length > 10 && (
-                                <div className="text-xs text-green-600 text-center">
+                                <div className={`text-xs ${darkMode ? 'text-green-400' : 'text-green-600'} text-center`}>
                                   ... and {Object.keys(selectedTemplate.field_mappings || {}).length - 10} more fields
                                 </div>
                               )}
                             </div>
                           </div>
 
-                          {/* Actions */}
                           <div className="space-y-3">
                             <button
                               onClick={() => window.open(`https://app.docuseal.com/templates/${selectedTemplate.docuseal_template_id}/edit`, '_blank')}
-                              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                             >
-                              <Edit3 className="w-4 h-4" />
-                              Edit in Docuseal
+                              <Edit3 className="w-5 h-5" />
+                              Edit in DocuSeal
                             </button>
                             <button
                               onClick={() => window.open(`https://app.docuseal.com/templates/${selectedTemplate.docuseal_template_id}`, '_blank')}
-                              className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                              className={`w-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-600 hover:bg-gray-700'} text-white py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2`}
                             >
-                              <ExternalLink className="w-4 h-4" />
-                              View in Docuseal
+                              <ExternalLink className="w-5 h-5" />
+                              View in DocuSeal
                             </button>
                           </div>
                         </div>
@@ -1095,124 +1069,8 @@ export default function Templates() {
         </Dialog>
       </Transition>
 
-      {/* Sync Options Modal */}
-      <Transition appear show={showSyncModal} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setShowSyncModal(false)}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black bg-opacity-25" />
-          </Transition.Child>
-
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                  <div className="flex items-center justify-between mb-4">
-                    <Dialog.Title className="text-lg font-semibold text-gray-900">
-                      Sync Options
-                    </Dialog.Title>
-                    <button
-                      onClick={() => setShowSyncModal(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <h3 className="font-medium text-blue-900 mb-2">Sync Status</h3>
-                      <div className="text-sm space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Last Sync:</span>
-                          <span>{syncStatus.last_sync ? formatDate(syncStatus.last_sync) : 'Never'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Templates Found:</span>
-                          <span>{syncStatus.templates_found}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Updated:</span>
-                          <span>{syncStatus.templates_updated}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <button
-                        onClick={() => {
-                          syncTemplates(false);
-                          setShowSyncModal(false);
-                        }}
-                        disabled={syncStatus.is_syncing}
-                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        Regular Sync
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          syncTemplates(true);
-                          setShowSyncModal(false);
-                        }}
-                        disabled={syncStatus.is_syncing}
-                        className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        Force Sync (Update All)
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          testSync();
-                          setShowSyncModal(false);
-                        }}
-                        className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Zap className="w-4 h-4" />
-                        Test Connection
-                      </button>
-                    </div>
-                  </div>
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </div>
-        </Dialog>
-      </Transition>
-
-      {/* Field Mapping Interface Modal - Temporarily disabled after cleanup */}
-      {/* {selectedTemplateForMapping && showMappingModal && (
-        <FieldMappingInterface
-          show={showMappingModal}
-          onClose={() => {
-            setShowMappingModal(false);
-            setSelectedTemplateForMapping(null);
-          }}
-          templateId={selectedTemplateForMapping.id}
-          templateName={selectedTemplateForMapping.template_name}
-          onUpdate={() => handleMappingUpdate(selectedTemplateForMapping.id)}
-        />
-      )} */}
-
       {/* Bulk Mapping Modal */}
-      {showBulkMappingModal && bulkMappingTemplateId && (
+      {showBulkMappingModal && (
         <BulkMappingModal
           show={showBulkMappingModal}
           onClose={() => setShowBulkMappingModal(false)}
@@ -1260,10 +1118,7 @@ export default function Templates() {
         templateId={selectedTemplateForAI?.id}
         onAnalysisComplete={(analysis) => {
           console.log('AI Analysis completed:', analysis);
-          // Handle the analysis results - could auto-apply mappings, etc.
           if (selectedTemplateForAI && analysis.auto_mappings) {
-            // You could automatically apply the mappings here
-            // or just close the modal and refresh
             fetchTemplates();
           }
         }}

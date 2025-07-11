@@ -42,7 +42,7 @@ cd "$(dirname "$0")"
 
 # Activate virtual environment
 echo "🔧 Activating virtual environment..."
-source ai_service_env/bin/activate
+source .venv/bin/activate
 
 # Start the service
 echo "🌟 Starting AI service on http://$API_HOST:$API_PORT"

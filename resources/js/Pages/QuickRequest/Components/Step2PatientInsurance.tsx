@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { FiCreditCard, FiRefreshCw, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
 import { cn } from '@/theme/glass-theme';
 import GoogleAddressAutocompleteWithFallback, { ParsedAddressComponents } from '@/Components/GoogleAddressAutocompleteWithFallback';
@@ -17,12 +17,40 @@ interface Step2Props {
     id: number;
     name: string;
     address?: string;
+    address_line1?: string;
+    address_line2?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+    phone?: string;
+    fax?: string;
+    email?: string;
+    npi?: string;
+    group_npi?: string;
+    ptan?: string;
+    tax_id?: string;
+    facility_type?: string;
+    place_of_service?: string;
+    medicaid_number?: string;
   }>;
   providers?: Array<{
     id: number;
     name: string;
+    first_name?: string;
+    last_name?: string;
     credentials?: string;
     npi?: string;
+    email?: string;
+    phone?: string;
+    specialty?: string;
+    license_number?: string;
+    license_state?: string;
+    dea_number?: string;
+    ptan?: string;
+    tax_id?: string;
+    practice_name?: string;
+    medicaid_number?: string;
+    fhir_practitioner_id?: string;
   }>;
   currentUser?: {
     role?: string;
@@ -196,6 +224,114 @@ function Step2PatientInsurance({
     return phoneMap[insuranceName] || '';
   };
 
+  const handleProviderSelect = (providerId: string) => {
+    const provider = providers.find(p => p.id === parseInt(providerId));
+    if (provider) {
+      updateFormData({ 
+        provider_id: provider.id,
+        // Populate all provider fields for DocuSeal
+        provider_name: provider.name,
+        provider_first_name: provider.first_name,
+        provider_last_name: provider.last_name,
+        provider_npi: provider.npi,
+        provider_email: provider.email,
+        provider_phone: provider.phone,
+        provider_specialty: provider.specialty,
+        provider_credentials: provider.credentials,
+        provider_license_number: provider.license_number,
+        provider_license_state: provider.license_state,
+        provider_dea_number: provider.dea_number,
+        provider_ptan: provider.ptan,
+        provider_tax_id: provider.tax_id,
+        provider_practice_name: provider.practice_name,
+        provider_medicaid: provider.medicaid_number,
+      });
+    } else {
+      updateFormData({ provider_id: parseInt(providerId) });
+    }
+  };
+
+  const handleFacilitySelect = (facilityId: string) => {
+    const facility = facilities.find(f => f.id === parseInt(facilityId));
+    if (facility) {
+      updateFormData({ 
+        facility_id: facility.id,
+        // Populate all facility fields for DocuSeal
+        facility_name: facility.name,
+        facility_address: facility.address,
+        facility_address_line1: facility.address_line1,
+        facility_address_line2: facility.address_line2,
+        facility_city: facility.city,
+        facility_state: facility.state,
+        facility_zip_code: facility.zip_code,
+        facility_phone: facility.phone,
+        facility_fax: facility.fax,
+        facility_email: facility.email,
+        facility_npi: facility.npi,
+        facility_group_npi: facility.group_npi,
+        facility_ptan: facility.ptan,
+        facility_tax_id: facility.tax_id,
+        facility_type: facility.facility_type,
+        facility_medicaid: facility.medicaid_number,
+      });
+    } else {
+      updateFormData({ facility_id: parseInt(facilityId) });
+    }
+  };
+
+  // Auto-populate provider fields if provider is pre-selected (e.g., when current user is provider)
+  useEffect(() => {
+    if (formData.provider_id && !formData.provider_name) {
+      const provider = providers.find(p => p.id === formData.provider_id);
+      if (provider) {
+        updateFormData({
+          provider_name: provider.name,
+          provider_first_name: provider.first_name,
+          provider_last_name: provider.last_name,
+          provider_npi: provider.npi,
+          provider_email: provider.email,
+          provider_phone: provider.phone,
+          provider_specialty: provider.specialty,
+          provider_credentials: provider.credentials,
+          provider_license_number: provider.license_number,
+          provider_license_state: provider.license_state,
+          provider_dea_number: provider.dea_number,
+          provider_ptan: provider.ptan,
+          provider_tax_id: provider.tax_id,
+          provider_practice_name: provider.practice_name,
+          provider_medicaid: provider.medicaid_number,
+        });
+      }
+    }
+  }, [formData.provider_id, providers]);
+
+  // Auto-populate facility fields if facility is pre-selected
+  useEffect(() => {
+    if (formData.facility_id && !formData.facility_name) {
+      const facility = facilities.find(f => f.id === formData.facility_id);
+      if (facility) {
+        updateFormData({
+          facility_name: facility.name,
+          facility_address: facility.address,
+          facility_address_line1: facility.address_line1,
+          facility_address_line2: facility.address_line2,
+          facility_city: facility.city,
+          facility_state: facility.state,
+          facility_zip_code: facility.zip_code,
+          facility_phone: facility.phone,
+          facility_fax: facility.fax,
+          facility_email: facility.email,
+          facility_npi: facility.npi,
+          facility_group_npi: facility.group_npi,
+          facility_ptan: facility.ptan,
+          facility_tax_id: facility.tax_id,
+          facility_type: facility.facility_type,
+          facility_medicaid: facility.medicaid_number,
+        });
+      }
+    }
+  }, [formData.facility_id, facilities]);
+
   return (
     <div className="space-y-6">
       {/* Provider & Facility Selection */}
@@ -207,7 +343,7 @@ function Step2PatientInsurance({
             <Select
               label="Provider"
               value={formData.provider_id || ''}
-              onChange={(e) => updateFormData({ provider_id: parseInt(e.target.value) })}
+              onChange={(e) => handleProviderSelect(e.target.value)}
               disabled={currentUser?.role === 'provider'}
               options={providers.map(p => ({
                 value: p.id,
@@ -226,7 +362,7 @@ function Step2PatientInsurance({
             <Select
               label="Facility"
               value={formData.facility_id || ''}
-              onChange={(e) => updateFormData({ facility_id: parseInt(e.target.value) })}
+              onChange={(e) => handleFacilitySelect(e.target.value)}
               options={facilities.map(f => ({
                 value: f.id,
                 label: `${f.name} ${f.address ? `(${f.address})` : ''}`

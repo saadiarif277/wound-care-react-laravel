@@ -5,4 +5,6 @@ redis==5.0.1
 cachetools==5.3.2
 httpx==0.25.2
 pydantic==2.5.0
-python-dotenv==1.0.0 
+python-dotenv==1.0.0
+slowapi==0.1.9
+requests==2.31.0

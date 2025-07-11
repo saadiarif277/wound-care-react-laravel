@@ -20,6 +20,7 @@ import { PricingDisplay } from '@/Components/Pricing/PricingDisplay';
 import { getProductSizeLabel } from '@/utils/size-label';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes } from '@/theme/glass-theme';
+import { useFinancialPermissions, getDisplayPrice } from '@/hooks/useFinancialPermissions';
 
 interface Product {
   id: number;
@@ -133,6 +134,9 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   selectedProducts = [],
   className = ''
 }) => {
+  // Financial permissions using the new 4-tier system
+  const financialPerms = useFinancialPermissions();
+  
   // Theme setup with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
@@ -323,13 +327,21 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
       const product = item.product || products.find(p => p.id === item.product_id);
       if (!product) return total;
 
-      const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-      let unitPrice = pricePerUnit;
+      // Use new financial permission system to determine pricing
+      const displayPrice = getDisplayPrice(
+        financialPerms,
+        product.price_per_sq_cm,
+        product.msc_price
+      );
+      
+      if (displayPrice === null) return total; // No price shown for office managers
+
+      let unitPrice = displayPrice;
 
       if (item.size) {
         const sizeValue = parseFloat(item.size);
         if (!isNaN(sizeValue)) {
-          unitPrice = pricePerUnit * sizeValue;
+          unitPrice = displayPrice * sizeValue;
         }
       }
 
@@ -500,6 +512,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                         product={product}
                         onAdd={addProductToSelection}
                         roleRestrictions={roleRestrictions}
+                        financialPerms={financialPerms}
                         isDisabled={selectedProduct !== null && selectedProduct.id !== product.id}
                         canAddMoreSizes={selectedProduct !== null && selectedProduct.id === product.id}
                         isSelected={selectedProduct?.id === product.id}
@@ -562,13 +575,21 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                     const product = item.product || products.find(p => p.id === item.product_id);
                     if (!product) return null;
 
-                    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-                    let unitPrice = pricePerUnit;
+                    // Use new financial permission system to determine pricing
+                    const displayPrice = getDisplayPrice(
+                      financialPerms,
+                      product.price_per_sq_cm,
+                      product.msc_price
+                    );
+
+                    if (displayPrice === null) return null; // Don't show items for office managers
+                    
+                    let unitPrice = displayPrice;
 
                     if (item.size) {
                       const sizeValue = parseFloat(item.size);
                       if (!isNaN(sizeValue)) {
-                        unitPrice = pricePerUnit * sizeValue;
+                        unitPrice = displayPrice * sizeValue;
                       }
                     }
 
@@ -588,7 +609,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                                         Size: {sizeInfo.dimensions}
                                       </h5>
                                       <p className={`text-xs ${t.text.secondary}`}>
-                                        {sizeInfo.area} cm²{roleRestrictions.can_see_order_totals && ` • ${formatPrice(unitPrice)} per unit`}
+                                        {sizeInfo.area} cm²{financialPerms.canSeePricingTitles && ` • ${formatPrice(unitPrice)} per unit`}
                                       </p>
                                     </>
                                   );
@@ -599,7 +620,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                                 <h5 className={`text-sm font-medium ${t.text.primary}`}>
                                   Standard Size
                                 </h5>
-                                {roleRestrictions.can_see_order_totals && (
+                                {financialPerms.canSeePricingTitles && (
                                   <p className={`text-xs ${t.text.secondary}`}>
                                     {formatPrice(unitPrice)} per unit
                                   </p>
@@ -639,7 +660,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                               <Plus className="w-3 h-3" />
                             </button>
                           </div>
-                          {roleRestrictions.can_see_order_totals && (
+                          {financialPerms.canSeePricingTitles && (
                             <div className="text-right">
                               <p className={`text-sm font-semibold ${t.text.primary}`}>
                                 {formatPrice(totalPrice)}
@@ -666,7 +687,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                     )}
 
                     {/* Total Price - Only show if user has permission */}
-                    {roleRestrictions.can_see_order_totals && (
+                    {financialPerms.canSeePricingTitles && (
                       <>
                         <div className="flex items-center justify-between">
                           <span className={`text-base font-semibold ${t.text.primary}`}>Total Price:</span>
@@ -674,9 +695,14 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                             {formatPrice(calculateTotal())}
                           </span>
                         </div>
-                        {!roleRestrictions.can_see_msc_pricing && (
+                        {financialPerms.hasCommonFinancialData && !financialPerms.hasMyFinancialData && (
                           <p className="text-xs text-yellow-600 mt-1">
-                            * Pricing shown is National ASP only
+                            * Pricing shown includes National ASP and MSC default rates
+                          </p>
+                        )}
+                        {financialPerms.hasMyFinancialData && (
+                          <p className="text-xs text-green-600 mt-1">
+                            * Pricing includes your provider-specific rates
                           </p>
                         )}
                       </>
@@ -697,11 +723,12 @@ const QuickRequestProductCard: React.FC<{
   product: Product;
   onAdd: (product: Product, quantity: number, size?: string) => void;
   roleRestrictions: RoleRestrictions;
+  financialPerms: any;
   isDisabled?: boolean;
   canAddMoreSizes?: boolean;
   isSelected?: boolean;
   theme: any;
-}> = ({ product, onAdd, roleRestrictions, isDisabled = false, isSelected = false, theme: t }) => {
+}> = ({ product, onAdd, roleRestrictions, financialPerms, isDisabled = false, isSelected = false, theme: t }) => {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
@@ -719,6 +746,15 @@ const QuickRequestProductCard: React.FC<{
   };
 
     const calculatePrice = () => {
+    // Use new financial permission system to determine pricing
+    const displayPrice = getDisplayPrice(
+      financialPerms,
+      product.price_per_sq_cm,
+      product.msc_price
+    );
+
+    if (displayPrice === null) return 0; // No price shown for office managers
+    
     if (selectedSize) {
       const sizeValue = parseFloat(selectedSize);
       if (isNaN(sizeValue)) {
@@ -735,13 +771,11 @@ const QuickRequestProductCard: React.FC<{
       }
 
       // Fallback to calculated price if no size-specific data
-      const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-      return pricePerUnit * sizeValue * quantity;
+      return displayPrice * sizeValue * quantity;
     }
 
     // No size selected, return base price
-    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-    return pricePerUnit * quantity;
+    return displayPrice * quantity;
   };
 
   return (
@@ -789,7 +823,7 @@ const QuickRequestProductCard: React.FC<{
           className="text-xs"
         />
 
-        {roleRestrictions.can_view_financials && product.commission_rate && (
+        {financialPerms.canSeeCommissions && product.commission_rate && (
           <div className="flex justify-between text-xs">
             <span className={t.text.secondary}>Commission:</span>
             <span className="font-medium text-green-600">
@@ -814,10 +848,9 @@ const QuickRequestProductCard: React.FC<{
             <option value="">Select size...</option>
             {product.size_options.map(sizeLabel => {
               const sizeData = product.size_specific_pricing?.[sizeLabel];
-              const effectivePrice = sizeData?.effective_price || 0;
               return (
                 <option key={sizeLabel} value={sizeData?.area_cm2?.toString() || '0'}>
-                  {sizeData?.display_label || sizeLabel} - {formatPrice(effectivePrice)}
+                  {sizeData?.display_label || sizeLabel}
                 </option>
               );
             })}
@@ -842,38 +875,30 @@ const QuickRequestProductCard: React.FC<{
               // Try to find size-specific pricing data first
               let sizeData = null;
               let displayLabel = `${sizeNum} cm²`;
-              let effectivePrice = 0;
 
               if (product.size_specific_pricing) {
                 for (const [label, data] of Object.entries(product.size_specific_pricing)) {
                   if (data.area_cm2 === sizeNum) {
                     sizeData = data;
                     displayLabel = data.display_label;
-                    effectivePrice = data.effective_price;
                     break;
                   }
                 }
               }
 
-              // Fallback to calculated price if no size-specific data
-              if (!sizeData) {
-                const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-                effectivePrice = pricePerUnit * sizeNum;
-
-                // Try to find a label for this size in size_pricing
-                if (product.size_pricing) {
-                  for (const [label, area] of Object.entries(product.size_pricing)) {
-                    if (area === sizeNum) {
-                      displayLabel = label;
-                      break;
-                    }
+              // Try to find a label for this size in size_pricing if no specific data
+              if (!sizeData && product.size_pricing) {
+                for (const [label, area] of Object.entries(product.size_pricing)) {
+                  if (area === sizeNum) {
+                    displayLabel = label;
+                    break;
                   }
                 }
               }
 
               return (
                 <option key={sizeStr} value={sizeStr}>
-                  {displayLabel} - {formatPrice(effectivePrice)}
+                  {displayLabel}
                 </option>
               );
             })}
@@ -907,7 +932,7 @@ const QuickRequestProductCard: React.FC<{
       </div>
 
       {/* Total Price Display */}
-      {roleRestrictions.can_see_order_totals && (
+      {financialPerms.canSeePricingTitles && (
         <div className={`mb-3 p-2 ${t.glass.frost} rounded text-center`}>
           <span className={`text-sm font-semibold ${t.text.primary}`}>
             Total: {formatPrice(calculatePrice())}

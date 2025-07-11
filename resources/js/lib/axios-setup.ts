@@ -106,14 +106,40 @@ export function setupAxios() {
                 console.log('Session expired (401), redirecting to login...');
                 window.location.href = '/login';
             } else if (status === 419) {
-                // CSRF token mismatch, try to refresh the token first
-                console.warn('CSRF token mismatch (419), refreshing token...');
-                const newCsrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
-                if (newCsrfToken) {
-                    axios.defaults.headers.common['X-CSRF-TOKEN'] = newCsrfToken;
-                    console.log('CSRF token refreshed, you can retry the request');
-                } else {
-                    console.error('Could not find fresh CSRF token, page reload may be needed');
+                // CSRF token mismatch, fetch fresh token from server
+                console.warn('CSRF token mismatch (419), fetching fresh token from server...');
+                try {
+                    const response = await fetch('/csrf-token', {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const freshToken = data.token;
+                        if (freshToken) {
+                            // Update axios defaults
+                            axios.defaults.headers.common['X-CSRF-TOKEN'] = freshToken;
+                            
+                            // Update meta tag for future requests
+                            const metaTag = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement;
+                            if (metaTag) {
+                                metaTag.content = freshToken;
+                            }
+                            
+                            console.log('✅ Fresh CSRF token fetched from server:', freshToken.substring(0, 10) + '...');
+                        } else {
+                            console.error('❌ Server returned empty CSRF token');
+                        }
+                    } else {
+                        console.error('❌ Failed to fetch fresh CSRF token, status:', response.status);
+                    }
+                } catch (fetchError) {
+                    console.error('❌ Error fetching fresh CSRF token:', fetchError);
                 }
                 // Don't auto-reload - let the application handle the error gracefully
             }

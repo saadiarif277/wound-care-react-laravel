@@ -397,6 +397,18 @@ class QuickRequestController extends Controller
         return "{$prefix}-{$date}-{$random}";
     }
 
+
+    private function findValue(array $formData, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            if (!empty($formData[$key])) {
+                return $formData[$key];
+            }
+        }
+
+        return null;
+    }
+
     // Legacy extraction methods - will be moved to services eventually
     private function extractPatientData(array $formData): array
     {
@@ -432,32 +444,16 @@ class QuickRequestController extends Controller
             'last_name' => $provider->last_name,
             'email' => $provider->email,
             'phone' => $provider->phone ?? '',
-            'npi' => $provider->npi_number ?? '',
+            'npi' => $provider->npi_number ?? $this->findValue($formData, ['physicianNPI', 'provider_npi', 'npi']) ?? '',
+            'specialty' => $this->findValue($formData, ['physicianSpecialty', 'specialty']) ?? '',
+            'credentials' => $this->findValue($formData, ['credentials']) ?? '',
+            'license_number' => $this->findValue($formData, ['license_number']) ?? '',
+            'license_state' => $this->findValue($formData, ['license_state']) ?? '',
+            'dea_number' => $this->findValue($formData, ['dea_number']) ?? '',
+            'ptan' => $this->findValue($formData, ['ptanNumber', 'ptan']) ?? '',
+            'tax_id' => $this->findValue($formData, ['taxId', 'tax_id', 'TIN']) ?? '',
+            'practice_name' => $this->findValue($formData, ['practiceName', 'practice_name']) ?? '',
         ];
-
-        // Add provider profile data if available
-        if ($provider->providerProfile) {
-            $profile = $provider->providerProfile;
-            $providerData = array_merge($providerData, [
-                'specialty' => $profile->primary_specialty ?? '',
-                'credentials' => $profile->credentials ?? '',
-                'license_number' => $profile->state_license_number ?? '',
-                'license_state' => $profile->license_state ?? '',
-                'dea_number' => $profile->dea_number ?? '',
-                'ptan' => $profile->ptan ?? '',
-                'tax_id' => $profile->tax_id ?? '',
-                'practice_name' => $profile->practice_name ?? '',
-            ]);
-        }
-
-        // Add credential data if available
-        if ($provider->providerCredentials) {
-            foreach ($provider->providerCredentials as $credential) {
-                if ($credential->credential_type === 'npi_number' && empty($providerData['npi'])) {
-                    $providerData['npi'] = $credential->credential_number;
-                }
-            }
-        }
 
         return $providerData;
     }
@@ -492,9 +488,9 @@ class QuickRequestController extends Controller
                         'phone' => $facility->phone ?? '',
                         'fax' => $facility->fax ?? '',
                         'email' => $facility->email ?? '',
-                        'npi' => $facility->npi ?? '',
+                        'npi' => $facility->npi ?? $formData['facilityNPI'] ?? $formData['facility_npi'] ?? '',
                         'group_npi' => $facility->group_npi ?? '',
-                        'tax_id' => $facility->tax_id ?? '',
+                        'tax_id' => $facility->tax_id ?? $formData['facilityTaxId'] ?? $formData['facility_tax_id'] ?? '',
                         'tin' => $facility->tax_id ?? '', // Alias for DocuSeal templates
                         'ptan' => $facility->ptan ?? '',
                         'medicaid_number' => $facility->medicaid_number ?? '',
@@ -528,30 +524,30 @@ class QuickRequestController extends Controller
         // Fallback: use form data or defaults
         return [
             'id' => $facilityId ?? 'default',
-            'name' => $formData['facility_name'] ?? 'Default Facility',
-            'address' => $formData['facility_address'] ?? '',
-            'address_line1' => $formData['facility_address'] ?? '',
-            'address_line2' => $formData['facility_address_line2'] ?? '',
-            'city' => $formData['facility_city'] ?? '',
-            'state' => $formData['facility_state'] ?? '',
-            'zip' => $formData['facility_zip'] ?? '',
-            'zip_code' => $formData['facility_zip'] ?? '',
-            'phone' => $formData['facility_phone'] ?? '',
-            'fax' => $formData['facility_fax'] ?? '',
-            'email' => $formData['facility_email'] ?? '',
-            'npi' => $formData['facility_npi'] ?? '',
-            'group_npi' => $formData['facility_group_npi'] ?? '',
-            'tax_id' => $formData['facility_tax_id'] ?? '',
-            'tin' => $formData['facility_tax_id'] ?? '',
-            'ptan' => $formData['facility_ptan'] ?? '',
-            'medicaid_number' => $formData['facility_medicaid_number'] ?? '',
-            'medicare_admin_contractor' => $formData['facility_medicare_admin_contractor'] ?? '',
-            'place_of_service' => $formData['place_of_service'] ?? '',
-            'facility_type' => $formData['facility_type'] ?? '',
-            'contact_name' => $formData['facility_contact_name'] ?? '',
-            'contact_phone' => $formData['facility_contact_phone'] ?? '',
-            'contact_email' => $formData['facility_contact_email'] ?? '',
-            'contact_fax' => $formData['facility_contact_fax'] ?? '',
+            'name' => $formData['facilityName'] ?? $formData['facility_name'] ?? 'Default Facility',
+            'address' => $formData['facilityAddress'] ?? $formData['facility_address'] ?? '',
+            'address_line1' => $formData['facilityAddress'] ?? $formData['facility_address'] ?? '',
+            'address_line2' => '',
+            'city' => $formData['facilityCity'] ?? $formData['facility_city'] ?? '',
+            'state' => $formData['facilityState'] ?? $formData['facility_state'] ?? '',
+            'zip' => $formData['facilityZip'] ?? $formData['facility_zip'] ?? '',
+            'zip_code' => $formData['facilityZip'] ?? $formData['facility_zip'] ?? '',
+            'phone' => $formData['contactPhone'] ?? $formData['contact_phone'] ?? '',
+            'fax' => $formData['contactFax'] ?? $formData['contact_fax'] ?? '',
+            'email' => $formData['contactEmail'] ?? $formData['contact_email'] ?? '',
+            'npi' => $formData['facilityNPI'] ?? $formData['facility_npi'] ?? '',
+            'group_npi' => '',
+            'tax_id' => $formData['facilityTaxId'] ?? $formData['facility_tax_id'] ?? '',
+            'tin' => $formData['facilityTaxId'] ?? $formData['facility_tax_id'] ?? '',
+            'ptan' => '',
+            'medicaid_number' => '',
+            'medicare_admin_contractor' => '',
+            'place_of_service' => '',
+            'facility_type' => $formData['facilityType'] ?? $formData['facility_type'] ?? '',
+            'contact_name' => $formData['contactName'] ?? $formData['contact_name'] ?? '',
+            'contact_phone' => $formData['contactPhone'] ?? $formData['contact_phone'] ?? '',
+            'contact_email' => $formData['contactEmail'] ?? $formData['contact_email'] ?? '',
+            'contact_fax' => $formData['contactFax'] ?? $formData['contact_fax'] ?? '',
             'organization_id' => $formData['organization_id'] ?? null,
             'organization_name' => $formData['organization_name'] ?? '',
         ];

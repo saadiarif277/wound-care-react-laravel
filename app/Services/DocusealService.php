@@ -417,7 +417,7 @@ class DocusealService
     }
 
     /**
-     * Get template fields directly from Docuseal API
+     * Get template fields directly from Docuseal API with enhanced submitter role mapping
      */
     public function getTemplateFieldsFromAPI(string $templateId): array
     {
@@ -443,38 +443,38 @@ class DocusealService
                 return [];
             }
 
-            // Debug log the raw response
-            Log::info('Docuseal template API response', [
-                'template_id' => $templateId,
-                'status' => $response->status(),
-                'response_keys' => array_keys($response->json() ?? [])
-            ]);
-
             $template = $response->json();
-            $fields = [];
+            $fieldsWithRoles = [];
+            $submitterRoles = [];
 
-            // Debug the template structure
-            Log::info('Docuseal template structure', [
-                'has_documents' => isset($template['documents']),
-                'has_fields' => isset($template['fields']),
-                'has_schema' => isset($template['schema']),
-                'template_keys' => array_keys($template ?? [])
-            ]);
+            // Extract submitter information first
+            if (isset($template['submitters']) && is_array($template['submitters'])) {
+                foreach ($template['submitters'] as $submitter) {
+                    $submitterUuid = $submitter['uuid'] ?? null;
+                    $submitterName = $submitter['name'] ?? 'Unknown Role';
+                    if ($submitterUuid) {
+                        $submitterRoles[$submitterUuid] = $submitterName;
+                    }
+                }
+            }
 
-            // Extract fields from template documents
+            // Extract fields from template documents with submitter role mapping
             if (isset($template['documents']) && is_array($template['documents'])) {
                 foreach ($template['documents'] as $document) {
                     if (isset($document['fields']) && is_array($document['fields'])) {
                         foreach ($document['fields'] as $field) {
                             $fieldName = $field['name'] ?? '';
+                            $submitterUuid = $field['submitter_uuid'] ?? null;
+                            
                             if (!empty($fieldName)) {
-                                $fields[$fieldName] = [
+                                $fieldsWithRoles[$fieldName] = [
                                     'id' => $field['uuid'] ?? $fieldName,
                                     'type' => $field['type'] ?? 'text',
                                     'label' => $field['title'] ?? $fieldName,
                                     'required' => $field['required'] ?? false,
                                     'options' => $field['options'] ?? [],
-                                    'submitter' => $field['submitter_uuid'] ?? null,
+                                    'submitter_uuid' => $submitterUuid,
+                                    'submitter_role' => $submitterRoles[$submitterUuid] ?? 'Unknown Role',
                                     'areas' => $field['areas'] ?? []
                                 ];
                             }
@@ -483,24 +483,183 @@ class DocusealService
                 }
             }
 
-            // Cache the fields for future use
-            Cache::put($cacheKey, $fields, now()->addHours(24));
+            // Cache the enhanced fields for future use
+            Cache::put($cacheKey, $fieldsWithRoles, now()->addHours(24));
 
-            Log::info('Retrieved template fields from Docuseal', [
+            Log::info('Retrieved enhanced template fields from Docuseal', [
                 'template_id' => $templateId,
-                'field_count' => count($fields),
-                'field_names' => array_keys($fields)
+                'field_count' => count($fieldsWithRoles),
+                'field_names' => array_keys($fieldsWithRoles),
+                'submitter_roles' => array_values($submitterRoles)
             ]);
 
-            return $fields;
+            return $fieldsWithRoles;
 
         } catch (\Exception $e) {
-            Log::error('Error getting template fields from Docuseal', [
+            Log::error('Error getting enhanced template fields from Docuseal', [
                 'template_id' => $templateId,
                 'error' => $e->getMessage()
             ]);
             return [];
         }
+    }
+
+    /**
+     * Map form data to template fields with submitter role awareness and fuzzy matching
+     */
+    public function mapFormDataToTemplateFields(array $formData, array $templateFields): array
+    {
+        $mappedBySubmitter = [];
+        $unmappedFields = [];
+
+        foreach ($formData as $formKey => $formValue) {
+            $bestMatch = null;
+            $bestScore = 0;
+
+            // First try exact matches (case-insensitive)
+            foreach ($templateFields as $templateFieldName => $templateFieldInfo) {
+                if (strtolower($formKey) === strtolower($templateFieldName)) {
+                    $bestMatch = [
+                        'template_field' => $templateFieldName,
+                        'template_info' => $templateFieldInfo,
+                        'score' => 1.0
+                    ];
+                    break;
+                }
+            }
+
+            // If no exact match, try fuzzy matching
+            if (!$bestMatch) {
+                foreach ($templateFields as $templateFieldName => $templateFieldInfo) {
+                    $score = $this->calculateFieldSimilarity($formKey, $templateFieldName);
+                    if ($score > $bestScore && $score > 0.7) { // 70% similarity threshold
+                        $bestMatch = [
+                            'template_field' => $templateFieldName,
+                            'template_info' => $templateFieldInfo,
+                            'score' => $score
+                        ];
+                        $bestScore = $score;
+                    }
+                }
+            }
+
+                         if ($bestMatch) {
+                 $submitterUuid = $bestMatch['template_info']['submitter_uuid'] ?? 'default';
+                 $submitterRole = $bestMatch['template_info']['submitter_role'] ?? 'First Party'; // Most medical forms use "First Party" as default
+
+                 if (!isset($mappedBySubmitter[$submitterUuid])) {
+                     $mappedBySubmitter[$submitterUuid] = [
+                         'role' => $submitterRole,
+                         'fields' => []
+                     ];
+                 }
+
+                $mappedBySubmitter[$submitterUuid]['fields'][] = [
+                    'name' => $bestMatch['template_field'], // Use exact template field name
+                    'default_value' => $this->formatFieldValue($formValue),
+                    'match_score' => $bestMatch['score'],
+                    'original_key' => $formKey
+                ];
+
+                Log::debug('Field mapped successfully', [
+                    'form_key' => $formKey,
+                    'template_field' => $bestMatch['template_field'],
+                    'submitter_role' => $submitterRole,
+                    'match_score' => $bestMatch['score']
+                ]);
+            } else {
+                $unmappedFields[] = [
+                    'form_key' => $formKey,
+                    'form_value' => $formValue
+                ];
+            }
+        }
+
+                 // Determine if we're using default roles or template-defined roles
+         $usingDefaultRoles = count($mappedBySubmitter) === 1 && 
+                              isset($mappedBySubmitter['default']) && 
+                              $mappedBySubmitter['default']['role'] === 'First Party';
+
+         Log::info('Form data mapping completed', [
+             'total_form_fields' => count($formData),
+             'mapped_fields' => array_sum(array_map(function($submitter) {
+                 return count($submitter['fields']);
+             }, $mappedBySubmitter)),
+             'unmapped_fields' => count($unmappedFields),
+             'submitters_involved' => count($mappedBySubmitter),
+             'using_default_first_party_role' => $usingDefaultRoles,
+             'submitter_roles_detected' => array_unique(array_map(function($submitter) {
+                 return $submitter['role'];
+             }, $mappedBySubmitter))
+         ]);
+
+        return [
+            'mapped_by_submitter' => $mappedBySubmitter,
+            'unmapped_fields' => $unmappedFields,
+            'mapping_stats' => [
+                'total_input' => count($formData),
+                'mapped' => array_sum(array_map(function($submitter) {
+                    return count($submitter['fields']);
+                }, $mappedBySubmitter)),
+                'unmapped' => count($unmappedFields),
+                'success_rate' => count($formData) > 0 ? 
+                    (array_sum(array_map(function($submitter) {
+                        return count($submitter['fields']);
+                    }, $mappedBySubmitter)) / count($formData)) * 100 : 0
+            ]
+        ];
+    }
+
+    /**
+     * Calculate similarity between form field key and template field name
+     */
+    private function calculateFieldSimilarity(string $formKey, string $templateField): float
+    {
+        // Normalize strings for comparison
+        $normalizedFormKey = strtolower(trim(str_replace(['_', '-'], ' ', $formKey)));
+        $normalizedTemplateField = strtolower(trim(str_replace(['_', '-'], ' ', $templateField)));
+
+        // Exact match after normalization
+        if ($normalizedFormKey === $normalizedTemplateField) {
+            return 1.0;
+        }
+
+        // Check if one contains the other
+        if (strpos($normalizedTemplateField, $normalizedFormKey) !== false || 
+            strpos($normalizedFormKey, $normalizedTemplateField) !== false) {
+            return 0.9;
+        }
+
+        // Use Levenshtein distance for fuzzy matching
+        $maxLength = max(strlen($normalizedFormKey), strlen($normalizedTemplateField));
+        if ($maxLength === 0) return 0;
+
+        $distance = levenshtein($normalizedFormKey, $normalizedTemplateField);
+        $similarity = 1 - ($distance / $maxLength);
+
+        // Boost score for common medical field patterns
+        $commonPatterns = [
+            'patient' => 'patient',
+            'provider' => 'provider',
+            'insurance' => 'insurance',
+            'wound' => 'wound',
+            'diagnosis' => 'diagnosis',
+            'phone' => 'phone',
+            'address' => 'address',
+            'name' => 'name',
+            'date' => 'date',
+            'dob' => 'birth'
+        ];
+
+        foreach ($commonPatterns as $pattern => $alias) {
+            if ((strpos($normalizedFormKey, $pattern) !== false && strpos($normalizedTemplateField, $alias) !== false) ||
+                (strpos($normalizedFormKey, $alias) !== false && strpos($normalizedTemplateField, $pattern) !== false)) {
+                $similarity += 0.2; // Boost similarity for medical field patterns
+                break;
+            }
+        }
+
+        return min(1.0, $similarity);
     }
 
     /**
@@ -1825,23 +1984,28 @@ class DocusealService
         string $manufacturerName
     ): array {
         try {
-            // Use intelligent mapping if available, otherwise fallback to standard
-            if ($this->intelligentMapping) {
+            // Use AI service if available, otherwise fallback to standard
+            if ($this->aiService) {
                 Log::info('Using AI-enhanced field mapping for Docuseal submission');
-                $mappingResult = $this->intelligentMapping->mapEpisodeWithAI(
-                    null, // No episode ID since we're providing data directly
-                    $manufacturerName,
+                // Use AI service to enhance the data first
+                $aiResult = $this->aiService->enhanceWithDynamicTemplate(
                     $comprehensiveData,
-                    ['use_cache' => true, 'adaptive_validation' => true]
-                );
-            } else {
-                Log::info('Using standard field mapping for Docuseal submission');
-                $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
-                    null,
+                    '', // Empty template ID since we're working with comprehensive data
                     $manufacturerName,
-                    $comprehensiveData
+                    ['source' => 'orchestrator_data']
                 );
+                
+                if ($aiResult['success'] && !empty($aiResult['enhanced_fields'])) {
+                    $comprehensiveData = array_merge($comprehensiveData, $aiResult['enhanced_fields']);
+                }
             }
+            
+            Log::info('Using standard field mapping for Docuseal submission');
+            $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
+                null,
+                $manufacturerName,
+                $comprehensiveData
+            );
 
             // Log the mapping result for debugging
             Log::info('Field mapping result', [
@@ -1935,36 +2099,22 @@ class DocusealService
                 throw new \Exception("No DocuSeal template found for manufacturer: {$manufacturerName}. Please ensure the manufacturer has an active IVR template configured.");
             }
 
-            $responseData = $response->json();
-
-            // Extract submission ID from response
-            $submissionId = null;
-            if (is_array($responseData) && !empty($responseData)) {
-                $submitter = $responseData[0];
-                $submissionId = $submitter['submission_id'] ?? null;
-            }
-
-            // Update episode with submission ID
-            if ($submissionId) {
-                $episode->update([
-                    'docuseal_submission_id' => $submissionId,
-                    'docuseal_status' => 'pending',
-                    'field_mapping_completeness' => 100,
-                    'mapped_fields' => $comprehensiveData,
-                    'ai_enhanced' => isset($enhancedData['_ai_confidence'])
-                ]);
-            }
-
-            Log::info('Docuseal submission created successfully', [
+            // TODO: Implement actual DocuSeal submission creation
+            // This method currently only does mapping validation and template lookup
+            // Full submission creation logic should be implemented here
+            
+            Log::info('DocuSeal mapping validation completed', [
                 'episode_id' => $episode->id,
-                'submission_id' => $submissionId,
-                'manufacturer' => $manufacturerName
+                'manufacturer' => $manufacturerName,
+                'template_id' => $templateId,
+                'mapped_fields_count' => count($comprehensiveData)
             ]);
 
             return [
                 'success' => true,
-                'submission_id' => $submissionId,
-                'response' => $responseData
+                'template_id' => $templateId,
+                'mapped_data' => $comprehensiveData,
+                'manufacturer' => $manufacturerName
             ];
 
         } catch (\Exception $e) {
@@ -1976,5 +2126,526 @@ class DocusealService
 
             throw $e;
         }
+    }
+
+    /**
+     * Create DocuSeal submission directly with AI-enhanced data, bypassing manufacturer field filtering
+     */
+    public function createSubmissionDirectWithAIData(
+        string $templateId,
+        string $integrationEmail,
+        string $submitterEmail,
+        string $submitterName,
+        array $aiEnhancedData,
+        ?int $episodeId = null,
+        float $aiConfidence = 0.0,
+        string $mappingMethod = 'ai_enhanced'
+    ): array {
+        Log::info('Creating DocuSeal submission directly with AI-enhanced data (bypassing manufacturer filtering)', [
+            'template_id' => $templateId,
+            'integration_email' => $integrationEmail,
+            'submitter_email' => $submitterEmail,
+            'episode_id' => $episodeId,
+            'ai_enhanced_field_count' => count($aiEnhancedData),
+            'ai_confidence' => $aiConfidence,
+            'mapping_method' => $mappingMethod
+        ]);
+
+        try {
+            // Get template fields for intelligent mapping
+            $templateFields = $this->getTemplateFieldsFromAPI($templateId);
+            
+            // Always use CSV-based template-specific mapping as primary method (independent of API)
+            $docusealFields = $this->convertFormDataWithTemplateMapping($aiEnhancedData, $templateId);
+            
+            if (!empty($docusealFields)) {
+                // CSV mapping successful
+                $submitters = [
+                    [
+                        'email' => $submitterEmail,
+                        'role' => 'First Party',
+                        'name' => $submitterName,
+                        'fields' => $docusealFields,
+                    ]
+                ];
+                $mappingStats = ['method' => 'csv_template_mapping', 'fields_converted' => count($docusealFields)];
+                
+                Log::info('CSV-based template mapping successful', [
+                    'template_id' => $templateId,
+                    'fields_mapped' => count($docusealFields),
+                    'api_fields_available' => count($templateFields)
+                ]);
+            } else {
+                // Fallback: Use API-based field mapping with submitter role awareness (if available)
+                if (!empty($templateFields)) {
+                    Log::info('CSV mapping returned no fields, falling back to API-based mapping', [
+                        'template_id' => $templateId
+                    ]);
+                    
+                    $mappingResult = $this->mapFormDataToTemplateFields($aiEnhancedData, $templateFields);
+                    $mappingStats = $mappingResult['mapping_stats'];
+                    $mappingStats['method'] = 'api_fuzzy_mapping';
+                    
+                    // Build submitters array with proper role mapping
+                    $submitters = [];
+                    foreach ($mappingResult['mapped_by_submitter'] as $submitterUuid => $submitterData) {
+                        $submitters[] = [
+                            'email' => $submitterEmail,
+                            'role' => $submitterData['role'],
+                            'name' => $submitterName,
+                            'fields' => $submitterData['fields'],
+                        ];
+                    }
+                    
+                    // If no submitters mapped, create a default one
+                    if (empty($submitters)) {
+                        Log::warning('No fields mapped to any submitter, creating default submitter', [
+                            'template_id' => $templateId,
+                            'unmapped_fields' => count($mappingResult['unmapped_fields'])
+                        ]);
+                        
+                        $submitters = [
+                            [
+                                'email' => $submitterEmail,
+                                'role' => 'First Party',
+                                'name' => $submitterName,
+                                'fields' => [],
+                            ]
+                        ];
+                    }
+                } else {
+                    // No CSV mapping and no API fields available - create empty submitter
+                    Log::warning('No CSV mapping and no API fields available', [
+                        'template_id' => $templateId,
+                        'csv_mapping_available' => !empty($this->getTemplateSpecificFieldMapping($templateId))
+                    ]);
+                    
+                    $submitters = [
+                        [
+                            'email' => $submitterEmail,
+                            'role' => 'First Party',
+                            'name' => $submitterName,
+                            'fields' => [],
+                        ]
+                    ];
+                    $mappingStats = ['method' => 'no_mapping_available', 'fields_converted' => 0];
+                }
+            }
+
+            Log::info('AI data mapped to template fields with submitter roles', [
+                'template_id' => $templateId,
+                'input_fields' => count($aiEnhancedData),
+                'template_fields_available' => count($templateFields),
+                'submitters_created' => count($submitters),
+                'mapping_stats' => $mappingStats,
+                'sample_submitter' => $submitters[0] ?? null
+            ]);
+
+            // Create DocuSeal submission with role-mapped submitters
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post("{$this->apiUrl}/submissions", [
+                'template_id' => $templateId,
+                'send_email' => false,
+                'submitters' => $submitters,
+                'metadata' => [
+                    'episode_id' => $episodeId,
+                    'provider_email' => $submitterEmail,
+                    'integration_email' => $integrationEmail,
+                    'created_at' => now()->toIso8601String(),
+                    'ai_enhanced' => true,
+                    'ai_confidence' => $aiConfidence,
+                    'mapping_method' => $mappingMethod,
+                    'field_mapping_success_rate' => $mappingStats['success_rate'] ?? 0,
+                    'template_fields_used' => count($templateFields)
+                ],
+            ]);
+
+            if (!$response->successful()) {
+                $errorBody = $response->json();
+                $errorMessage = 'Failed to create AI-enhanced DocuSeal submission';
+
+                if (isset($errorBody['error'])) {
+                    $errorMessage .= ': ' . $errorBody['error'];
+                } elseif (isset($errorBody['message'])) {
+                    $errorMessage .= ': ' . $errorBody['message'];
+                }
+
+                Log::error('AI-enhanced DocuSeal submission creation failed', [
+                    'template_id' => $templateId,
+                    'episode_id' => $episodeId,
+                    'status_code' => $response->status(),
+                    'error_response' => $errorBody,
+                    'field_count' => count($docusealFields)
+                ]);
+
+                throw new \Exception($errorMessage);
+            }
+
+            $responseData = $response->json();
+
+            // DocuSeal API returns an array of submitters
+            if (is_array($responseData) && !empty($responseData)) {
+                $submitter = $responseData[0];
+
+                Log::info('AI-enhanced DocuSeal submission created successfully', [
+                    'template_id' => $templateId,
+                    'submission_id' => $submitter['submission_id'],
+                    'slug' => $submitter['slug'],
+                    'ai_confidence' => $aiConfidence,
+                    'fields_mapped' => count($docusealFields)
+                ]);
+
+                return [
+                    'success' => true,
+                    'data' => [
+                        'id' => $submitter['submission_id'],
+                        'submission_id' => $submitter['submission_id'],
+                        'slug' => $submitter['slug'],
+                        'submitter_id' => $submitter['id'],
+                        'embed_src' => $submitter['embed_src'] ?? null,
+                        'status' => $submitter['status'],
+                        'submitters' => $responseData,
+                    ],
+                    'ai_mapping_used' => true,
+                    'ai_confidence' => $aiConfidence,
+                    'mapping_method' => $mappingMethod,
+                    'fields_mapped' => count($docusealFields)
+                ];
+            }
+
+            // Fallback for unexpected response format
+            return [
+                'success' => true,
+                'data' => $responseData,
+                'ai_mapping_used' => true,
+                'ai_confidence' => $aiConfidence,
+                'mapping_method' => $mappingMethod,
+                'fields_mapped' => count($docusealFields)
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create AI-enhanced DocuSeal submission', [
+                'template_id' => $templateId,
+                'integration_email' => $integrationEmail,
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Convert AI-enhanced data to DocuSeal field format without manufacturer filtering
+     */
+    private function convertAIDataToDocusealFormat(array $aiData, string $templateId): array
+    {
+        $docusealFields = [];
+
+        foreach ($aiData as $fieldName => $fieldValue) {
+            // Skip internal fields
+            if (str_starts_with($fieldName, '_')) {
+                continue;
+            }
+
+            // Convert field name to DocuSeal-friendly format
+            $docusealFieldName = $this->convertToDocusealFieldName($fieldName);
+
+            // Convert value to appropriate format
+            $docusealValue = $this->formatDocusealValue($fieldValue);
+
+            if (!empty($docusealValue) || $docusealValue === '0') {
+                $docusealFields[] = [
+                    'name' => $docusealFieldName,
+                    'default_value' => $docusealValue
+                ];
+            }
+        }
+
+        Log::info('Converted AI data to DocuSeal format', [
+            'template_id' => $templateId,
+            'input_field_count' => count($aiData),
+            'output_field_count' => count($docusealFields),
+            'sample_conversions' => array_slice($docusealFields, 0, 5)
+        ]);
+
+        return $docusealFields;
+    }
+
+    /**
+     * Convert form field name to DocuSeal field name
+     */
+    private function convertToDocusealFieldName(string $fieldName): string
+    {
+        // Map common field name patterns to DocuSeal format
+        $fieldMappings = [
+            'patient_name' => 'Patient Name',
+            'patient_first_name' => 'Patient First Name',
+            'patient_last_name' => 'Patient Last Name',
+            'patient_dob' => 'DOB',
+            'patient_gender' => 'Gender',
+            'patient_address_line1' => 'Address',
+            'patient_city' => 'City',
+            'patient_state' => 'State',
+            'patient_zip' => 'Zip',
+            'patient_phone' => 'Home Phone',
+            'patient_email' => 'Patient Email',
+            'provider_name' => 'Provider Name',
+            'provider_npi' => 'Provider NPI',
+            'provider_specialty' => 'Provider Specialty',
+            'facility_name' => 'Facility Name',
+            'facility_address' => 'Facility Address',
+            'primary_insurance_name' => 'Primary Insurance',
+            'secondary_insurance_name' => 'Secondary Insurance',
+            'primary_member_id' => 'Policy Number',
+            'secondary_member_id' => 'Secondary Policy Number',
+            'primary_payer_phone' => 'Payer Phone',
+            'secondary_payer_phone' => 'Secondary Payor Phone',
+            'wound_size_length' => 'Wound Length',
+            'wound_size_width' => 'Wound Width',
+            'wound_size_depth' => 'Wound Depth',
+            'wound_location' => 'Wound Location',
+            'wound_type' => 'Wound Type',
+            'primary_diagnosis_code' => 'Primary Diagnosis',
+            'secondary_diagnosis_code' => 'Secondary Diagnosis',
+            'place_of_service' => 'Place of Service',
+            'expected_service_date' => 'Anticipated Treatment Start Date'
+        ];
+
+        // Use mapping if available, otherwise convert snake_case to Title Case
+        if (isset($fieldMappings[$fieldName])) {
+            return $fieldMappings[$fieldName];
+        }
+
+        // Convert snake_case to Title Case
+        return ucwords(str_replace('_', ' ', $fieldName));
+    }
+
+    /**
+     * Format field value for DocuSeal
+     */
+    private function formatDocusealValue($value): string
+    {
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        } elseif (is_array($value)) {
+            return implode(', ', array_filter($value));
+        } elseif ($value === null) {
+            return '';
+        }
+
+        return (string) $value;
+    }
+
+    /**
+     * Get template-specific field mappings based on actual DocuSeal field names from CSV exports
+     * This fixes the field name mismatch issue where we send snake_case but templates expect Title Case
+     */
+    private function getTemplateSpecificFieldMapping(string $templateId): array
+    {
+        // Map template IDs to their actual field mappings based on CSV exports
+        $templateMappings = [
+            // Biowound IVR Template
+            '1254774' => [
+                'patient_name' => 'Patient Name',
+                'patient_dob' => 'Patient Date of Birth',
+                'patient_address_line1' => 'Patient Address',
+                'provider_name' => 'Physician Name',
+                'provider_npi' => 'Provider NPI',
+                'provider_specialty' => 'Physician Specialty',
+                'facility_name' => 'Facility Name',
+                'facility_npi' => 'FacilityÂ NPI',
+                'facility_address' => 'Facility Address',
+                'facility_phone' => 'Facility Phone #',
+                'provider_phone' => 'Provider Phone #',
+                'facility_tax_id' => 'Facility Tax ID',
+                'provider_tax_id' => 'Provider Tax ID',
+                'provider_ptan' => 'Provider PTAN',
+                'facility_ptan' => 'Facility PTAN',
+                'primary_insurance_name' => 'Primary Name',
+                'secondary_insurance_name' => 'Secondary Name',
+                'primary_member_id' => 'Primary Policy #',
+                'secondary_member_id' => 'Secondary Policy #',
+                'primary_payer_phone' => 'Primary Phone #',
+                'secondary_payer_phone' => 'Secondary Phone #',
+                'wound_location' => 'Location of Wound',
+                'wound_duration' => 'Wound Duration',
+                'wound_size' => 'Post Debridement Total Size',
+                'primary_diagnosis_code' => 'Primary ICD-10',
+                'secondary_diagnosis_code' => 'Secondary ICD-10',
+                'place_of_service' => 'POS 11', // Default to office
+                'wound_type' => 'Other Wound Type'
+            ],
+            
+            // MedLife AMNIO AMP IVR Template
+            '1233913' => [
+                'patient_name' => 'Patient Name',
+                'patient_dob' => 'Patient DOB',
+                'provider_name' => 'Physician Name',
+                'facility_name' => 'Practice Name',
+                'provider_npi' => 'Physician NPI',
+                'facility_npi' => 'Practice NPI',
+                'provider_ptan' => 'Physician PTAN',
+                'facility_ptan' => 'Practice PTAN',
+                'facility_tax_id' => 'TAX ID',
+                'provider_email' => 'Office Contact Email',
+                'primary_insurance_name' => 'Primary Insurance',
+                'secondary_insurance_name' => 'Secondary Insurance',
+                'primary_member_id' => 'Member ID',
+                'secondary_member_id' => 'Secondary Member ID',
+                'wound_size_length' => 'L',
+                'wound_size_width' => 'W',
+                'wound_size' => 'Wound Size Total',
+                'wound_location' => 'Wound location',
+                'primary_diagnosis_code' => 'ICD-10',
+                'application_cpt_codes' => 'CPT',
+                'place_of_service' => 'Office: POS-11' // Default to office
+            ],
+            
+            // ACZ Associates (Centurion) IVR Template  
+            '1233918' => [
+                'patient_name' => 'Patient Name',
+                'patient_dob' => 'Patient DOB',
+                'patient_address_line1' => 'Patient Address',
+                'patient_city' => 'Patient City, State, Zip',
+                'patient_phone' => 'Patient Phone',
+                'patient_email' => 'Patient Fax/Email',
+                'provider_specialty' => 'Physician Specialty',
+                'facility_name' => 'Facility Name',
+                'facility_address' => 'Facility Address',
+                'facility_city' => 'Facility City, State, Zip',
+                'facility_phone' => 'Contact #/Email',
+                'provider_npi' => 'Physician NPI 1',
+                'facility_npi' => 'FacilityÂ NPI 1',
+                'primary_insurance_name' => 'Primary Insurance Name',
+                'secondary_insurance_name' => 'Secondary Insurance Name',
+                'primary_member_id' => 'Primary Policy Number',
+                'secondary_member_id' => 'Secondary Policy Number',
+                'primary_payer_phone' => 'Primary Payer Phone',
+                'secondary_payer_phone' => 'Secondary Payer Phone',
+                'wound_location' => 'Check Wound Location: Legs/Arms/Trunk < 100 SQ CM',
+                'wound_size' => 'Total Wound Size/Medical History',
+                'primary_diagnosis_code' => 'ICD-10 Codes',
+                'place_of_service' => 'Check Physician Office (POS 11)' // Default to office
+            ]
+        ];
+        
+        return $templateMappings[$templateId] ?? [];
+    }
+
+    /**
+     * Enhanced method to convert form data using template-specific field mappings
+     */
+    private function convertFormDataWithTemplateMapping(array $formData, string $templateId): array
+    {
+        $templateMapping = $this->getTemplateSpecificFieldMapping($templateId);
+        
+        if (empty($templateMapping)) {
+            Log::warning('No template-specific mapping found, using fallback conversion', [
+                'template_id' => $templateId
+            ]);
+            return $this->convertAIDataToDocusealFormat($formData, $templateId);
+        }
+        
+        // First, normalize complex objects into individual fields
+        $normalizedData = $this->normalizeComplexObjects($formData);
+        
+        $convertedFields = [];
+        $mappedCount = 0;
+        $unmappedFields = [];
+        
+        foreach ($normalizedData as $formKey => $formValue) {
+            if (isset($templateMapping[$formKey])) {
+                $docusealFieldName = $templateMapping[$formKey];
+                $convertedFields[] = [
+                    'name' => $docusealFieldName,
+                    'default_value' => $this->formatFieldValue($formValue)
+                ];
+                $mappedCount++;
+                
+                Log::debug('Field mapped successfully', [
+                    'form_key' => $formKey,
+                    'template_field' => $docusealFieldName,
+                    'value' => $formValue
+                ]);
+            } else {
+                $unmappedFields[] = $formKey;
+            }
+        }
+        
+        Log::info('Template-specific field mapping completed', [
+            'template_id' => $templateId,
+            'total_form_fields' => count($formData),
+            'normalized_fields' => count($normalizedData),
+            'mapped_fields' => $mappedCount,
+            'unmapped_fields' => count($unmappedFields),
+            'unmapped_field_names' => $unmappedFields,
+            'mapping_success_rate' => count($normalizedData) > 0 ? ($mappedCount / count($normalizedData)) * 100 : 0
+        ]);
+        
+        return $convertedFields;
+    }
+
+    /**
+     * Normalize complex objects (like insurance data) into individual fields
+     */
+    private function normalizeComplexObjects(array $formData): array
+    {
+        $normalized = [];
+        
+        foreach ($formData as $key => $value) {
+            if (is_array($value) && !empty($value)) {
+                // Handle insurance objects
+                if ($key === 'primary_insurance' && isset($value['name'])) {
+                    $normalized['primary_insurance_name'] = $value['name'];
+                    $normalized['primary_member_id'] = $value['member_id'] ?? '';
+                    $normalized['primary_payer_phone'] = $value['payer_phone'] ?? '';
+                    $normalized['primary_plan_type'] = $value['plan_type'] ?? '';
+                } elseif ($key === 'secondary_insurance' && isset($value['name'])) {
+                    $normalized['secondary_insurance_name'] = $value['name'];
+                    $normalized['secondary_member_id'] = $value['member_id'] ?? '';
+                    $normalized['secondary_payer_phone'] = $value['payer_phone'] ?? '';
+                    $normalized['secondary_plan_type'] = $value['plan_type'] ?? '';
+                } elseif ($key === 'wound_size' && isset($value['length'])) {
+                    // Handle wound size objects
+                    $normalized['wound_size_length'] = $value['length'];
+                    $normalized['wound_size_width'] = $value['width'];
+                    $normalized['wound_size_depth'] = $value['depth'] ?? '';
+                    $normalized['wound_size'] = $value['total'] ?? '';
+                } elseif ($key === 'patient_address' && isset($value['line1'])) {
+                    // Handle address objects
+                    $normalized['patient_address_line1'] = $value['line1'];
+                    $normalized['patient_address_line2'] = $value['line2'] ?? '';
+                    $normalized['patient_city'] = $value['city'] ?? '';
+                    $normalized['patient_state'] = $value['state'] ?? '';
+                    $normalized['patient_zip'] = $value['zip'] ?? '';
+                } elseif ($key === 'facility_address' && isset($value['line1'])) {
+                    // Handle facility address objects
+                    $normalized['facility_address'] = $value['line1'];
+                    $normalized['facility_city'] = $value['city'] ?? '';
+                    $normalized['facility_state'] = $value['state'] ?? '';
+                    $normalized['facility_zip'] = $value['zip'] ?? '';
+                } else {
+                    // Handle other arrays by converting to string
+                    $normalized[$key] = is_array($value) ? implode(', ', array_filter($value)) : $value;
+                }
+            } else {
+                // Keep simple values as-is
+                $normalized[$key] = $value;
+            }
+        }
+        
+        Log::debug('Complex objects normalized', [
+            'original_keys' => array_keys($formData),
+            'normalized_keys' => array_keys($normalized),
+            'complex_objects_processed' => count($formData) - count(array_filter($formData, fn($v) => !is_array($v)))
+        ]);
+        
+        return $normalized;
     }
 }

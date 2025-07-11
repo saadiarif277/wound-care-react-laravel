@@ -1,0 +1,291 @@
+# Form Transformation Rules Configuration
+# =======================================
+# This configuration defines transformation rules for canonical fields
+# to ensure consistent data formatting and normalization
+
+transformations:
+  # Patient Information Fields
+  patient_name:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: titlecase
+  
+  patient_dob:
+    - type: format
+      operation: date
+      format: "Y-m-d"
+  
+  patient_phone:
+    - type: normalize
+      operation: numeric
+    - type: format
+      operation: phone
+  
+  mobile_phone:
+    - type: normalize
+      operation: numeric
+    - type: format
+      operation: phone
+  
+  patient_address:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: titlecase
+  
+  patient_city:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: titlecase
+  
+  patient_state:
+    - type: format
+      operation: uppercase
+    - type: convert
+      operation: state_abbr
+  
+  patient_zip:
+    - type: normalize
+      operation: numeric
+    - type: format
+      operation: zip
+  
+  patient_email:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: lowercase
+  
+  # Provider Information Fields
+  provider_name:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: titlecase
+  
+  provider_npi:
+    - type: normalize
+      operation: numeric
+    - type: validate
+      operation: npi
+  
+  tax_id:
+    - type: normalize
+      operation: numeric
+    - type: format
+      operation: taxid
+  
+  # Insurance Fields
+  primary_insurance:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: titlecase
+  
+  secondary_insurance:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: titlecase
+  
+  policy_number:
+    - type: normalize
+      operation: alphanumeric
+    - type: format
+      operation: uppercase
+  
+  member_id:
+    - type: normalize
+      operation: alphanumeric
+    - type: format
+      operation: uppercase
+  
+  # Contact Information Fields
+  contact_phone:
+    - type: normalize
+      operation: numeric
+    - type: format
+      operation: phone
+  
+  contact_fax:
+    - type: normalize
+      operation: numeric
+    - type: format
+      operation: phone
+  
+  # Facility Information Fields
+  facility_name:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: titlecase
+  
+  facility_npi:
+    - type: normalize
+      operation: numeric
+    - type: validate
+      operation: npi
+  
+  # Clinical Fields
+  diagnosis:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: uppercase
+  
+  icd10_codes:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: uppercase
+    - type: validate
+      operation: icd10
+  
+  cpt_codes:
+    - type: normalize
+      operation: numeric
+    - type: validate
+      operation: cpt
+  
+  # Place of Service Fields
+  place_of_service:
+    - type: convert
+      operation: pos_code
+  
+  # Product Fields
+  product_size:
+    - type: normalize
+      operation: whitespace
+    - type: format
+      operation: lowercase
+  
+  # Date Fields
+  anticipated_date:
+    - type: format
+      operation: date
+      format: "Y-m-d"
+  
+  Date_of_Service:
+    - type: format
+      operation: date
+      format: "Y-m-d"
+  
+  Date_of_Surgery:
+    - type: format
+      operation: date
+      format: "Y-m-d"
+
+# Validation Rules
+validation:
+  required_fields:
+    - patient_name
+    - patient_dob
+    - provider_name
+    - provider_npi
+  
+  field_formats:
+    npi:
+      pattern: "^[0-9]{10}$"
+      message: "NPI must be exactly 10 digits"
+    
+    phone:
+      pattern: "^[0-9]{10,}$"
+      message: "Phone number must be at least 10 digits"
+    
+    zip:
+      pattern: "^[0-9]{5}(-[0-9]{4})?$"
+      message: "ZIP code must be 5 or 9 digits"
+    
+    email:
+      pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+      message: "Invalid email format"
+    
+    date:
+      pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      message: "Date must be in YYYY-MM-DD format"
+
+# Field Mappings for Special Cases
+special_mappings:
+  # Checkbox fields that need boolean conversion
+  boolean_fields:
+    - checkbox_yes
+    - checkbox_no
+    - checkbox_unselected
+    - checkbox_selected
+  
+  # Fields that should be combined
+  combined_fields:
+    patient_full_address:
+      source_fields:
+        - patient_address
+        - patient_city
+        - patient_state
+        - patient_zip
+      separator: ", "
+    
+    provider_full_name:
+      source_fields:
+        - provider_first_name
+        - provider_middle_name
+        - provider_last_name
+      separator: " "
+
+# Output Configuration
+output:
+  # Fields to exclude from output
+  exclude_fields:
+    - email_to
+    - fax_to
+    - call
+    - billing
+    - customer_service
+    - return_via_email_to
+  
+  # Field grouping for structured output
+  field_groups:
+    patient_info:
+      - patient_name
+      - patient_dob
+      - patient_gender
+      - patient_address
+      - patient_city
+      - patient_state
+      - patient_zip
+      - patient_phone
+      - patient_email
+    
+    provider_info:
+      - provider_name
+      - provider_npi
+      - provider_specialty
+      - tax_id
+      - provider_ptan
+      - medicaid_provider_number
+    
+    insurance_info:
+      - primary_insurance
+      - secondary_insurance
+      - tertiary_insurance
+      - policy_number
+      - member_id
+      - group_number
+    
+    facility_info:
+      - facility_name
+      - facility_npi
+      - facility_address
+      - facility_contact
+      - facility_phone
+      - facility_fax
+    
+    clinical_info:
+      - diagnosis
+      - icd10_codes
+      - cpt_codes
+      - wound_type
+      - wound_location
+      - wound_size
+      - anticipated_date
+      - number_of_applications

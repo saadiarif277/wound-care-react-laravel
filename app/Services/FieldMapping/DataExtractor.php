@@ -54,10 +54,50 @@ class DataExtractor
                     'product' => $this->extractProductFields($productRequest->product ?? null),
                     'fhir' => $this->extractFhirData($episode, $productRequest),
                     'computed' => $this->computeDerivedFields($episode, $productRequest),
+                    'transient' => $this->extractTransientData($productRequest),
                 ];
 
                 // Flatten all data into a single array
-                return $this->flattenData($data);
+                $flattenedData = $this->flattenData($data);
+                
+                // Merge manufacturer_fields directly into the flattened data
+                if ($productRequest && $productRequest->manufacturer_fields) {
+                    $manufacturerFields = is_string($productRequest->manufacturer_fields) 
+                        ? json_decode($productRequest->manufacturer_fields, true) 
+                        : $productRequest->manufacturer_fields;
+                    
+                    if (is_array($manufacturerFields)) {
+                        // Merge manufacturer fields directly, they should override other values
+                        $flattenedData = array_merge($flattenedData, $manufacturerFields);
+                        
+                        // Also add them with manufacturer_ prefix for clarity
+                        foreach ($manufacturerFields as $key => $value) {
+                            $flattenedData["manufacturer_{$key}"] = $value;
+                        }
+                    }
+                }
+                
+                // Add common field aliases to improve matching
+                $flattenedData = $this->addFieldAliases($flattenedData);
+                
+                // Add data source tracking
+                $flattenedData['_data_sources'] = [
+                    'episode_id' => $episodeId,
+                    'has_fhir_data' => !empty($data['fhir']),
+                    'has_manufacturer_fields' => !empty($productRequest->manufacturer_fields),
+                    'has_transient_data' => !empty($data['transient']),
+                    'extracted_at' => now()->toIso8601String(),
+                ];
+                
+                Log::info('Episode data extraction completed', [
+                    'episode_id' => $episodeId,
+                    'field_count' => count($flattenedData),
+                    'has_provider_credentials' => !empty($data['provider']['provider_npi']),
+                    'has_facility_org' => !empty($data['facility']['organization_name']),
+                    'has_manufacturer_fields' => !empty($productRequest->manufacturer_fields),
+                ]);
+                
+                return $flattenedData;
 
             } catch (\Exception $e) {
                 Log::error("Failed to extract episode data", [
@@ -481,40 +521,98 @@ class DataExtractor
             'identifier' => $patient['identifier'][0]['value'] ?? null,
         ];
 
-        // Parse name
-        if (!empty($patient['name'][0])) {
-            $name = $patient['name'][0];
-            $data['first_name'] = $name['given'][0] ?? null;
-            $data['last_name'] = $name['family'] ?? null;
-            $data['full_name'] = $name['text'] ?? null;
-        }
-
-        // Parse demographics
-        $data['birth_date'] = $patient['birthDate'] ?? null;
-        $data['gender'] = $patient['gender'] ?? null;
-
-        // Parse contact info
-        if (!empty($patient['telecom'])) {
-            foreach ($patient['telecom'] as $telecom) {
-                if ($telecom['system'] === 'phone') {
-                    $data['phone'] = $telecom['value'] ?? null;
-                } elseif ($telecom['system'] === 'email') {
-                    $data['email'] = $telecom['value'] ?? null;
+        // Parse all identifiers
+        if (!empty($patient['identifier'])) {
+            foreach ($patient['identifier'] as $identifier) {
+                $type = $identifier['type']['coding'][0]['code'] ?? null;
+                if ($type === 'MR') {
+                    $data['mrn'] = $identifier['value'] ?? null;
+                    $data['medical_record_number'] = $identifier['value'] ?? null;
+                } elseif ($type === 'SS') {
+                    $data['ssn_last_four'] = substr($identifier['value'] ?? '', -4);
                 }
             }
         }
 
-        // Parse address
-        if (!empty($patient['address'][0])) {
-            $address = $patient['address'][0];
-            $data['address'] = [
-                'line1' => $address['line'][0] ?? '',
-                'line2' => $address['line'][1] ?? '',
-                'city' => $address['city'] ?? '',
-                'state' => $address['state'] ?? '',
-                'postal_code' => $address['postalCode'] ?? '',
-                'country' => $address['country'] ?? 'US',
-            ];
+        // Parse name - get all variations
+        if (!empty($patient['name'][0])) {
+            $name = $patient['name'][0];
+            $data['first_name'] = $name['given'][0] ?? null;
+            $data['middle_name'] = $name['given'][1] ?? null;
+            $data['last_name'] = $name['family'] ?? null;
+            $data['full_name'] = $name['text'] ?? null;
+            $data['prefix'] = $name['prefix'][0] ?? null;
+            $data['suffix'] = $name['suffix'][0] ?? null;
+            
+            // Create computed name variations
+            if ($data['first_name'] && $data['last_name']) {
+                $data['patient_name'] = "{$data['first_name']} {$data['last_name']}";
+                $data['patient_full_name'] = $data['patient_name'];
+            }
+        }
+
+        // Parse demographics
+        $data['birth_date'] = $patient['birthDate'] ?? null;
+        $data['date_of_birth'] = $patient['birthDate'] ?? null;
+        $data['dob'] = $patient['birthDate'] ?? null;
+        $data['gender'] = $patient['gender'] ?? null;
+        $data['sex'] = $patient['gender'] ?? null;
+        $data['marital_status'] = $patient['maritalStatus']['coding'][0]['code'] ?? null;
+
+        // Parse all telecom entries
+        if (!empty($patient['telecom'])) {
+            $phoneNumbers = [];
+            foreach ($patient['telecom'] as $telecom) {
+                $use = $telecom['use'] ?? 'home';
+                if ($telecom['system'] === 'phone') {
+                    $phoneNumbers[$use] = $telecom['value'] ?? null;
+                    // Set primary phone
+                    if (!isset($data['phone'])) {
+                        $data['phone'] = $telecom['value'] ?? null;
+                        $data['patient_phone'] = $telecom['value'] ?? null;
+                    }
+                } elseif ($telecom['system'] === 'email') {
+                    $data['email'] = $telecom['value'] ?? null;
+                    $data['patient_email'] = $telecom['value'] ?? null;
+                } elseif ($telecom['system'] === 'fax') {
+                    $data['fax'] = $telecom['value'] ?? null;
+                    $data['patient_fax'] = $telecom['value'] ?? null;
+                }
+            }
+            
+            // Add specific phone types
+            if (!empty($phoneNumbers)) {
+                $data['home_phone'] = $phoneNumbers['home'] ?? null;
+                $data['mobile_phone'] = $phoneNumbers['mobile'] ?? null;
+                $data['work_phone'] = $phoneNumbers['work'] ?? null;
+            }
+        }
+
+        // Parse all addresses
+        if (!empty($patient['address'])) {
+            foreach ($patient['address'] as $index => $address) {
+                $use = $address['use'] ?? 'home';
+                
+                // Store primary address
+                if ($index === 0 || $use === 'home') {
+                    $data['address'] = [
+                        'line1' => $address['line'][0] ?? '',
+                        'line2' => $address['line'][1] ?? '',
+                        'city' => $address['city'] ?? '',
+                        'state' => $address['state'] ?? '',
+                        'postal_code' => $address['postalCode'] ?? '',
+                        'country' => $address['country'] ?? 'US',
+                    ];
+                    
+                    // Also store as flat fields
+                    $data['address_line1'] = $address['line'][0] ?? '';
+                    $data['address_line2'] = $address['line'][1] ?? '';
+                    $data['city'] = $address['city'] ?? '';
+                    $data['state'] = $address['state'] ?? '';
+                    $data['zip'] = $address['postalCode'] ?? '';
+                    $data['postal_code'] = $address['postalCode'] ?? '';
+                }
+            }
         }
 
         return $data;
@@ -530,26 +628,96 @@ class DataExtractor
             'status' => $coverage['status'] ?? null,
         ];
 
-        // Parse subscriber info
+        // Parse subscriber info with multiple field names
         if (!empty($coverage['subscriberId'])) {
             $data['subscriber_id'] = $coverage['subscriberId'];
+            $data['member_id'] = $coverage['subscriberId'];
+            $data['policy_number'] = $coverage['subscriberId'];
+            $data['insurance_id'] = $coverage['subscriberId'];
         }
 
-        // Parse payor info
+        // Parse beneficiary/subscriber details
+        if (!empty($coverage['subscriber']['display'])) {
+            $data['subscriber_name'] = $coverage['subscriber']['display'];
+        }
+        
+        if (!empty($coverage['relationship']['coding'][0]['code'])) {
+            $data['subscriber_relationship'] = $coverage['relationship']['coding'][0]['code'];
+            $data['is_subscriber'] = ($coverage['relationship']['coding'][0]['code'] === 'self');
+        }
+
+        // Parse payor info with variations
         if (!empty($coverage['payor'][0]['display'])) {
             $data['payor_name'] = $coverage['payor'][0]['display'];
+            $data['insurance_name'] = $coverage['payor'][0]['display'];
+            $data['insurance_company'] = $coverage['payor'][0]['display'];
+            $data['payer_name'] = $coverage['payor'][0]['display']; // Common typo
         }
 
-        // Parse plan info
+        // Parse plan info with multiple variations
         if (!empty($coverage['type']['coding'][0])) {
-            $data['plan_type'] = $coverage['type']['coding'][0]['display'] ??
-                               $coverage['type']['coding'][0]['code'] ?? null;
+            $planCode = $coverage['type']['coding'][0]['code'] ?? null;
+            $planDisplay = $coverage['type']['coding'][0]['display'] ?? null;
+            
+            $data['plan_type'] = $planDisplay ?? $planCode;
+            $data['insurance_type'] = $planDisplay ?? $planCode;
+            
+            // Map common plan types
+            if ($planCode) {
+                $planTypeMap = [
+                    'HMO' => 'HMO',
+                    'PPO' => 'PPO',
+                    'POS' => 'POS',
+                    'EPO' => 'EPO',
+                    'MEDICARE' => 'Medicare',
+                    'MEDICAID' => 'Medicaid',
+                    'MANAGED' => 'Managed Care',
+                ];
+                
+                $upperCode = strtoupper($planCode);
+                if (isset($planTypeMap[$upperCode])) {
+                    $data['plan_type_normalized'] = $planTypeMap[$upperCode];
+                }
+            }
         }
 
-        // Parse period
+        // Parse class info (group numbers, etc.)
+        if (!empty($coverage['class'])) {
+            foreach ($coverage['class'] as $class) {
+                $type = $class['type']['coding'][0]['code'] ?? null;
+                $value = $class['value'] ?? null;
+                
+                if ($type === 'group' && $value) {
+                    $data['group_number'] = $value;
+                    $data['group_id'] = $value;
+                } elseif ($type === 'plan' && $value) {
+                    $data['plan_number'] = $value;
+                    $data['plan_id'] = $value;
+                }
+            }
+        }
+
+        // Parse period with multiple field names
         if (!empty($coverage['period'])) {
             $data['start_date'] = $coverage['period']['start'] ?? null;
             $data['end_date'] = $coverage['period']['end'] ?? null;
+            $data['effective_date'] = $coverage['period']['start'] ?? null;
+            $data['termination_date'] = $coverage['period']['end'] ?? null;
+            $data['coverage_start'] = $coverage['period']['start'] ?? null;
+            $data['coverage_end'] = $coverage['period']['end'] ?? null;
+        }
+
+        // Parse order (primary/secondary)
+        if (isset($coverage['order'])) {
+            $data['coverage_order'] = $coverage['order'];
+            $data['is_primary'] = ($coverage['order'] === 1);
+            $data['is_secondary'] = ($coverage['order'] === 2);
+        }
+
+        // Parse network info if available
+        if (!empty($coverage['network'])) {
+            $data['network'] = $coverage['network'];
+            $data['insurance_network'] = $coverage['network'];
         }
 
         return $data;
@@ -661,6 +829,93 @@ class DataExtractor
         }
 
         return $result;
+    }
+
+    /**
+     * Extract transient/session data from the QuickRequest process
+     * This captures data entered during the multi-step form that may not be persisted
+     */
+    private function extractTransientData($productRequest): array
+    {
+        $data = [];
+        
+        // Extract any additional insurance verification data
+        if ($productRequest && method_exists($productRequest, 'getInsuranceVerificationData')) {
+            $verificationData = $productRequest->getInsuranceVerificationData();
+            if ($verificationData) {
+                $data['insurance_verified'] = $verificationData['verified'] ?? false;
+                $data['insurance_verification_date'] = $verificationData['verified_at'] ?? null;
+                $data['insurance_auth_number'] = $verificationData['auth_number'] ?? null;
+                $data['insurance_coverage_details'] = $verificationData['coverage_details'] ?? null;
+            }
+        }
+        
+        // Extract clinical assessment data that may not be in main fields
+        if ($productRequest && $productRequest->clinical_notes) {
+            $data['clinical_notes'] = $productRequest->clinical_notes;
+            $data['clinical_assessment'] = $productRequest->clinical_notes;
+        }
+        
+        // Extract any custom provider-entered fields
+        if ($productRequest && $productRequest->custom_fields) {
+            $customFields = is_string($productRequest->custom_fields) 
+                ? json_decode($productRequest->custom_fields, true) 
+                : $productRequest->custom_fields;
+                
+            if (is_array($customFields)) {
+                foreach ($customFields as $key => $value) {
+                    $data["custom_{$key}"] = $value;
+                }
+            }
+        }
+        
+        return $data;
+    }
+    
+    /**
+     * Add common field aliases to improve matching
+     */
+    private function addFieldAliases(array $data): array
+    {
+        // Provider/Physician aliases
+        if (isset($data['provider_npi']) && !isset($data['physician_npi'])) {
+            $data['physician_npi'] = $data['provider_npi'];
+        }
+        if (isset($data['physician_npi']) && !isset($data['provider_npi'])) {
+            $data['provider_npi'] = $data['physician_npi'];
+        }
+        if (isset($data['provider_name']) && !isset($data['physician_name'])) {
+            $data['physician_name'] = $data['provider_name'];
+        }
+        if (isset($data['physician_name']) && !isset($data['provider_name'])) {
+            $data['provider_name'] = $data['physician_name'];
+        }
+        
+        // Insurance aliases
+        if (isset($data['member_id']) && !isset($data['policy_number'])) {
+            $data['policy_number'] = $data['member_id'];
+        }
+        if (isset($data['policy_number']) && !isset($data['member_id'])) {
+            $data['member_id'] = $data['policy_number'];
+        }
+        
+        // Date aliases
+        if (isset($data['dob']) && !isset($data['date_of_birth'])) {
+            $data['date_of_birth'] = $data['dob'];
+        }
+        if (isset($data['date_of_birth']) && !isset($data['dob'])) {
+            $data['dob'] = $data['date_of_birth'];
+        }
+        
+        // Address aliases
+        if (isset($data['zip']) && !isset($data['postal_code'])) {
+            $data['postal_code'] = $data['zip'];
+        }
+        if (isset($data['postal_code']) && !isset($data['zip'])) {
+            $data['zip'] = $data['postal_code'];
+        }
+        
+        return $data;
     }
 
     /**

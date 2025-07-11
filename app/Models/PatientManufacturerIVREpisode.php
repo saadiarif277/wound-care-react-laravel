@@ -264,4 +264,96 @@ class PatientManufacturerIVREpisode extends Model
             'completed_at' => now(),
         ]);
     }
+
+    /**
+     * Get all DocuSeal submissions for this episode (through orders)
+     */
+    public function docusealSubmissions()
+    {
+        $orderIds = $this->orders->pluck('id');
+        return \App\Models\Docuseal\DocusealSubmission::whereIn('order_id', $orderIds);
+    }
+
+    /**
+     * Get the IVR document for this episode
+     */
+    public function getIvrDocumentAttribute()
+    {
+        return $this->docusealSubmissions()
+            ->where('document_type', 'IVR')
+            ->where('status', 'completed')
+            ->whereNotNull('document_url')
+            ->first();
+    }
+
+    /**
+     * Get all Order Form documents for this episode
+     */
+    public function getOrderFormDocumentsAttribute()
+    {
+        return $this->docusealSubmissions()
+            ->where('document_type', 'OrderForm')
+            ->where('status', 'completed')
+            ->whereNotNull('document_url')
+            ->get();
+    }
+
+    /**
+     * Get all available documents for this episode
+     */
+    public function getAvailableDocumentsAttribute()
+    {
+        $documents = [];
+
+        // Add IVR document if available
+        if ($this->ivr_document) {
+            $documents[] = [
+                'id' => $this->ivr_document->id,
+                'type' => 'IVR',
+                'name' => 'Insurance Verification Request',
+                'url' => $this->ivr_document->document_url,
+                'completed_at' => $this->ivr_document->completed_at,
+                'shared' => true,
+                'order_id' => $this->ivr_document->order_id,
+                'audit_log_url' => $this->ivr_document->metadata['audit_log_url'] ?? null,
+            ];
+        }
+
+        // Add Order Form documents
+        foreach ($this->order_form_documents as $document) {
+            $order = $this->orders->where('id', $document->order_id)->first();
+            $documents[] = [
+                'id' => $document->id,
+                'type' => 'OrderForm',
+                'name' => 'Order Form - Order #' . ($order->order_number ?? $order->id),
+                'url' => $document->document_url,
+                'completed_at' => $document->completed_at,
+                'shared' => false,
+                'order_id' => $document->order_id,
+                'audit_log_url' => $document->metadata['audit_log_url'] ?? null,
+            ];
+        }
+
+        return $documents;
+    }
+
+    /**
+     * Check if user can download documents for this episode
+     */
+    public function canUserDownloadDocuments(\App\Models\User $user): bool
+    {
+        // Admins can download any documents
+        if ($user->hasRole('msc-admin')) {
+            return true;
+        }
+
+        // Check if user has permission for any order in this episode
+        foreach ($this->orders as $order) {
+            if ($order->canUserDownloadDocuments($user)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

@@ -132,7 +132,7 @@ class OrderCenterController extends Controller
     }
 
     /**
-     * Show individual order details
+     * Show individual order details (unified for all roles)
      */
     public function show($orderId)
     {
@@ -145,6 +145,13 @@ class OrderCenterController extends Controller
                 ->findOrFail($orderId);
 
             file_put_contents($logFile, date('Y-m-d H:i:s') . " - Order found: {$order->request_number}\n", FILE_APPEND);
+
+            // Determine user role and appropriate route context
+            $user = Auth::user();
+            $userRole = $user->getPrimaryRole()?->slug ?? 'admin';
+            $routeContext = $this->determineRouteContext($userRole);
+
+            file_put_contents($logFile, date('Y-m-d H:i:s') . " - User role: {$userRole}, Route context: {$routeContext}\n", FILE_APPEND);
 
             // Get clinical summary data which contains all submitted form data
             $clinicalSummary = $order->clinical_summary ?? [];
@@ -286,52 +293,83 @@ class OrderCenterController extends Controller
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Patient name: " . ($orderData['patient']['name'] ?? 'NOT SET') . "\n", FILE_APPEND);
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Product name: " . ($orderData['product']['name'] ?? 'NOT SET') . "\n", FILE_APPEND);
 
-        // Get role restrictions and apply financial data filtering
-        $user = Auth::user();
-        $userRole = $user->getPrimaryRole()?->slug ?? 'admin';
-
-        // Apply role-based financial data restrictions
-        if ($userRole === 'office-manager') {
-            // Hide financial data from Office Managers
-            unset($orderData['total_order_value']);
-        }
-
+        // Apply role-based financial data restrictions using 4-tier permission system
         $roleRestrictions = [
-            'can_view_financials' => $user->can('view-financials') && $userRole !== 'office-manager',
-            'can_see_discounts' => $user->can('view-discounts') && $userRole !== 'office-manager',
-            'can_see_msc_pricing' => $user->can('view-msc-pricing') && $userRole !== 'office-manager',
-            'can_see_order_totals' => $user->can('view-order-totals') && $userRole !== 'office-manager',
-            'can_see_commission' => $user->can('view-commission') && $userRole !== 'office-manager',
-            'pricing_access_level' => $userRole !== 'office-manager' ? 'full' : 'none',
-            'commission_access_level' => $userRole !== 'office-manager' ? 'full' : 'none',
+            'can_view_financials' => $user->hasPermissionTo('common-financial-data') || 
+                                   $user->hasPermissionTo('my-financial-data') || 
+                                   $user->hasPermissionTo('view-all-financial-data'),
+            'can_see_discounts' => $user->hasPermissionTo('my-financial-data') || 
+                                 $user->hasPermissionTo('view-all-financial-data'),
+            'can_see_msc_pricing' => $user->hasPermissionTo('common-financial-data') || 
+                                   $user->hasPermissionTo('my-financial-data') || 
+                                   $user->hasPermissionTo('view-all-financial-data'),
+            'can_see_order_totals' => $user->hasPermissionTo('common-financial-data') || 
+                                    $user->hasPermissionTo('my-financial-data') || 
+                                    $user->hasPermissionTo('view-all-financial-data'),
+            'can_see_commission' => $user->hasPermissionTo('my-financial-data') || 
+                                  $user->hasPermissionTo('view-all-financial-data'),
+            'pricing_access_level' => $user->hasPermissionTo('view-all-financial-data') ? 'full' :
+                                    ($user->hasPermissionTo('my-financial-data') ? 'provider' :
+                                    ($user->hasPermissionTo('common-financial-data') ? 'limited' : 'none')),
+            'commission_access_level' => $user->hasPermissionTo('my-financial-data') || 
+                                       $user->hasPermissionTo('view-all-financial-data') ? 'full' : 'none',
         ];
+
+        // Hide financial data if user has no-financial-data permission (Office Managers)
+        if ($user->hasPermissionTo('no-financial-data')) {
+            unset($orderData['total_order_value']);
+            $roleRestrictions['can_view_financials'] = false;
+            $roleRestrictions['can_see_discounts'] = false;
+            $roleRestrictions['can_see_msc_pricing'] = false;
+            $roleRestrictions['can_see_order_totals'] = false;
+            $roleRestrictions['can_see_commission'] = false;
+            $roleRestrictions['pricing_access_level'] = 'none';
+            $roleRestrictions['commission_access_level'] = 'none';
+        }
 
         // Log what we're sending to frontend
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Sending to frontend - order keys: " . implode(', ', array_keys($orderData)) . "\n", FILE_APPEND);
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Patient name being sent: " . ($orderData['patient']['name'] ?? 'NOT SET') . "\n", FILE_APPEND);
 
-        return Inertia::render('Admin/OrderCenter/OrderDetails', [
+        // Render appropriate view based on route context
+        $viewPath = $this->getViewPath($routeContext);
+
+        return Inertia::render($viewPath, [
             'order' => $orderData,
             'can_update_status' => $user->can('update-order-status'),
             'can_view_ivr' => $user->can('view-ivr-documents'),
-            'userRole' => $userRole === 'provider' ? 'Provider' :
-                        ($userRole === 'office-manager' ? 'OM' : 'Admin'),
+            'userRole' => $this->mapUserRoleForDisplay($userRole),
             'roleRestrictions' => $roleRestrictions,
+            'routeContext' => $routeContext,
+            'permissions' => $user->roles()->with('permissions')->get()->pluck('permissions')->flatten()->pluck('slug')->unique()->toArray(),
         ]);
         } catch (Exception $e) {
+            // Log the full error for debugging
+            file_put_contents(storage_path('logs/order-details-debug.log'), 
+                date('Y-m-d H:i:s') . " - ERROR: " . $e->getMessage() . "\n" . 
+                $e->getTraceAsString() . "\n", FILE_APPEND);
+            
             \Log::error('Error in OrderCenterController::show', [
                 'order_id' => $orderId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return Inertia::render('Admin/OrderCenter/OrderDetails', [
+            // Use the unified view path based on user role
+            $errorUser = Auth::user();
+            $userRole = $errorUser ? $errorUser->getPrimaryRole()?->slug ?? 'admin' : 'admin';
+            $routeContext = $this->determineRouteContext($userRole);
+            $viewPath = $this->getViewPath($routeContext);
+
+            return Inertia::render($viewPath, [
                 'order' => ['id' => $orderId, 'order_number' => 'Error'],
                 'orderData' => null,
                 'can_update_status' => false,
                 'can_view_ivr' => false,
-                'userRole' => 'Admin',
+                'userRole' => $this->mapUserRoleForDisplay($userRole),
                 'roleRestrictions' => [],
+                'routeContext' => $routeContext,
+                'permissions' => $errorUser ? $errorUser->roles()->with('permissions')->get()->pluck('permissions')->flatten()->pluck('slug')->unique()->toArray() : [],
                 'error' => 'Failed to load order details: ' . $e->getMessage()
             ]);
         }
@@ -1991,6 +2029,58 @@ class OrderCenterController extends Controller
                 'success' => false,
                 'message' => 'Failed to fetch document URL: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Determine route context based on user role
+     */
+    private function determineRouteContext(string $userRole): string
+    {
+        switch ($userRole) {
+            case 'provider':
+            case 'office-manager':
+                return 'provider';
+            case 'msc-rep':
+            case 'msc-subrep':
+                return 'sales';
+            case 'msc-admin':
+            case 'super-admin':
+                return 'admin';
+            default:
+                return 'admin';
+        }
+    }
+
+    /**
+     * Get view path based on route context
+     */
+    private function getViewPath(string $routeContext): string
+    {
+        // Use unified component for all roles
+        return 'Shared/OrderDetails/UnifiedOrderDetails';
+    }
+
+    /**
+     * Map user role for display
+     */
+    private function mapUserRoleForDisplay(string $userRole): string
+    {
+        switch ($userRole) {
+            case 'provider':
+                return 'Provider';
+            case 'office-manager':
+                return 'Office Manager';
+            case 'msc-rep':
+                return 'Sales Rep';
+            case 'msc-subrep':
+                return 'Sales Rep';
+            case 'msc-admin':
+                return 'Admin';
+            case 'super-admin':
+                return 'Super Admin';
+            default:
+                return 'User';
         }
     }
 }

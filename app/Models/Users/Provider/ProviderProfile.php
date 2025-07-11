@@ -36,6 +36,20 @@ class ProviderProfile extends Model
         'two_factor_enabled',
         'created_by',
         'updated_by',
+        // Provider-specific fields
+        'npi',
+        'tax_id',
+        'ptan',
+        'specialty',
+        'primary_specialty',
+        'credentials',
+        'dea_number',
+        'state_license_number',
+        'license_state',
+        'medicaid_number',
+        'practice_name',
+        'phone',
+        'fax',
     ];
 
     protected $casts = [
@@ -336,5 +350,34 @@ class ProviderProfile extends Model
     public function scopeIncomplete($query, int $threshold = 80)
     {
         return $query->where('profile_completion_percentage', '<', $threshold);
+    }
+
+    /**
+     * Get primary specialty (accessor for backward compatibility)
+     */
+    public function getPrimarySpecialtyAttribute()
+    {
+        return $this->attributes['specialty'] ?? $this->attributes['primary_specialty'] ?? null;
+    }
+
+    /**
+     * Get the provider's full credentials string
+     */
+    public function getCredentialsAttribute($value)
+    {
+        // If credentials field exists, return it
+        if (!empty($value)) {
+            return $value;
+        }
+        
+        // Otherwise, try to build from provider User model
+        if ($this->provider && !empty($this->provider->credentials)) {
+            if (is_array($this->provider->credentials)) {
+                return implode(', ', $this->provider->credentials);
+            }
+            return $this->provider->credentials;
+        }
+        
+        return null;
     }
 }

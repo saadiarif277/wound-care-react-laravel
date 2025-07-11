@@ -13,6 +13,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Services\CanonicalFieldService;
+use App\Models\User;
+use App\Models\Fhir\Facility;
 
 /**
  * DocusealController - Handles all Docuseal integration for Quick Requests
@@ -324,9 +327,102 @@ class DocusealController extends Controller
                 throw new \Exception('Docuseal API key not configured');
             }
 
-            // Load user profile data and merge with prefill data
-            $userProfileData = $this->loadUserProfileDataForDocuseal();
-            $prefillData = array_merge($userProfileData, $data['prefill_data']);
+            // Fetch full provider details if only ID is provided
+            $providerData = [];
+            if ($request->has('provider_id') && $request->provider_id) {
+                $provider = User::with(['providerProfile', 'providerCredentials'])->find($request->provider_id);
+                if ($provider) {
+                    $providerData = [
+                        'name' => $provider->first_name . ' ' . $provider->last_name,
+                        'first_name' => $provider->first_name,
+                        'last_name' => $provider->last_name,
+                        'npi' => $provider->npi_number ?? $provider->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? '',
+                        'email' => $provider->email,
+                        'phone' => $provider->phone ?? $provider->providerProfile?->phone ?? '',
+                        'specialty' => $provider->providerProfile?->specialty ?? '',
+                        'credentials' => $provider->providerProfile?->credentials ?? $provider->providerCredentials->pluck('credential_number')->implode(', ') ?? '',
+                        'license_number' => $provider->providerProfile?->license_number ?? $provider->providerCredentials->where('credential_type', 'license_number')->first()?->credential_number ?? '',
+                        'license_state' => $provider->providerProfile?->license_state ?? '',
+                        'dea_number' => $provider->providerProfile?->dea_number ?? $provider->providerCredentials->where('credential_type', 'dea_number')->first()?->credential_number ?? '',
+                        'ptan' => $provider->providerProfile?->ptan ?? $provider->providerCredentials->where('credential_type', 'ptan')->first()?->credential_number ?? '',
+                        'tax_id' => $provider->providerProfile?->tax_id ?? '',
+                        'practice_name' => $provider->providerProfile?->practice_name ?? '',
+                        'medicaid_number' => $provider->providerProfile?->medicaid_number ?? $provider->providerCredentials->where('credential_type', 'medicaid_number')->first()?->credential_number ?? '',
+                    ];
+                }
+            }
+
+            // Fetch full facility details if only ID is provided
+            $facilityData = [];
+            if ($request->has('facility_id') && $request->facility_id) {
+                $facility = Facility::find($request->facility_id);
+                if ($facility) {
+                    $facilityData = [
+                        'name' => $facility->name,
+                        'address' => $facility->address,
+                        'address_line1' => $facility->address_line1,
+                        'address_line2' => $facility->address_line2,
+                        'city' => $facility->city,
+                        'state' => $facility->state,
+                        'zip_code' => $facility->zip_code,
+                        'phone' => $facility->phone ?? '',
+                        'fax' => $facility->fax ?? '',
+                        'email' => $facility->email ?? '',
+                        'npi' => $facility->npi ?? '',
+                        'group_npi' => $facility->group_npi ?? '',
+                        'ptan' => $facility->ptan ?? '',
+                        'tax_id' => $facility->tax_id ?? '',
+                        'facility_type' => $facility->facility_type ?? '',
+                        'place_of_service' => $facility->place_of_service ?? '',
+                        'medicaid_number' => $facility->medicaid_number ?? '',
+                    ];
+                }
+            }
+
+            // Merge provider and facility data with prefill data
+            $enrichedPrefillData = array_merge(
+                $request->prefill_data ?? [],
+                $providerData ? ['provider_data' => $providerData] : [],
+                $facilityData ? ['facility_data' => $facilityData] : []
+            );
+
+            // Use CanonicalFieldService to map fields properly
+            $canonicalService = app(CanonicalFieldService::class);
+            $mappedData = [];
+
+            // Map provider fields using canonical service
+            if ($providerData) {
+                $mappedData['provider_name'] = $canonicalService->getFieldValue('provider', 'provider_name', $providerData) ?? $providerData['name'] ?? '';
+                $mappedData['provider_npi'] = $canonicalService->getFieldValue('provider', 'provider_npi', $providerData) ?? $providerData['npi'] ?? '';
+                $mappedData['provider_email'] = $canonicalService->getFieldValue('provider', 'provider_email', $providerData) ?? $providerData['email'] ?? '';
+                $mappedData['provider_phone'] = $canonicalService->getFieldValue('provider', 'provider_phone', $providerData) ?? $providerData['phone'] ?? '';
+                $mappedData['provider_specialty'] = $canonicalService->getFieldValue('provider', 'provider_specialty', $providerData) ?? $providerData['specialty'] ?? '';
+                
+                // Also add physician aliases for compatibility
+                $mappedData['physician_name'] = $mappedData['provider_name'];
+                $mappedData['physician_npi'] = $mappedData['provider_npi'];
+                $mappedData['physician_specialty'] = $mappedData['provider_specialty'];
+            }
+
+            // Map facility fields using canonical service
+            if ($facilityData) {
+                $mappedData['facility_name'] = $canonicalService->getFieldValue('facility', 'facility_name', $facilityData) ?? $facilityData['name'] ?? '';
+                $mappedData['facility_address'] = $canonicalService->getFieldValue('facility', 'facility_address', $facilityData) ?? $facilityData['address'] ?? '';
+                $mappedData['facility_phone'] = $canonicalService->getFieldValue('facility', 'facility_phone', $facilityData) ?? $facilityData['phone'] ?? '';
+                $mappedData['facility_npi'] = $canonicalService->getFieldValue('facility', 'facility_npi', $facilityData) ?? $facilityData['npi'] ?? '';
+            }
+
+            // Merge with existing prefill data (giving precedence to mapped data)
+            $finalPrefillData = array_merge($enrichedPrefillData, $mappedData);
+
+            // Log the enriched data for debugging
+            Log::info('Enriched DocuSeal prefill data', [
+                'has_provider_data' => !empty($providerData),
+                'has_facility_data' => !empty($facilityData),
+                'provider_fields' => array_keys($providerData),
+                'mapped_fields' => array_keys($mappedData),
+                'sample_mapped_data' => array_slice($mappedData, 0, 5, true),
+            ]);
 
             // Find the manufacturer to get template info
             $manufacturer = \App\Models\Order\Manufacturer::find($data['manufacturerId']);
@@ -344,14 +440,14 @@ class DocusealController extends Controller
             $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
                 $data['episode_id'] ?? null,
                 $manufacturer->name,
-                $prefillData,
+                $finalPrefillData,
                 $data['documentType'] ?? 'IVR'
             );
 
             $mappedData = [];
             if (!empty($mappingResult['data'])) {
                 $mappedData = $mappingResult['data'];
-                $prefillData = array_merge($prefillData, $mappedData);
+                $finalPrefillData = array_merge($finalPrefillData, $mappedData);
             }
 
             // Get template role
@@ -369,7 +465,7 @@ class DocusealController extends Controller
                         'name' => 'Quick Request User',
                     ]
                 ],
-                'values' => $this->formatPrefillValues($prefillData),
+                'values' => $this->formatPrefillValues($finalPrefillData),
             ];
 
             // Create submission via Docuseal API

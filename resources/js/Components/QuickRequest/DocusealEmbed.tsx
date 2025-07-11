@@ -174,6 +174,9 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
         templateId, // Direct template ID if provided
         productCode,
         documentType, // NEW: Include document type in request
+        // Pass provider and facility IDs for backend enrichment
+        provider_id: formData.provider_id,
+        facility_id: formData.facility_id,
         ...(episodeId && { episode_id: episodeId })
       };
 
@@ -545,6 +548,15 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
               maxWidth: '100%'
             }}
             className="w-full bg-white rounded-lg shadow-lg overflow-auto"
+            onLoad={() => {
+              if (debug) {
+                console.log('🔍 DocuSeal form loaded. Data was pre-filled via API submission:', {
+                  slug: token,
+                  originalFieldCount: Object.keys(formData).length,
+                  integrationInfo: integrationInfo
+                });
+              }
+            }}
           />
         </div>
       </div>

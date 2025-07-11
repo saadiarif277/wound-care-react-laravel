@@ -3,6 +3,7 @@
 return [
     'id' => 1,
     'name' => 'ACZ & Associates',
+    'docuseal_template_id' => '852440',
     'signature_required' => true,
     'has_order_form' => true,
     'duration_requirement' => 'greater_than_4_weeks',

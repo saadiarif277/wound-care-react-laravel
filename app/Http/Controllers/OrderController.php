@@ -546,46 +546,51 @@ final class OrderController extends Controller
 
         $patientName = $order->patient_fhir_id;
 
-        // Fetch Docuseal status for the order
+        // Fetch Docuseal status for the order using new document relationships
+        $orderDocuments = $order->docusealSubmissions()
+            ->where('document_type', 'OrderForm')
+            ->where('status', 'completed')
+            ->get()
+            ->map(function ($submission) {
+                return [
+                    'id' => $submission->id,
+                    'name' => $submission->document_name ?? 'Order Form',
+                    'filename' => $submission->document_name ?? 'order_form.pdf',
+                    'url' => route('api.v1.documents.download', $submission->id),
+                    'completed_at' => $submission->completed_at,
+                ];
+            });
+
         $orderDocuseal = [
             'status' => $order->docuseal_status,
-            'signed_documents' => [],
+            'signed_documents' => $orderDocuments->toArray(),
             'audit_log_url' => $order->docuseal_audit_log_url,
             'last_synced_at' => $order->docuseal_last_synced_at,
         ];
 
-        // Check if the DocusealService has the method before calling it
-        if ($order->docuseal_submission_id && method_exists($docuSealService, 'getSubmissionStatus')) {
-            $live = $docuSealService->{'getSubmissionStatus'}($order->docuseal_submission_id);
-            if (is_array($live)) {
-                $orderDocuseal['status'] = $live['status'] ?? $orderDocuseal['status'];
-                $orderDocuseal['signed_documents'] = $live['documents'] ?? [];
-                $orderDocuseal['audit_log_url'] = $live['audit_log_url'] ?? $orderDocuseal['audit_log_url'];
-                $orderDocuseal['last_synced_at'] = now();
-            }
-        }
-
-        // Fetch Docuseal status for the IVR episode
+        // Fetch Docuseal status for the IVR episode using new document relationships
         $ivrDocuseal = null;
         if ($order->ivrEpisode) {
+            $ivrDocuments = $order->ivrEpisode->docusealSubmissions()
+                ->where('document_type', 'IVR')
+                ->where('status', 'completed')
+                ->get()
+                ->map(function ($submission) {
+                    return [
+                        'id' => $submission->id,
+                        'name' => $submission->document_name ?? 'IVR Form',
+                        'filename' => $submission->document_name ?? 'ivr_form.pdf',
+                        'url' => route('api.v1.documents.download', $submission->id),
+                        'completed_at' => $submission->completed_at,
+                    ];
+                });
+
             $ivrDocuseal = [
                 'status' => $order->ivrEpisode->docuseal_status,
-                'signed_documents' => [],
+                'signed_documents' => $ivrDocuments->toArray(),
                 'audit_log_url' => $order->ivrEpisode->docuseal_audit_log_url,
                 'last_synced_at' => $order->ivrEpisode->docuseal_last_synced_at,
             ];
-            if (
-                $order->ivrEpisode->docuseal_submission_id &&
-                method_exists($docuSealService, 'getSubmissionStatus')
-            ) {
-                $live = $docuSealService->{'getSubmissionStatus'}($order->ivrEpisode->docuseal_submission_id);
-                if (is_array($live)) {
-                    $ivrDocuseal['status'] = $live['status'] ?? $ivrDocuseal['status'];
-                    $ivrDocuseal['signed_documents'] = $live['documents'] ?? [];
-                    $ivrDocuseal['audit_log_url'] = $live['audit_log_url'] ?? $ivrDocuseal['audit_log_url'];
-                    $ivrDocuseal['last_synced_at'] = now();
-                }
-            }
         }
 
         $orderDetail = [
