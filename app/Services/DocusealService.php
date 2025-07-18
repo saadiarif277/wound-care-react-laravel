@@ -1733,6 +1733,101 @@ class DocusealService
     }
 
     /**
+     * Get submission slugs for a specific submission ID
+     * This fetches the individual signer URLs for a Docuseal submission
+     */
+    public function getSubmissionSlugs(string $submissionId): array
+    {
+        try {
+            Log::info('Fetching Docuseal submission slugs', [
+                'submission_id' => $submissionId
+            ]);
+
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->get("{$this->apiUrl}/submitters", [
+                'submission_id' => $submissionId
+            ]);
+
+            if (!$response->successful()) {
+                $errorBody = $response->json();
+                $errorMessage = 'Failed to fetch submission slugs';
+
+                if (isset($errorBody['error'])) {
+                    $errorMessage .= ': ' . $errorBody['error'];
+                } elseif (isset($errorBody['message'])) {
+                    $errorMessage .= ': ' . $errorBody['message'];
+                } else {
+                    $errorMessage .= ': ' . $response->body();
+                }
+
+                Log::error('Failed to fetch Docuseal submission slugs', [
+                    'submission_id' => $submissionId,
+                    'status_code' => $response->status(),
+                    'error' => $errorMessage
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => $errorMessage
+                ];
+            }
+
+            $responseData = $response->json();
+            $submitters = $responseData['data'] ?? [];
+
+            // Extract slugs and create individual signer URLs
+            $slugs = [];
+            foreach ($submitters as $submitter) {
+                if (isset($submitter['slug'])) {
+                    $slugs[] = [
+                        'id' => $submitter['id'] ?? null,
+                        'slug' => $submitter['slug'],
+                        'email' => $submitter['email'] ?? '',
+                        'name' => $submitter['name'] ?? '',
+                        'status' => $submitter['status'] ?? 'pending',
+                        'url' => "https://docuseal.com/s/{$submitter['slug']}",
+                        'completed_at' => $submitter['completed_at'] ?? null,
+                        'opened_at' => $submitter['opened_at'] ?? null
+                    ];
+                }
+            }
+
+            Log::info('Successfully fetched Docuseal submission slugs', [
+                'submission_id' => $submissionId,
+                'slug_count' => count($slugs),
+                'slugs' => array_map(function($slug) {
+                    return [
+                        'id' => $slug['id'],
+                        'email' => $slug['email'],
+                        'status' => $slug['status']
+                    ];
+                }, $slugs)
+            ]);
+
+            return [
+                'success' => true,
+                'submission_id' => $submissionId,
+                'slugs' => $slugs,
+                'total_count' => count($slugs)
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Exception while fetching Docuseal submission slugs', [
+                'submission_id' => $submissionId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => 'Failed to fetch submission slugs: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Map FHIR checklist data to Docuseal fields
      * This method transforms FHIR-formatted data into Docuseal field format
      */

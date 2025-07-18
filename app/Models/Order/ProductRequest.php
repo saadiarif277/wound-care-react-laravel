@@ -62,6 +62,12 @@ class ProductRequest extends Model
         'carrier',
         'tracking_number',
         'shipping_info',
+        'altered_ivr_file_path',
+        'altered_ivr_uploaded_at',
+        'altered_ivr_uploaded_by',
+        'altered_order_form_file_path',
+        'altered_order_form_uploaded_at',
+        'altered_order_form_uploaded_by',
     ];
 
     protected $casts = [
@@ -201,6 +207,66 @@ class ProductRequest extends Model
     public function docusealSubmissions(): HasMany
     {
         return $this->hasMany(DocusealSubmission::class, 'order_id');
+    }
+
+    /**
+     * Get the user who uploaded the altered IVR file.
+     */
+    public function alteredIvrUploadedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'altered_ivr_uploaded_by');
+    }
+
+    /**
+     * Get the user who uploaded the altered order form file.
+     */
+    public function alteredOrderFormUploadedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'altered_order_form_uploaded_by');
+    }
+
+    /**
+     * Get the URL for the altered IVR file.
+     */
+    public function getAlteredIvrFileUrlAttribute(): ?string
+    {
+        if (!$this->altered_ivr_file_path) {
+            return null;
+        }
+        return asset('storage/' . $this->altered_ivr_file_path);
+    }
+
+    /**
+     * Get the URL for the altered order form file.
+     */
+    public function getAlteredOrderFormFileUrlAttribute(): ?string
+    {
+        if (!$this->altered_order_form_file_path) {
+            return null;
+        }
+        return asset('storage/' . $this->altered_order_form_file_path);
+    }
+
+    /**
+     * Get the filename for the altered IVR file.
+     */
+    public function getAlteredIvrFileNameAttribute(): ?string
+    {
+        if (!$this->altered_ivr_file_path) {
+            return null;
+        }
+        return basename($this->altered_ivr_file_path);
+    }
+
+    /**
+     * Get the filename for the altered order form file.
+     */
+    public function getAlteredOrderFormFileNameAttribute(): ?string
+    {
+        if (!$this->altered_order_form_file_path) {
+            return null;
+        }
+        return basename($this->altered_order_form_file_path);
     }
 
     /**

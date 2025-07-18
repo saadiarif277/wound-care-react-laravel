@@ -35,6 +35,16 @@ interface Order {
   wound_type?: string;
   wound_type_display?: string;
   expected_service_date?: string;
+  altered_ivr_file_path?: string;
+  altered_ivr_file_name?: string;
+  altered_ivr_file_url?: string;
+  altered_ivr_uploaded_at?: string;
+  altered_ivr_uploaded_by_name?: string;
+  altered_order_form_file_path?: string;
+  altered_order_form_file_name?: string;
+  altered_order_form_file_url?: string;
+  altered_order_form_uploaded_at?: string;
+  altered_order_form_uploaded_by_name?: string;
 }
 
 interface OrderData {
@@ -469,7 +479,13 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             resultsFileUrl: '',
             files: order.documents || [],
             ivrDocumentUrl: order.ivr_document_url,
-            docusealSubmissionId: order.docuseal_submission_id
+            docusealSubmissionId: order.docuseal_submission_id,
+            alteredIvrFile: order.altered_ivr_file_path ? {
+              name: order.altered_ivr_file_name || 'Uploaded IVR File',
+              url: order.altered_ivr_file_url || '',
+              uploadedAt: order.altered_ivr_uploaded_at || '',
+              uploadedBy: order.altered_ivr_uploaded_by_name || 'Admin'
+            } : undefined
           }}
           orderFormData={{
             status: order.order_form_status || 'N/A',
@@ -478,7 +494,13 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             approvalDate: '',
             notes: '',
             fileUrl: '',
-            files: order.documents || []
+            files: order.documents || [],
+            alteredOrderFormFile: order.altered_order_form_file_path ? {
+              name: order.altered_order_form_file_name || 'Uploaded Order Form File',
+              url: order.altered_order_form_file_url || '',
+              uploadedAt: order.altered_order_form_uploaded_at || '',
+              uploadedBy: order.altered_order_form_uploaded_by_name || 'Admin'
+            } : undefined
           }}
           orderId={order.id}
           onUpdateIVRStatus={handleUpdateIVRStatus}

@@ -23,14 +23,14 @@ class DocusealController extends Controller
         $this->middleware('auth');
         // Apply manage-orders permission to most methods, but exclude IVR-related methods that providers need
         $this->middleware('permission:manage-orders')->except([
-            'createSubmission', 
-            'createDemoSubmission', 
+            'createSubmission',
+            'createDemoSubmission',
             'generateToken'
         ]);
         // Apply create-product-requests permission to IVR methods that providers use
         $this->middleware('permission:create-product-requests')->only([
-            'createSubmission', 
-            'createDemoSubmission', 
+            'createSubmission',
+            'createDemoSubmission',
             'generateToken'
         ]);
     }
@@ -42,7 +42,7 @@ class DocusealController extends Controller
     public function generateDocument(Request $request): JsonResponse
     {
         $request->validate([
-            'order_id' => 'required|uuid|exists:orders,id',
+            'order_id' => 'required|uuid|exists:product_requests,id',
         ]);
 
         try {
@@ -309,18 +309,18 @@ class DocusealController extends Controller
             $templateId = $request->templateId;
             $prefillData = $request->prefill_data ?? [];
             $episodeId = $request->episode_id;
-            
+
             // Use orchestrator's comprehensive data preparation instead of just frontend data
             $comprehensiveData = $prefillData;
             if ($episodeId) {
                 $episode = \App\Models\PatientManufacturerIVREpisode::find($episodeId);
                 if ($episode) {
                     $orchestrator = app(\App\Services\QuickRequest\QuickRequestOrchestrator::class);
-                    
+
                     // Check if AI enhancement is enabled
-                    $useAI = config('services.medical_ai.enabled', true) && 
+                    $useAI = config('services.medical_ai.enabled', true) &&
                              config('services.medical_ai.use_for_docuseal', true);
-                    
+
                     if ($useAI) {
                         // Try AI-enhanced preparation first
                         try {
@@ -349,7 +349,7 @@ class DocusealController extends Controller
                         ]);
                         $comprehensiveData = $orchestrator->prepareDocusealData($episode);
                     }
-                    
+
                     Log::info('Using orchestrator comprehensive data', [
                         'episode_id' => $episodeId,
                         'comprehensive_fields' => count($comprehensiveData),
@@ -770,10 +770,10 @@ class DocusealController extends Controller
         try {
             // Use QuickRequestOrchestrator to create episode with comprehensive data
             $orchestrator = app(\App\Services\QuickRequest\QuickRequestOrchestrator::class);
-            
+
             // Extract comprehensive data like the main QuickRequestController does
             $formData = $validated['formData'];
-            
+
             $episodeData = [
                 'patient' => $this->extractPatientData($formData),
                 'provider' => $this->extractProviderData($formData),
@@ -1079,6 +1079,124 @@ class DocusealController extends Controller
         $random = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
 
         return $initials . $dobDigits . $random;
+    }
+
+    /**
+     * Get submission slugs for a specific submission ID
+     * GET /api/v1/admin/docuseal/submissions/{submission_id}/slugs
+     */
+    public function getSubmissionSlugs(string $submissionId): JsonResponse
+    {
+        try {
+            Log::info('Getting Docuseal submission slugs', [
+                'submission_id' => $submissionId,
+                'user_id' => Auth::id()
+            ]);
+
+            // Get submission slugs from Docuseal service
+            $result = $this->docusealService->getSubmissionSlugs($submissionId);
+
+            if (!$result['success']) {
+                return response()->json([
+                    'error' => 'Failed to fetch submission slugs',
+                    'message' => $result['error']
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'submission_id' => $submissionId,
+                'slugs' => $result['slugs'],
+                'total_count' => $result['total_count']
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to get Docuseal submission slugs', [
+                'submission_id' => $submissionId,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to get submission slugs',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get Docuseal document URL for viewing
+     * GET /admin/orders/{orderId}/docuseal-document-url
+     */
+    public function getDocusealDocumentUrl(int $orderId): JsonResponse
+    {
+        try {
+            Log::info('Getting Docuseal document URL', [
+                'order_id' => $orderId,
+                'user_id' => Auth::id()
+            ]);
+
+            // Get the order to find the submission ID
+            $order = \App\Models\Order\ProductRequest::find($orderId);
+
+
+            // Get the submission ID from the order
+            $submissionId = $order->docuseal_submission_id;
+            if (!$submissionId) {
+                return response()->json([
+                    'error' => 'No Docuseal submission found for this order'
+                ], 404);
+            }
+
+            // Get submission slugs from Docuseal service
+            $result = $this->docusealService->getSubmissionSlugs($submissionId);
+
+            if (!$result['success']) {
+                return response()->json([
+                    'error' => 'Failed to fetch submission slugs',
+                    'message' => $result['error']
+                ], 500);
+            }
+
+            // Get the first available slug
+            if (empty($result['slugs'])) {
+                return response()->json([
+                    'error' => 'No signer URLs found for this submission'
+                ], 404);
+            }
+
+            $firstSlug = $result['slugs'][0];
+            $documentUrl = $firstSlug['url'];
+
+            Log::info('Successfully generated Docuseal document URL', [
+                'order_id' => $orderId,
+                'submission_id' => $submissionId,
+                'document_url' => $documentUrl
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'document_url' => $documentUrl,
+                'submission_id' => $submissionId,
+                'signer_info' => [
+                    'name' => $firstSlug['name'],
+                    'email' => $firstSlug['email'],
+                    'status' => $firstSlug['status']
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to get Docuseal document URL', [
+                'order_id' => $orderId,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to get document URL',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

@@ -368,14 +368,14 @@ Route::prefix('fhir')->middleware(['auth:sanctum'])->name('fhir.')->group(functi
 // });
 
 // Field Mapping Management Routes (moved outside deprecated Docuseal group)
-Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('docuseal.')->group(function () {
+Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->name('docuseal.')->group(function () {
     // Field Mapping Management Routes - COMMENTED OUT - TemplateMappingController doesn't exist
     // Route::get('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getFieldMappings'])->name('mappings.get');
     // Route::post('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'updateFieldMappings'])->name('mappings.update');
     // Route::post('templates/{id}/field-mappings/bulk', [\App\Http\Controllers\Api\TemplateMappingController::class, 'bulkUpdateMappings'])->name('mappings.bulk');
     // Route::post('templates/{id}/field-mappings/suggest', [\App\Http\Controllers\Api\TemplateMappingController::class, 'suggestMappings'])->name('mappings.suggest');
     // Route::post('templates/{id}/field-mappings/auto-map', [\App\Http\Controllers\Api\TemplateMappingController::class, 'autoMapFields'])->name('mappings.auto-map');
-    // Route::post('templates/{id}/field-mappings/validate', [\App\Http\Controllers\Api\TemplateMappingController::class, 'validateMappings'])->name('mappings.validate'); 
+    // Route::post('templates/{id}/field-mappings/validate', [\App\Http\Controllers\Api\TemplateMappingController::class, 'validateMappings'])->name('mappings.validate');
     // Route::get('templates/{id}/mapping-stats', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getMappingStatistics'])->name('mappings.stats');
 
     // Canonical Fields Routes - COMMENTED OUT - TemplateMappingController doesn't exist
@@ -384,6 +384,9 @@ Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:mana
     // Import/Export Routes - COMMENTED OUT - TemplateMappingController doesn't exist
     // Route::post('field-mappings/import', [\App\Http\Controllers\Api\TemplateMappingController::class, 'importMappings'])->name('mappings.import');
     // Route::get('field-mappings/export/{templateId}', [\App\Http\Controllers\Api\TemplateMappingController::class, 'exportMappings'])->name('mappings.export');
+
+    // Get submission slugs for individual signer URLs
+    Route::get('submissions/{submission_id}/slugs', [\App\Http\Controllers\DocusealController::class, 'getSubmissionSlugs'])->name('submissions.slugs');
 });
 
 // Docuseal Webhook with signature verification
@@ -758,7 +761,7 @@ Route::middleware(['web'])->group(function () {
     Route::post('/document/analyze', [\App\Http\Controllers\Api\DocumentProcessingController::class, 'analyze'])
         ->middleware('permission:create-product-requests')
         ->name('api.document.analyze');
-    
+
     Route::post('/document/create-episode', [\App\Http\Controllers\Api\DocumentProcessingController::class, 'createEpisodeFromDocument'])
         ->middleware('permission:create-product-requests')
         ->name('api.document.create-episode');
@@ -776,7 +779,7 @@ Route::middleware(['web'])->group(function () {
         ->name('api.document.ai-service-status');
 });
 
-// AI Chat Routes  
+// AI Chat Routes
 Route::prefix('v1/ai')->middleware(['web'])->group(function () {
     Route::post('/chat', [\App\Http\Controllers\Api\AiChatController::class, 'chat'])
         ->name('api.ai.chat');
@@ -788,7 +791,7 @@ Route::prefix('v1/ai')->middleware(['web'])->group(function () {
         ->name('api.ai.text-to-speech');
     Route::get('/voices', [\App\Http\Controllers\Api\AiChatController::class, 'getVoices'])
         ->name('api.ai.voices');
-    
+
     // Hybrid Voice/Text Mode Routes
     Route::post('/realtime/session', [\App\Http\Controllers\Api\AiChatController::class, 'createRealtimeSession'])
         ->name('api.ai.realtime.session');
@@ -800,7 +803,7 @@ Route::prefix('v1/ai')->middleware(['web'])->group(function () {
         ->name('api.ai.capabilities');
     Route::post('/switch-mode', [\App\Http\Controllers\Api\AiChatController::class, 'switchMode'])
         ->name('api.ai.switch-mode');
-    
+
     Route::post('/agent/create-thread', [\App\Http\Controllers\Api\AiChatController::class, 'createThread'])
         ->name('api.ai.agent.create-thread');
     Route::post('/agent/{threadId}/message', [\App\Http\Controllers\Api\AiChatController::class, 'sendMessage'])
@@ -814,11 +817,11 @@ Route::prefix('quick-request')->middleware(['auth:sanctum'])->group(function () 
     Route::post('/generate-ivr', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateIVR'])
         ->middleware('permission:create-product-requests')
         ->name('api.quick-request.generate-ivr');
-    
+
     Route::post('/validate', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'validateFormData'])
         ->middleware('permission:create-product-requests')
         ->name('api.quick-request.validate');
-    
+
     Route::get('/user-permissions', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'getUserPermissions'])
         ->name('api.quick-request.user-permissions');
 });

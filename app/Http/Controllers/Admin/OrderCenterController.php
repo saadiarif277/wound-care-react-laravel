@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Exception;
 use Carbon\Carbon;
@@ -141,7 +142,7 @@ class OrderCenterController extends Controller
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - OrderCenterController::show called for order_id: {$orderId}\n", FILE_APPEND);
 
         try {
-            $order = ProductRequest::with(['provider', 'facility', 'products', 'episode'])
+            $order = ProductRequest::with(['provider', 'facility', 'products', 'episode', 'alteredIvrUploadedBy', 'alteredOrderFormUploadedBy'])
                 ->findOrFail($orderId);
 
             file_put_contents($logFile, date('Y-m-d H:i:s') . " - Order found: {$order->request_number}\n", FILE_APPEND);
@@ -279,6 +280,18 @@ class OrderCenterController extends Controller
             ],
             'documents' => $this->getOrderDocuments($order),
             'fhir' => $fhirData,
+
+            // Add uploaded file data
+            'altered_ivr_file_path' => $order->altered_ivr_file_path,
+            'altered_ivr_file_name' => $order->altered_ivr_file_name,
+            'altered_ivr_file_url' => $order->altered_ivr_file_url,
+            'altered_ivr_uploaded_at' => $this->formatDateForISO($order->altered_ivr_uploaded_at),
+            'altered_ivr_uploaded_by_name' => $order->alteredIvrUploadedBy?->name ?? 'Admin',
+            'altered_order_form_file_path' => $order->altered_order_form_file_path,
+            'altered_order_form_file_name' => $order->altered_order_form_file_name,
+            'altered_order_form_file_url' => $order->altered_order_form_file_url,
+            'altered_order_form_uploaded_at' => $this->formatDateForISO($order->altered_order_form_uploaded_at),
+            'altered_order_form_uploaded_by_name' => $order->alteredOrderFormUploadedBy?->name ?? 'Admin',
         ];
 
                         // Log the order data structure
@@ -1043,11 +1056,144 @@ class OrderCenterController extends Controller
     }
 
     /**
+     * Upload file for IVR or order form
+     */
+    public function uploadOrderFile(Request $request, $orderId)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240', // 10MB max
+            'file_type' => 'required|in:ivr,order_form'
+        ]);
+
+        $order = ProductRequest::findOrFail($orderId);
+        $file = $request->file('file');
+        $fileType = $request->input('file_type');
+
+        try {
+            // Generate unique filename
+            $fileName = time() . '_' . $file->getClientOriginalName();
+            $filePath = "uploads/orders/{$orderId}/{$fileType}/{$fileName}";
+
+            // Store file
+            $storedPath = $file->storeAs("uploads/orders/{$orderId}/{$fileType}", $fileName, 'public');
+
+            // Update order with file information
+            $updateData = [];
+            if ($fileType === 'ivr') {
+                $updateData = [
+                    'altered_ivr_file_path' => $storedPath,
+                    'altered_ivr_uploaded_at' => now(),
+                    'altered_ivr_uploaded_by' => auth()->id(),
+                ];
+            } else {
+                $updateData = [
+                    'altered_order_form_file_path' => $storedPath,
+                    'altered_order_form_uploaded_at' => now(),
+                    'altered_order_form_uploaded_by' => auth()->id(),
+                ];
+            }
+
+            $order->update($updateData);
+
+            // Log the file upload
+            Log::info('File uploaded for order', [
+                'order_id' => $orderId,
+                'file_type' => $fileType,
+                'file_name' => $fileName,
+                'file_path' => $storedPath,
+                'uploaded_by' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => ucfirst($fileType) . ' file uploaded successfully',
+                'file_name' => $fileName,
+                'file_url' => asset('storage/' . $storedPath),
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to upload file for order', [
+                'order_id' => $orderId,
+                'file_type' => $fileType,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload file: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove uploaded file for IVR or order form
+     */
+    public function removeOrderFile(Request $request, $orderId)
+    {
+        $request->validate([
+            'file_type' => 'required|in:ivr,order_form'
+        ]);
+
+        $order = ProductRequest::findOrFail($orderId);
+        $fileType = $request->input('file_type');
+
+        try {
+            $updateData = [];
+            if ($fileType === 'ivr') {
+                $filePath = $order->altered_ivr_file_path;
+                $updateData = [
+                    'altered_ivr_file_path' => null,
+                    'altered_ivr_uploaded_at' => null,
+                    'altered_ivr_uploaded_by' => null,
+                ];
+            } else {
+                $filePath = $order->altered_order_form_file_path;
+                $updateData = [
+                    'altered_order_form_file_path' => null,
+                    'altered_order_form_uploaded_at' => null,
+                    'altered_order_form_uploaded_by' => null,
+                ];
+            }
+
+            // Delete file from storage if it exists
+            if ($filePath && Storage::disk('public')->exists($filePath)) {
+                Storage::disk('public')->delete($filePath);
+            }
+
+            $order->update($updateData);
+
+            // Log the file removal
+            Log::info('File removed for order', [
+                'order_id' => $orderId,
+                'file_type' => $fileType,
+                'removed_by' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => ucfirst($fileType) . ' file removed successfully',
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to remove file for order', [
+                'order_id' => $orderId,
+                'file_type' => $fileType,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove file: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get enhanced order details with IVR and notification data
      */
     public function getEnhancedOrderDetails($orderId)
     {
-        $order = ProductRequest::with(['provider', 'facility', 'products', 'episode'])
+        $order = ProductRequest::with(['provider', 'facility', 'products', 'episode', 'alteredIvrUploadedBy', 'alteredOrderFormUploadedBy'])
             ->findOrFail($orderId);
 
         // Get status history

@@ -16,6 +16,12 @@ interface IVRData {
   files: DocumentFile[];
   ivrDocumentUrl?: string;
   docusealSubmissionId?: string;
+  alteredIvrFile?: {
+    name: string;
+    url: string;
+    uploadedAt: string;
+    uploadedBy: string;
+  };
 }
 
 interface OrderFormData {
@@ -31,6 +37,12 @@ interface OrderFormData {
   trackingNumber?: string;
   carrier?: string;
   files: DocumentFile[];
+  alteredOrderFormFile?: {
+    name: string;
+    url: string;
+    uploadedAt: string;
+    uploadedBy: string;
+  };
 }
 
 interface DocumentFile {
@@ -76,6 +88,11 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   const [documentPanelType, setDocumentPanelType] = useState<'ivr' | 'order-form'>('ivr');
   const [isLoadingIVR, setIsLoadingIVR] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [showSignerUrls, setShowSignerUrls] = useState(false);
+  const [signerUrls, setSignerUrls] = useState<any[]>([]);
+  const [isLoadingSignerUrls, setIsLoadingSignerUrls] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const getStatusColor = (status: string | null | undefined) => {
     if (!status || typeof status !== 'string') {
@@ -187,17 +204,69 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'ivr' | 'order') => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'ivr' | 'order') => {
     const file = event.target.files?.[0];
-    if (file) {
-      if (type === 'ivr') {
-        onUploadIVRResults(file);
+    if (!file) return;
+
+    setIsUploadingFile(true);
+    setUploadProgress(0);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('file_type', type === 'ivr' ? 'ivr' : 'order_form');
+
+      const response = await axios.post(`/admin/orders/${orderId}/upload-file`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(progress);
+          }
+        },
+      });
+
+      if (response.data.success) {
+        // Refresh the page to show the uploaded file
+        window.location.reload();
+      } else {
+        console.error('Upload failed:', response.data.message);
+        alert('Upload failed: ' + response.data.message);
       }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Upload failed. Please try again.');
+    } finally {
+      setIsUploadingFile(false);
+      setUploadProgress(0);
+      // Reset the file input
+      event.target.value = '';
     }
   };
 
-  const removeFile = (fileId: string, type: 'ivr' | 'order') => {
-    console.log(`Removing file ${fileId} from ${type}`);
+  const removeFile = async (type: 'ivr' | 'order') => {
+    if (!confirm('Are you sure you want to remove this file?')) return;
+
+    try {
+      const response = await axios.delete(`/admin/orders/${orderId}/remove-file`, {
+        data: {
+          file_type: type === 'ivr' ? 'ivr' : 'order_form',
+        },
+      });
+
+      if (response.data.success) {
+        // Refresh the page to reflect the change
+        window.location.reload();
+      } else {
+        console.error('Remove failed:', response.data.message);
+        alert('Remove failed: ' + response.data.message);
+      }
+    } catch (error) {
+      console.error('Remove error:', error);
+      alert('Remove failed. Please try again.');
+    }
   };
 
   const handleViewDocument = (type: 'ivr' | 'order-form') => {
@@ -205,11 +274,41 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
     setShowDocumentPanel(true);
   };
 
-  const handleViewIVR = async () => {
+    const handleViewAllSigners = async () => {
+    if (!ivrData.docusealSubmissionId) return;
+
+    setIsLoadingSignerUrls(true);
+    try {
+      // Use the controller method to get submission slugs
+      const response = await fetch(`/api/v1/admin/docuseal/submissions/${ivrData.docusealSubmissionId}/slugs`);
+      const data = await response.json();
+
+      if (data.success && data.slugs) {
+        setSignerUrls(data.slugs);
+        setShowSignerUrls(true);
+      } else {
+        console.error('❌ Failed to get signer URLs:', data.message);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching signer URLs:', error);
+    } finally {
+      setIsLoadingSignerUrls(false);
+    }
+  };
+
+    const handleViewIVR = async () => {
+    // First, check if there's an uploaded IVR file
+    if (ivrData.alteredIvrFile?.url) {
+      window.open(ivrData.alteredIvrFile.url, '_blank');
+      return;
+    }
+
+    // Then check for Docuseal submission
     if (ivrData.docusealSubmissionId) {
       setIsLoadingIVR(true);
       try {
-        const response = await fetch(`/admin/orders/${orderId}/docuseal-document`);
+        // Use the new controller method to get the document URL
+        const response = await fetch(`/admin/orders/${orderId}/docuseal-document-url`);
         const data = await response.json();
 
         if (data.success && data.document_url) {
@@ -217,15 +316,40 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
           window.open(data.document_url, '_blank');
         } else {
           console.error('❌ Failed to get document URL:', data.message);
-          const fallbackUrl = `https://docuseal.com/e/${ivrData.docusealSubmissionId}`;
-          console.log('🔍 Using fallback URL:', fallbackUrl);
-          window.open(fallbackUrl, '_blank');
+          // Fallback to the old method
+          const fallbackResponse = await fetch(`/admin/orders/${orderId}/docuseal-document`);
+          const fallbackData = await fallbackResponse.json();
+
+          if (fallbackData.success && fallbackData.document_url) {
+            console.log('🔍 Opening Docuseal document URL:', fallbackData.document_url);
+            window.open(fallbackData.document_url, '_blank');
+          } else {
+            const fallbackUrl = `https://docuseal.com/e/${ivrData.docusealSubmissionId}`;
+            console.log('🔍 Using fallback URL:', fallbackUrl);
+            window.open(fallbackUrl, '_blank');
+          }
         }
       } catch (error) {
         console.error('❌ Error fetching document URL:', error);
-        const fallbackUrl = `https://docuseal.com/e/${ivrData.docusealSubmissionId}`;
-        console.log('🔍 Using fallback URL:', fallbackUrl);
-        window.open(fallbackUrl, '_blank');
+        // Try the old fallback method
+        try {
+          const fallbackResponse = await fetch(`/admin/orders/${orderId}/docuseal-document`);
+          const fallbackData = await fallbackResponse.json();
+
+          if (fallbackData.success && fallbackData.document_url) {
+            console.log('🔍 Opening Docuseal document URL:', fallbackData.document_url);
+            window.open(fallbackData.document_url, '_blank');
+          } else {
+            const fallbackUrl = `https://docuseal.com/e/${ivrData.docusealSubmissionId}`;
+            console.log('🔍 Using fallback URL:', fallbackUrl);
+            window.open(fallbackUrl, '_blank');
+          }
+        } catch (fallbackError) {
+          console.error('❌ Fallback method also failed:', fallbackError);
+          const fallbackUrl = `https://docuseal.com/e/${ivrData.docusealSubmissionId}`;
+          console.log('🔍 Using final fallback URL:', fallbackUrl);
+          window.open(fallbackUrl, '_blank');
+        }
       } finally {
         setIsLoadingIVR(false);
       }
@@ -290,6 +414,22 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                       )}
                       {isLoadingIVR ? 'Loading...' : 'View IVR Form'}
                     </Button>
+                    {ivrData.docusealSubmissionId && (
+                      <Button
+                        onClick={handleViewAllSigners}
+                        className="flex-1"
+                        variant="secondary"
+                        size="sm"
+                        disabled={isLoadingSignerUrls}
+                      >
+                        {isLoadingSignerUrls ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <FileText className="h-4 w-4 mr-2" />
+                        )}
+                        {isLoadingSignerUrls ? 'Loading...' : 'All Signers'}
+                      </Button>
+                    )}
                   </div>
 
                   {userRole === 'Admin' && (
@@ -331,7 +471,49 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                     )}
                   </div>
 
-                  {ivrData.files && ivrData.files.length > 0 ? (
+                  {/* Show uploaded IVR file if available */}
+                  {ivrData.alteredIvrFile ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-green-600" />
+                          <div>
+                            <span className="text-sm font-medium text-green-800">{ivrData.alteredIvrFile.name}</span>
+                            <div className="text-xs text-green-600">
+                              Uploaded by {ivrData.alteredIvrFile.uploadedBy} on {new Date(ivrData.alteredIvrFile.uploadedAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => window.open(ivrData.alteredIvrFile!.url, '_blank')}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const link = window.document.createElement('a');
+                              link.href = ivrData.alteredIvrFile!.url;
+                              link.download = ivrData.alteredIvrFile!.name;
+                              link.click();
+                            }}
+                            className="text-green-600 hover:text-green-700"
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                          {userRole === 'Admin' && (
+                            <button
+                              onClick={() => removeFile('ivr')}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : ivrData.files && ivrData.files.length > 0 ? (
                     <div className="space-y-2">
                       {ivrData.files.map((file) => (
                         <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
@@ -357,14 +539,6 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                             >
                               <Download className="h-4 w-4" />
                             </button>
-                            {userRole === 'Admin' && (
-                              <button
-                                onClick={() => removeFile(file.id, 'ivr')}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
                           </div>
                         </div>
                       ))}
@@ -490,7 +664,49 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                     )}
                   </div>
 
-                  {orderFormData.files && orderFormData.files.length > 0 ? (
+                  {/* Show uploaded order form file if available */}
+                  {orderFormData.alteredOrderFormFile ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-green-600" />
+                          <div>
+                            <span className="text-sm font-medium text-green-800">{orderFormData.alteredOrderFormFile.name}</span>
+                            <div className="text-xs text-green-600">
+                              Uploaded by {orderFormData.alteredOrderFormFile.uploadedBy} on {new Date(orderFormData.alteredOrderFormFile.uploadedAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => window.open(orderFormData.alteredOrderFormFile!.url, '_blank')}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const link = window.document.createElement('a');
+                              link.href = orderFormData.alteredOrderFormFile!.url;
+                              link.download = orderFormData.alteredOrderFormFile!.name;
+                              link.click();
+                            }}
+                            className="text-green-600 hover:text-green-700"
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                          {userRole === 'Admin' && (
+                            <button
+                              onClick={() => removeFile('order')}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : orderFormData.files && orderFormData.files.length > 0 ? (
                     <div className="space-y-2">
                       {orderFormData.files.map((file) => (
                         <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
@@ -516,14 +732,6 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                             >
                               <Download className="h-4 w-4" />
                             </button>
-                            {userRole === 'Admin' && (
-                              <button
-                                onClick={() => removeFile(file.id, 'order')}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
                           </div>
                         </div>
                       ))}
@@ -608,6 +816,86 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
         orderId={orderId.toString()}
         title={documentPanelType === 'ivr' ? 'IVR Document' : 'Order Form Document'}
       />
+
+      {/* Signer URLs Modal */}
+      {showSignerUrls && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="max-w-2xl w-full mx-4 p-6 rounded-lg shadow-xl bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Docuseal Signer URLs</h3>
+              <button
+                onClick={() => setShowSignerUrls(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {signerUrls.map((signer, index) => (
+                <div key={signer.id || index} className="p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-blue-600">
+                          {signer.name ? signer.name.charAt(0).toUpperCase() : 'S'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {signer.name || `Signer ${index + 1}`}
+                        </p>
+                        <p className="text-xs text-gray-500">{signer.email}</p>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      signer.status === 'completed' ? 'text-green-600 bg-green-100' :
+                      signer.status === 'pending' ? 'text-yellow-600 bg-yellow-100' :
+                      'text-gray-600 bg-gray-100'
+                    }`}>
+                      {signer.status}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => window.open(signer.url, '_blank')}
+                      className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      <Eye className="h-4 w-4 mr-2 inline" />
+                      Open Document
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(signer.url);
+                        // You could add a toast notification here
+                      }}
+                      className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                    >
+                      Copy URL
+                    </button>
+                  </div>
+
+                  {signer.completed_at && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Completed: {new Date(signer.completed_at).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowSignerUrls(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

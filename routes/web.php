@@ -339,10 +339,15 @@ Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function
     Route::get('/orders/{orderId}/notification-stats', [App\Http\Controllers\Admin\OrderCenterController::class, 'getNotificationStats'])->name('admin.orders.notification-stats');
     Route::get('/orders/{orderId}/enhanced-details', [App\Http\Controllers\Admin\OrderCenterController::class, 'getEnhancedOrderDetails'])->name('admin.orders.enhanced-details');
 
+    // Order file upload management
+    Route::post('/orders/{orderId}/upload-file', [App\Http\Controllers\Admin\OrderCenterController::class, 'uploadOrderFile'])->name('admin.orders.upload-file');
+    Route::delete('/orders/{orderId}/remove-file', [App\Http\Controllers\Admin\OrderCenterController::class, 'removeOrderFile'])->name('admin.orders.remove-file');
+
     // IVR Viewing Routes
     Route::get('/ivr/view/{orderId}', [App\Http\Controllers\Admin\OrderCenterController::class, 'viewIvrDocument'])->name('admin.ivr.view');
     Route::get('/ivr/download/{orderId}', [App\Http\Controllers\Admin\OrderCenterController::class, 'downloadIvrDocument'])->name('admin.ivr.download');
     Route::get('/orders/{orderId}/docuseal-document', [App\Http\Controllers\Admin\OrderCenterController::class, 'getDocusealDocument'])->name('admin.orders.docuseal-document');
+    Route::get('/orders/{orderId}/docuseal-document-url', [App\Http\Controllers\DocusealController::class, 'getDocusealDocumentUrl'])->name('admin.orders.docuseal-document-url');
 
     // Enhanced Dashboard Routes - Now handled by OrderCenterController
     // Redirect old enhanced dashboard route to consolidated order center
