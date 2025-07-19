@@ -6,12 +6,15 @@ import { Button } from '@/Components/Button';
 interface Document {
   id: string;
   name: string;
-  type: 'insurance_card' | 'medical_record' | 'prescription' | 'consent_form' | 'other';
+  type: 'insurance_card' | 'medical_record' | 'prescription' | 'consent_form' | 'ivr_doc' | 'order_related_doc' | 'other';
   fileType: 'pdf' | 'image' | 'document';
   uploadedAt: string;
   uploadedBy: string;
   fileSize: string;
   url: string;
+  notes?: string;
+  statusType?: string;
+  statusValue?: string;
 }
 
 interface AdditionalDocumentsSectionProps {
@@ -45,6 +48,10 @@ const AdditionalDocumentsSection: React.FC<AdditionalDocumentsSectionProps> = ({
         return 'Prescription';
       case 'consent_form':
         return 'Consent Form';
+      case 'ivr_doc':
+        return 'IVR Document';
+      case 'order_related_doc':
+        return 'Order Related Document';
       case 'other':
         return 'Other Document';
       default:
@@ -62,6 +69,10 @@ const AdditionalDocumentsSection: React.FC<AdditionalDocumentsSectionProps> = ({
         return 'bg-purple-100 text-purple-800';
       case 'consent_form':
         return 'bg-orange-100 text-orange-800';
+      case 'ivr_doc':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'order_related_doc':
+        return 'bg-teal-100 text-teal-800';
       case 'other':
         return 'bg-gray-100 text-gray-800';
       default:
@@ -121,7 +132,18 @@ const AdditionalDocumentsSection: React.FC<AdditionalDocumentsSectionProps> = ({
                       <span>Uploaded {formatDate(document.uploadedAt)}</span>
                       <span>•</span>
                       <span>by {document.uploadedBy}</span>
+                      {document.statusType && document.statusValue && (
+                        <>
+                          <span>•</span>
+                          <span>Status: {document.statusValue}</span>
+                        </>
+                      )}
                     </div>
+                    {document.notes && (
+                      <div className="mt-2 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                        <span className="font-medium">Notes:</span> {document.notes}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">

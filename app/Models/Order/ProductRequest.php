@@ -202,6 +202,14 @@ class ProductRequest extends Model
     }
 
     /**
+     * Get the status documents for this product request.
+     */
+    public function statusDocuments(): HasMany
+    {
+        return $this->hasMany(\App\Models\OrderStatusDocument::class, 'product_request_id');
+    }
+
+    /**
      * Get the Docuseal submissions for this product request.
      */
     public function docusealSubmissions(): HasMany

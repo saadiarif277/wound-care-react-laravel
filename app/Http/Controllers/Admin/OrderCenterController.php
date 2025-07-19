@@ -113,7 +113,7 @@ class OrderCenterController extends Controller
                 'product_name' => $productName,
                 'order_status' => $order->order_status,
                 'ivr_status' => $order->ivr_status ?? 'N/A',
-                'order_form_status' => $order->order_form_status ?? 'Not Started',
+                'order_form_status' => $order->order_status ?? 'Not Started',
                 'total_order_value' => (float) ($order->total_order_value ?? 0),
                 'created_at' => $order->created_at->toISOString(),
                 'action_required' => $order->order_status === 'pending',
@@ -180,7 +180,7 @@ class OrderCenterController extends Controller
             'product_name' => $productData['name'] ?? 'Unknown Product',
             'order_status' => $order->order_status,
             'ivr_status' => $order->ivr_status ?? 'N/A',
-            'order_form_status' => $order->order_form_status ?? 'Not Started',
+            'order_form_status' => $order->order_status ?? 'Not Started',
             'total_order_value' => (float) ($order->total_order_value ?? 0),
             'created_at' => $this->formatDateForISO($order->created_at),
             'submitted_at' => $this->formatDateForISO($order->submitted_at),
@@ -292,6 +292,11 @@ class OrderCenterController extends Controller
             'altered_order_form_file_url' => $order->altered_order_form_file_url,
             'altered_order_form_uploaded_at' => $this->formatDateForISO($order->altered_order_form_uploaded_at),
             'altered_order_form_uploaded_by_name' => $order->alteredOrderFormUploadedBy?->name ?? 'Admin',
+
+            // Add shipping information
+            'carrier' => $order->carrier,
+            'tracking_number' => $order->tracking_number,
+            'shipping_info' => $order->shipping_info,
         ];
 
                         // Log the order data structure
@@ -322,6 +327,11 @@ class OrderCenterController extends Controller
         // Log what we're sending to frontend
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Sending to frontend - order keys: " . implode(', ', array_keys($orderData)) . "\n", FILE_APPEND);
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Patient name being sent: " . ($orderData['patient']['name'] ?? 'NOT SET') . "\n", FILE_APPEND);
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Patient data structure: " . json_encode($orderData['patient']) . "\n", FILE_APPEND);
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Insurance data structure: " . json_encode($orderData['insurance']) . "\n", FILE_APPEND);
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Clinical data structure: " . json_encode($orderData['clinical']) . "\n", FILE_APPEND);
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Product data structure: " . json_encode($orderData['product']) . "\n", FILE_APPEND);
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Full order data structure: " . json_encode($orderData) . "\n", FILE_APPEND);
 
         return Inertia::render('Admin/OrderCenter/OrderDetails', [
             'order' => $orderData,
@@ -335,17 +345,18 @@ class OrderCenterController extends Controller
             \Log::error('Error in OrderCenterController::show', [
                 'order_id' => $orderId,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-
             return Inertia::render('Admin/OrderCenter/OrderDetails', [
-                'order' => ['id' => $orderId, 'order_number' => 'Error'],
-                'orderData' => null,
+                'order' => [
+                    'id' => $orderId,
+                    'order_number' => 'Error',
+                    'error_message' => $e->getMessage(),
+                ],
                 'can_update_status' => false,
                 'can_view_ivr' => false,
                 'userRole' => 'Admin',
                 'roleRestrictions' => [],
-                'error' => 'Failed to load order details: ' . $e->getMessage()
             ]);
         }
     }
@@ -889,6 +900,12 @@ class OrderCenterController extends Controller
             $notificationDocuments = $request->file('notification_documents');
         }
 
+        // Handle status update documents
+        $statusDocuments = [];
+        if ($request->hasFile('status_documents')) {
+            $statusDocuments = $request->file('status_documents');
+        }
+
         // Validate status change based on type
         $validIVRStatuses = ['pending', 'sent', 'verified', 'rejected', 'n/a'];
         $validOrderStatuses = [
@@ -943,8 +960,28 @@ class OrderCenterController extends Controller
             // Update order in database
             $order->update($updateData);
 
-            // Log status change
-            $success = $this->statusService->changeOrderStatus($order, $newStatus, $notes);
+            // Handle status update documents
+            if (!empty($statusDocuments)) {
+                foreach ($statusDocuments as $document) {
+                    $this->saveStatusDocument($order, $document, $statusType, $newStatus, $notes);
+                }
+            }
+
+            // Log status change - only for general order status changes, not form-specific changes
+            $success = true;
+            if ($statusType === 'order') {
+                // For order form status changes, we don't use the general status service
+                // as it's designed for order_status field, not order_form_status
+                Log::info('Order form status changed', [
+                    'order_id' => $order->id,
+                    'previous_status' => $previousStatus,
+                    'new_status' => $newStatus,
+                    'changed_by' => auth()->user()->name ?? 'Admin',
+                ]);
+            } else {
+                // For IVR status changes, use the status service
+                $success = $this->statusService->changeOrderStatus($order, $newStatus, $notes);
+            }
 
             // Send notification if requested
             $notificationSent = false;
@@ -1763,10 +1800,39 @@ class OrderCenterController extends Controller
             $documents = array_merge($documents, $order->episode->metadata['documents'] ?? []);
         }
 
-        // Add order-specific documents if any exist
-        // This would be expanded based on your document storage system
+        // Add status documents
+        $statusDocuments = $order->statusDocuments()->with('uploadedByUser')->get();
+        foreach ($statusDocuments as $statusDoc) {
+            $documents[] = [
+                'id' => 'status_doc_' . $statusDoc->id,
+                'name' => $statusDoc->file_name,
+                'type' => $statusDoc->document_type === 'ivr_doc' ? 'ivr_doc' : 'order_related_doc',
+                'fileType' => $this->getFileTypeFromMime($statusDoc->mime_type),
+                'uploadedAt' => $statusDoc->created_at->toISOString(),
+                'uploadedBy' => $statusDoc->uploadedByUser->name ?? 'Admin',
+                'fileSize' => $statusDoc->human_file_size,
+                'url' => $statusDoc->display_url,
+                'notes' => $statusDoc->notes,
+                'statusType' => $statusDoc->status_type,
+                'statusValue' => $statusDoc->status_value,
+            ];
+        }
 
         return $documents;
+    }
+
+    /**
+     * Get file type from MIME type
+     */
+    private function getFileTypeFromMime($mimeType): string
+    {
+        if (str_starts_with($mimeType, 'image/')) {
+            return 'image';
+        } elseif ($mimeType === 'application/pdf') {
+            return 'pdf';
+        } else {
+            return 'document';
+        }
     }
 
     /**
@@ -2137,6 +2203,52 @@ class OrderCenterController extends Controller
                 'success' => false,
                 'message' => 'Failed to fetch document URL: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Save status update document
+     */
+    private function saveStatusDocument($order, $document, $statusType, $statusValue, $notes = null)
+    {
+        try {
+            // Determine document type based on status type
+            $documentType = $statusType === 'ivr' ? 'ivr_doc' : 'order_related_doc';
+
+            // Generate unique filename
+            $originalName = $document->getClientOriginalName();
+            $extension = $document->getClientOriginalExtension();
+            $filename = time() . '_' . uniqid() . '.' . $extension;
+
+            // Store file
+            $path = $document->storeAs('order-status-documents', $filename, 'public');
+
+            // Create database record
+            \App\Models\OrderStatusDocument::create([
+                'product_request_id' => $order->id,
+                'document_type' => $documentType,
+                'file_name' => $originalName,
+                'file_path' => $path,
+                'file_size' => $document->getSize(),
+                'mime_type' => $document->getMimeType(),
+                'uploaded_by' => auth()->id(),
+                'notes' => $notes,
+                'status_type' => $statusType,
+                'status_value' => $statusValue,
+            ]);
+
+            Log::info('Status document saved successfully', [
+                'order_id' => $order->id,
+                'document_type' => $documentType,
+                'filename' => $originalName,
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to save status document', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
         }
     }
 }

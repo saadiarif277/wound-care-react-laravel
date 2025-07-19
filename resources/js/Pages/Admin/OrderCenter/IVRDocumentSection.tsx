@@ -36,6 +36,12 @@ interface OrderFormData {
   packingSlipUrl?: string;
   trackingNumber?: string;
   carrier?: string;
+  shippingInfo?: {
+    carrier: string;
+    tracking_number: string;
+    submitted_at: string;
+    submitted_by: string;
+  };
   files: DocumentFile[];
   alteredOrderFormFile?: {
     name: string;
@@ -171,14 +177,35 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
 
       const status = statusMapping[data.status] || data.status.toLowerCase().replace(/ /g, '_');
 
-      const response = await axios.post(`/admin/orders/${orderId}/change-status`, {
-        status: status,
-        status_type: statusType,
-        notes: data.comments,
-        rejection_reason: data.rejectionReason,
-        send_notification: data.sendNotification,
-        carrier: data.carrier,
-        tracking_number: data.trackingNumber,
+      // Create FormData to handle file uploads
+      const formData = new FormData();
+      formData.append('status', status);
+      formData.append('status_type', statusType);
+      formData.append('notes', data.comments || '');
+      formData.append('rejection_reason', data.rejectionReason || '');
+      formData.append('cancellation_reason', data.cancellationReason || '');
+      formData.append('send_notification', data.sendNotification ? '1' : '0');
+      formData.append('carrier', data.carrier || '');
+      formData.append('tracking_number', data.trackingNumber || '');
+
+      // Add status documents if any
+      if (data.statusDocuments && data.statusDocuments.length > 0) {
+        data.statusDocuments.forEach((file: File, index: number) => {
+          formData.append(`status_documents[${index}]`, file);
+        });
+      }
+
+      // Add notification documents if any
+      if (data.notificationDocuments && data.notificationDocuments.length > 0) {
+        data.notificationDocuments.forEach((file: File, index: number) => {
+          formData.append(`notification_documents[${index}]`, file);
+        });
+      }
+
+      const response = await axios.post(`/admin/orders/${orderId}/change-status`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
       if (response.status === 200) {
@@ -575,22 +602,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                 </div>
 
                 {/* Disabled Order Status Message */}
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                        <Clock className="h-4 w-4 text-gray-500" />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h5 className="text-sm font-medium text-gray-900 mb-1">Order Status Feature Coming Soon</h5>
-                      <p className="text-sm text-gray-600">
-                        The order status management feature is currently under development.
-                        This section will be enabled once the feature is available.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+
 
                 <div className="space-y-3">
                   <div className="flex gap-2">
@@ -743,10 +755,10 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                   )}
                 </div>
 
-                {/* Tracking Information for Confirmed Orders */}
-                {orderFormData.status === 'confirmed_by_manufacturer' && (
-                  <div className="space-y-3 p-4 bg-green-50 rounded-md">
-                    <h5 className="text-sm font-medium text-green-800">Shipping Information</h5>
+                {/* Tracking Information for Submitted and Confirmed Orders */}
+                {(orderFormData.status === 'submitted_to_manufacturer' || orderFormData.status === 'confirmed_by_manufacturer') && (
+                  <div className="space-y-3 p-4 bg-blue-50 rounded-md">
+                    <h5 className="text-sm font-medium text-blue-800">Shipping Information</h5>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Carrier</label>
@@ -769,6 +781,12 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                         />
                       </div>
                     </div>
+                    {orderFormData.shippingInfo && (
+                      <div className="text-xs text-gray-600">
+                        <p>Submitted: {new Date(orderFormData.shippingInfo.submitted_at).toLocaleDateString()}</p>
+                        <p>By: {orderFormData.shippingInfo.submitted_by}</p>
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -45,6 +45,7 @@ interface Order {
   altered_order_form_file_url?: string;
   altered_order_form_uploaded_at?: string;
   altered_order_form_uploaded_by_name?: string;
+  error_message?: string;
 }
 
 interface OrderData {
@@ -182,6 +183,11 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
     hasInsurance: !!order.insurance,
     hasClinical: !!order.clinical,
     hasProduct: !!order.product,
+    orderKeys: Object.keys(order),
+    patientKeys: order.patient ? Object.keys(order.patient) : null,
+    insuranceKeys: order.insurance ? Object.keys(order.insurance) : null,
+    clinicalKeys: order.clinical ? Object.keys(order.clinical) : null,
+    productKeys: order.product ? Object.keys(order.product) : null,
   });
 
   // Add error handling for missing order data
@@ -193,6 +199,21 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
             <h2 className="text-xl font-semibold text-red-800 mb-2">Error Loading Order Details</h2>
             <p className="text-red-700">The order data could not be loaded. Please try refreshing the page or contact support.</p>
+            {order.error_message && (
+              <div className="mt-2 text-red-700">
+                <strong>Backend Error:</strong> {order.error_message}
+              </div>
+            )}
+            <div className="mt-4 p-4 bg-gray-100 rounded text-sm">
+              <p className="font-semibold">Debug Information:</p>
+              <p>Order ID: {order.id}</p>
+              <p>Order Number: {order.order_number}</p>
+              <p>Has Patient: {!!order.patient ? 'Yes' : 'No'}</p>
+              <p>Has Insurance: {!!order.insurance ? 'Yes' : 'No'}</p>
+              <p>Has Clinical: {!!order.clinical ? 'Yes' : 'No'}</p>
+              <p>Has Product: {!!order.product ? 'Yes' : 'No'}</p>
+              <p>Order Keys: {Object.keys(order).join(', ')}</p>
+            </div>
             <button
               onClick={() => window.location.reload()}
               className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
@@ -495,6 +516,9 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             notes: '',
             fileUrl: '',
             files: order.documents || [],
+            carrier: order.carrier,
+            trackingNumber: order.tracking_number,
+            shippingInfo: order.shipping_info,
             alteredOrderFormFile: order.altered_order_form_file_path ? {
               name: order.altered_order_form_file_name || 'Uploaded Order Form File',
               url: order.altered_order_form_file_url || '',

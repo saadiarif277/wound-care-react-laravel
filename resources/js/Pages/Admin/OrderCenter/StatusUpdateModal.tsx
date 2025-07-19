@@ -19,6 +19,7 @@ interface StatusUpdateData {
   cancellationReason?: string;
   sendNotification: boolean;
   notificationDocuments?: File[];
+  statusDocuments?: File[];
   carrier?: string;
   trackingNumber?: string;
 }
@@ -37,6 +38,7 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
   const [cancellationReason, setCancellationReason] = useState('');
   const [sendNotification, setSendNotification] = useState(true);
   const [notificationDocuments, setNotificationDocuments] = useState<File[]>([]);
+  const [statusDocuments, setStatusDocuments] = useState<File[]>([]);
   const [carrier, setCarrier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -114,6 +116,7 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
         cancellationReason: newStatus === 'Canceled' ? cancellationReason : undefined,
         sendNotification,
         notificationDocuments: sendNotification ? notificationDocuments : undefined,
+        statusDocuments: statusDocuments.length > 0 ? statusDocuments : undefined,
         carrier: (newStatus === 'submitted_to_manufacturer' || newStatus === 'confirmed_by_manufacturer') ? carrier : undefined,
         trackingNumber: (newStatus === 'submitted_to_manufacturer' || newStatus === 'confirmed_by_manufacturer') ? trackingNumber : undefined,
       };
@@ -133,6 +136,7 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
     setCancellationReason('');
     setSendNotification(true);
     setNotificationDocuments([]);
+    setStatusDocuments([]);
     setCarrier('');
     setTrackingNumber('');
     setError('');
@@ -235,6 +239,32 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
                 )}
               </div>
             )}
+          </div>
+
+          {/* Status Update Documents */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
+              Upload Documents for Status Update (Optional)
+            </label>
+            <input
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                setStatusDocuments(files);
+              }}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700"
+            />
+            {statusDocuments.length > 0 && (
+              <div className="text-xs text-gray-600">
+                {statusDocuments.length} file(s) selected for status update
+              </div>
+            )}
+            <p className="text-xs text-gray-500">
+              These documents will be stored with the status update and shown in the Additional Documents section.
+              {type === 'ivr' ? ' Documents will be marked as "IVR Document".' : ' Documents will be marked as "Order Related Document".'}
+            </p>
           </div>
 
           {/* Comments */}
