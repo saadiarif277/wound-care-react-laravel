@@ -6,10 +6,10 @@
 echo "🚀 Starting Medical AI Service..."
 
 # Load environment variables from Laravel .env file
-if [ -f "../.env" ]; then
+if [ -f ".env" ]; then
     echo "📄 Loading environment variables from .env file..."
     set -a  # Export all variables
-    source "../.env"
+    source ".env"
     set +a  # Stop exporting
 else
     echo "⚠️  Warning: .env file not found, using system environment variables"
@@ -28,7 +28,7 @@ export AZURE_OPENAI_API_VERSION="${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}
 
 # Other service configuration
 export ENABLE_LOCAL_FALLBACK="${ENABLE_LOCAL_FALLBACK:-true}"
-export API_HOST="${API_HOST:-0.0.0.0}"
+export API_HOST="${API_HOST:-127.0.0.1}"
 export API_PORT="${API_PORT:-8081}"
 export CACHE_TTL="${CACHE_TTL:-3600}"
 
@@ -42,7 +42,13 @@ cd "$(dirname "$0")"
 
 # Activate virtual environment
 echo "🔧 Activating virtual environment..."
-source ai_service_env/bin/activate
+source .venv/bin/activate || { echo "❌ Failed to activate venv"; exit 1; }
+
+# Verify python is available after activation
+if ! command -v python &>/dev/null; then
+  echo "❌ Python not found in venv. Please ensure .venv is properly set up with Python installed."; 
+  exit 1;
+fi
 
 # Start the service
 echo "🌟 Starting AI service on http://$API_HOST:$API_PORT"

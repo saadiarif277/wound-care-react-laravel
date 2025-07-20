@@ -11,7 +11,7 @@ use App\Services\QuickRequest\Handlers\ClinicalHandler;
 use App\Services\QuickRequest\Handlers\InsuranceHandler;
 use App\Services\QuickRequest\Handlers\OrderHandler;
 use App\Services\QuickRequest\Handlers\NotificationHandler;
-use App\Services\FhirToIvrFieldMapper;
+use App\Services\EntityDataService;
 use App\Services\Medical\OptimizedMedicalAiService;
 use App\Services\AI\FieldMappingMetricsService;
 
@@ -39,7 +39,7 @@ class QuickRequestServiceProvider extends ServiceProvider
                 $app->make(InsuranceHandler::class),
                 $app->make(OrderHandler::class),
                 $app->make(NotificationHandler::class),
-                $app->make(FhirToIvrFieldMapper::class),
+                $app->make(EntityDataService::class),
                 $app->make(OptimizedMedicalAiService::class),
                 $app->make(\App\Logging\PhiSafeLogger::class)
             );

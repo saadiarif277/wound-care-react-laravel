@@ -3,93 +3,204 @@
 namespace App\Http\Controllers\QuickRequest;
 
 use App\Http\Controllers\Controller;
-use App\Models\Docuseal\DocusealTemplate;
-use App\Models\Order\Product;
 use App\Models\PatientManufacturerIVREpisode;
+use App\Models\Order\Manufacturer;
 use App\Services\DocusealService;
-use App\Services\UnifiedFieldMappingService;
+use App\Services\QuickRequest\QuickRequestOrchestrator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * DocusealController - Handles all Docuseal integration for Quick Requests
- *
- * This controller is focused specifically on Docuseal functionality,
- * extracted from the original monolithic QuickRequestController.
+ * DocusealController - Handles DocuSeal integration for Quick Request workflow
+ * 
+ * This controller is responsible for all DocuSeal operations within the 
+ * Quick Request flow, using the new clean architecture with:
+ * - Manufacturer configs as single source of truth
+ * - EntityDataService for role-based data extraction
+ * - Targeted field extraction (only configured fields)
  */
 class DocusealController extends Controller
 {
     public function __construct(
-        protected DocusealService $docuSealService,
-        protected UnifiedFieldMappingService $fieldMappingService,
+        protected DocusealService $docusealService,
+        protected QuickRequestOrchestrator $orchestrator
     ) {}
 
     /**
-     * Create episode for Docuseal integration
+     * Generate submission slug for DocuSeal form embedding
+     * This is the main entry point for creating DocuSeal submissions in Quick Request flow
+     */
+    public function generateSubmissionSlug(Request $request): JsonResponse
+    {
+        try {
+            Log::info('DocuSeal generateSubmissionSlug called', [
+                'request_keys' => array_keys($request->all()),
+                'has_episode_id' => $request->has('episode_id'),
+                'episode_id_value' => $request->input('episode_id', 'not_present'),
+                'full_request' => $request->all()
+            ]);
+            
+            $validationRules = [
+                'user_email' => 'required|email',
+                'integration_email' => 'nullable|email',
+                'prefill_data' => 'required|array',
+                'manufacturerId' => 'required|integer',
+                'templateId' => 'nullable|string',
+                'productCode' => 'nullable|string',
+                'documentType' => 'nullable|string|in:IVR,OrderForm',
+                'episode_id' => 'nullable|integer',
+            ];
+            
+            // Validate the request
+            $validated = $request->validate($validationRules);
+            
+            // Create data array with all fields, using null for missing nullable fields
+            $data = [
+                'user_email' => $validated['user_email'],
+                'integration_email' => $validated['integration_email'] ?? null,
+                'prefill_data' => $validated['prefill_data'],
+                'manufacturerId' => $validated['manufacturerId'],
+                'templateId' => $validated['templateId'] ?? null,
+                'productCode' => $validated['productCode'] ?? null,
+                'documentType' => $validated['documentType'] ?? null,
+                'episode_id' => $validated['episode_id'] ?? null,
+            ];
+
+            // Find the manufacturer
+            $manufacturer = Manufacturer::find($data['manufacturerId']);
+            if (!$manufacturer) {
+                throw new \Exception('Manufacturer not found');
+            }
+
+            // Determine template ID
+            $templateId = $this->determineTemplateId($data, $manufacturer);
+            if (!$templateId) {
+                throw new \Exception('No DocuSeal template found for this manufacturer');
+            }
+
+            // Extract data based on whether we have an episode or not
+            try {
+                $extractedData = $this->extractDataForDocuseal($data, $manufacturer);
+            } catch (\Exception $e) {
+                Log::error('Error in extractDataForDocuseal', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw $e;
+            }
+            
+            // DEBUG: Log extracted data
+            Log::warning('DEBUG - DocuSeal extraction results', [
+                'manufacturer' => $manufacturer->name,
+                'extracted_field_count' => count($extractedData),
+                'extracted_keys' => array_keys($extractedData),
+                'patient_fields' => array_filter(array_keys($extractedData), fn($k) => str_contains($k, 'patient')),
+                'provider_fields' => array_filter(array_keys($extractedData), fn($k) => str_contains($k, 'provider') || str_contains($k, 'physician')),
+                'facility_fields' => array_filter(array_keys($extractedData), fn($k) => str_contains($k, 'facility') || str_contains($k, 'practice'))
+            ]);
+
+            // Create DocuSeal submission
+            $result = $this->docusealService->createSubmissionForQuickRequest(
+                $templateId,
+                $data['integration_email'] ?? 'limitless@mscwoundcare.com',
+                $data['user_email'],
+                'Quick Request User',
+                $extractedData,
+                isset($data['episode_id']) ? $data['episode_id'] : null
+            );
+
+            if (!$result['success']) {
+                throw new \Exception($result['error'] ?? 'Failed to create DocuSeal submission');
+            }
+
+            $submission = $result['data'];
+
+            Log::info('DocuSeal submission created successfully', [
+                'template_id' => $templateId,
+                'submission_id' => $submission['submission_id'] ?? null,
+                'manufacturer' => $manufacturer->name,
+                'fields_mapped' => count($extractedData),
+                'episode_id' => $data['episode_id'] ?? null
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'slug' => $submission['slug'] ?? null,
+                'submission_id' => $submission['submission_id'] ?? null,
+                'template_id' => $templateId,
+                'integration_type' => (isset($data['episode_id']) && $data['episode_id']) ? 'episode_enhanced' : 'standard',
+                'fields_mapped' => count($extractedData),
+                'template_name' => $manufacturer->name . ' ' . ($data['documentType'] ?? 'IVR') . ' Form',
+                'manufacturer' => $manufacturer->name,
+                'ai_mapping_used' => $result['ai_mapping_used'] ?? false,
+                'ai_confidence' => $result['ai_confidence'] ?? 0.0,
+                'mapping_method' => $result['mapping_method'] ?? 'config_based'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to generate DocuSeal submission slug', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'manufacturer_id' => $data['manufacturerId'] ?? null,
+                'user_id' => Auth::id(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to create form submission',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Create episode for DocuSeal workflow
+     * This creates a draft episode that can be finalized after DocuSeal completion
      */
     public function createEpisode(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'patient_id' => 'required|string',
-            'patient_fhir_id' => 'required|string',
-            'patient_display_id' => 'required|string',
-            'manufacturer_id' => 'nullable|exists:manufacturers,id',
-            'selected_product_id' => 'nullable|exists:msc_products,id',
-            'form_data' => 'required|array',
+            'formData' => 'required|array',
+            'manufacturerId' => 'required|integer',
+            'selected_products' => 'nullable|array',
         ]);
 
         try {
-            // Determine manufacturer from product if not provided
-            if (!$validated['manufacturer_id'] && $validated['selected_product_id']) {
-                $product = Product::find($validated['selected_product_id']);
-                if ($product && $product->manufacturer_id) {
-                    $validated['manufacturer_id'] = $product->manufacturer_id;
-                }
-            }
+            // Prepare episode data
+            $episodeData = [
+                'patient' => $this->extractPatientData($validated['formData']),
+                'provider' => ['id' => $validated['formData']['provider_id'] ?? null],
+                'facility' => ['id' => $validated['formData']['facility_id'] ?? null],
+                'clinical' => $this->extractClinicalData($validated['formData']),
+                'insurance' => $this->extractInsuranceData($validated['formData']),
+                'order_details' => [
+                    'products' => $validated['selected_products'] ?? [],
+                ],
+                'manufacturer_id' => $validated['manufacturerId'],
+            ];
 
-            if (!$validated['manufacturer_id']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unable to determine manufacturer. Please ensure a product is selected.',
-                ], 422);
-            }
+            // Create draft episode
+            $episode = $this->orchestrator->createDraftEpisode($episodeData);
 
-            // Find or create episode
-            $episode = PatientManufacturerIVREpisode::firstOrCreate([
-                'patient_fhir_id' => $validated['patient_fhir_id'],
-                'manufacturer_id' => $validated['manufacturer_id'],
-            ], [
-                'patient_id' => $validated['patient_id'],
-                'patient_display_id' => $validated['patient_display_id'],
-                'status' => PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW,
-                'metadata' => [
-                    'facility_id' => $validated['form_data']['facility_id'] ?? null,
-                    'provider_id' => Auth::id(),
-                    'created_from' => 'quick_request_docuseal',
-                    'form_data' => $validated['form_data']
-                ]
-            ]);
-
-            Log::info('Episode created for Docuseal', [
+            Log::info('Draft episode created for DocuSeal', [
                 'episode_id' => $episode->id,
-                'manufacturer_id' => $validated['manufacturer_id'],
+                'manufacturer_id' => $validated['manufacturerId'],
                 'user_id' => Auth::id(),
             ]);
 
             return response()->json([
                 'success' => true,
                 'episode_id' => $episode->id,
-                'manufacturer_id' => $validated['manufacturer_id']
+                'manufacturer_id' => $validated['manufacturerId']
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to create episode for Docuseal', [
+            Log::error('Failed to create episode for DocuSeal', [
                 'error' => $e->getMessage(),
-                'patient_display_id' => $validated['patient_display_id'],
-                'manufacturer_id' => $validated['manufacturer_id'] ?? null,
+                'manufacturer_id' => $validated['manufacturerId'],
             ]);
 
             return response()->json([
@@ -100,479 +211,204 @@ class DocusealController extends Controller
     }
 
     /**
-     * Generate JWT token for Docuseal builder
+     * Finalize episode after DocuSeal completion
      */
-    public function generateBuilderToken(Request $request): JsonResponse
+    public function finalizeEpisode(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'episode_id' => 'required|integer',
+            'submission_id' => 'required|string',
+            'completion_data' => 'nullable|array',
+        ]);
+
         try {
-            $data = $request->validate([
-                'user_email' => 'required|email',
-                'integration_email' => 'nullable|email',
-                'template_id' => 'nullable|string',
-                'template_name' => 'nullable|string',
-                'document_urls' => 'nullable|array',
-                'prefill_data' => 'nullable|array',
-                'manufacturerId' => 'nullable|integer',
-                'productCode' => 'nullable|string',
+            $episode = PatientManufacturerIVREpisode::findOrFail($validated['episode_id']);
+
+            // Update episode with DocuSeal submission info
+            $metadata = $episode->metadata ?? [];
+            $metadata['docuseal_submission_id'] = $validated['submission_id'];
+            $metadata['docuseal_completed_at'] = now()->toISOString();
+            
+            if (!empty($validated['completion_data'])) {
+                $metadata['docuseal_completion_data'] = $validated['completion_data'];
+            }
+
+            $episode->update([
+                'metadata' => $metadata,
+                'ivr_status' => PatientManufacturerIVREpisode::IVR_STATUS_VERIFIED
             ]);
 
-            $apiKey = config('docuseal.api_key');
-            if (!$apiKey) {
-                throw new \Exception('Docuseal API key not configured');
+            // If episode was a draft, finalize it
+            if ($episode->status === PatientManufacturerIVREpisode::STATUS_DRAFT) {
+                $finalData = array_merge($episode->metadata, $validated['completion_data'] ?? []);
+                $episode = $this->orchestrator->finalizeDraftEpisode($episode, $finalData);
             }
 
-            // Get manufacturer ID from request
-            $manufacturerId = $data['manufacturerId'] ?? $this->getManufacturerIdFromPrefillData($data['prefill_data'] ?? []);
-
-            // Load authenticated user's profile data
-            $userProfileData = $this->loadUserProfileDataForDocuseal();
-
-            // Merge user profile data with prefill data
-            if (!empty($userProfileData)) {
-                $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
-            }
-
-            // Map fields if we have prefill data and manufacturer
-            if (!empty($data['prefill_data']) && $manufacturerId) {
-                try {
-                    $manufacturer = \App\Models\Order\Manufacturer::find($manufacturerId);
-                    if ($manufacturer) {
-                        $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
-                            null, // No episode ID for builder token
-                            $manufacturer->name,
-                            $data['prefill_data'],
-                            'IVR'
-                        );
-
-                        if (!empty($mappingResult['data'])) {
-                            $data['prefill_data'] = array_merge($data['prefill_data'], $mappingResult['data']);
-                            Log::info('Field mapping applied for Docuseal builder', [
-                                'manufacturer_id' => $manufacturerId,
-                                'mapped_fields_count' => count($mappingResult['data']),
-                            ]);
-                        }
-                    }
-                } catch (\Exception $e) {
-                    Log::warning('Field mapping failed for builder token', [
-                        'manufacturer_id' => $manufacturerId,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            }
-
-            // Create JWT payload
-            $payload = [
-                'integration_email' => $data['integration_email'] ?? $data['user_email'],
-                'external_id' => uniqid('qr_builder_'),
-                'name' => 'Quick Request Builder',
-                'template_id' => $data['template_id'] ?? null,
-                'template_name' => $data['template_name'] ?? null,
-                'document_urls' => $data['document_urls'] ?? [],
-                'prefill_data' => $this->formatPrefillValues($data['prefill_data'] ?? []),
-                'iat' => time(),
-                'exp' => time() + 3600, // 1 hour expiration
-            ];
-
-            $token = $this->generateJwtToken($payload, $apiKey);
-
-            Log::info('Docuseal builder token generated', [
-                'manufacturer_id' => $manufacturerId,
-                'template_id' => $payload['template_id'],
-                'user_id' => Auth::id(),
-                'prefill_fields_count' => count($payload['prefill_data']),
+            Log::info('Episode finalized after DocuSeal completion', [
+                'episode_id' => $episode->id,
+                'submission_id' => $validated['submission_id'],
             ]);
 
             return response()->json([
                 'success' => true,
-                'token' => $token,
-                'manufacturer_id' => $manufacturerId,
-                'prefill_data' => $payload['prefill_data'],
+                'episode_id' => $episode->id,
+                'status' => $episode->status,
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to generate Docuseal builder token', [
+            Log::error('Failed to finalize episode', [
+                'episode_id' => $validated['episode_id'],
                 'error' => $e->getMessage(),
-                'user_id' => Auth::id(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate builder token: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Generate form token for Docuseal
-     */
-    public function generateFormToken(Request $request): JsonResponse
-    {
-        try {
-            $data = $request->validate([
-                'template_id' => 'required|string',
-                'user_email' => 'required|email',
-                'prefill_data' => 'nullable|array',
-                'manufacturerId' => 'nullable|integer',
-            ]);
-
-            $apiKey = config('docuseal.api_key');
-            if (!$apiKey) {
-                throw new \Exception('Docuseal API key not configured');
-            }
-
-            // Load user profile data and merge with prefill data
-            $userProfileData = $this->loadUserProfileDataForDocuseal();
-            $prefillData = array_merge($userProfileData, $data['prefill_data'] ?? []);
-
-            // Apply field mapping if manufacturer is provided
-            if (!empty($data['manufacturerId'])) {
-                try {
-                    $manufacturer = \App\Models\Order\Manufacturer::find($data['manufacturerId']);
-                    if ($manufacturer) {
-                        $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
-                            null, // No episode ID for form token
-                            $manufacturer->name,
-                            $prefillData,
-                            'IVR'
-                        );
-
-                        if (!empty($mappingResult['data'])) {
-                            $prefillData = array_merge($prefillData, $mappingResult['data']);
-                        }
-                    }
-                } catch (\Exception $e) {
-                    Log::warning('Field mapping failed for form token', [
-                        'manufacturer_id' => $data['manufacturerId'],
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            }
-
-            // Get template role
-            $role = $this->getTemplateRole($data['template_id'], $apiKey);
-
-            // Create submission payload
-            $payload = [
-                'template_id' => $data['template_id'],
-                'send_email' => false,
-                'order' => 'random',
-                'submitters' => [
-                    [
-                        'role' => $role,
-                        'email' => $data['user_email'],
-                        'name' => 'Quick Request User',
-                    ]
-                ],
-                'values' => $this->formatPrefillValues($prefillData),
-            ];
-
-            // Create submission
-            $response = Http::withHeaders([
-                'X-Auth-Token' => $apiKey,
-            ])->post(config('docuseal.api_url', 'https://api.docuseal.com') . '/submissions', $payload);
-
-            if ($response->successful()) {
-                $submissionData = $response->json();
-
-                Log::info('Docuseal form token generated', [
-                    'template_id' => $data['template_id'],
-                    'submission_id' => $submissionData['id'] ?? null,
-                    'user_id' => Auth::id(),
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'submission' => $submissionData,
-                    'embed_url' => $submissionData['submitters'][0]['embed_src'] ?? null,
-                ]);
-            }
-
-            throw new \Exception('Docuseal API returned error: ' . $response->body());
-
-        } catch (\Exception $e) {
-            Log::error('Failed to generate Docuseal form token', [
-                'error' => $e->getMessage(),
-                'template_id' => $data['template_id'] ?? null,
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to generate form token: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Generate submission slug for Docuseal integration
-     */
-    public function generateSubmissionSlug(Request $request): JsonResponse
-    {
-        try {
-            $data = $request->validate([
-                'user_email' => 'required|email',
-                'integration_email' => 'nullable|email',
-                'prefill_data' => 'required|array',
-                'manufacturerId' => 'required|integer',
-                'templateId' => 'nullable|string',
-                'productCode' => 'nullable|string',
-                'documentType' => 'nullable|string|in:IVR,OrderForm',
-                'episode_id' => 'nullable|integer',
-            ]);
-
-            $apiKey = config('docuseal.api_key');
-            if (!$apiKey) {
-                throw new \Exception('Docuseal API key not configured');
-            }
-
-            // Load user profile data and merge with prefill data
-            $userProfileData = $this->loadUserProfileDataForDocuseal();
-            $prefillData = array_merge($userProfileData, $data['prefill_data']);
-
-            // Find the manufacturer to get template info
-            $manufacturer = \App\Models\Order\Manufacturer::find($data['manufacturerId']);
-            if (!$manufacturer) {
-                throw new \Exception('Manufacturer not found');
-            }
-
-            // Get template ID - use provided one or get from manufacturer
-            $templateId = $data['templateId'] ?? $manufacturer?->docuseal_ivr_template_id ?? $manufacturer?->docuseal_order_form_template_id;
-            if (!$templateId) {
-                throw new \Exception('No Docuseal template found for this manufacturer');
-            }
-
-            // Apply field mapping for this manufacturer
-            $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
-                $data['episode_id'] ?? null,
-                $manufacturer->name,
-                $prefillData,
-                $data['documentType'] ?? 'IVR'
-            );
-
-            $mappedData = [];
-            if (!empty($mappingResult['data'])) {
-                $mappedData = $mappingResult['data'];
-                $prefillData = array_merge($prefillData, $mappedData);
-            }
-
-            // Get template role
-            $role = $this->getTemplateRole($templateId, $apiKey);
-
-            // Create submission payload
-            $payload = [
-                'template_id' => $templateId,
-                'send_email' => false,
-                'order' => 'random',
-                'submitters' => [
-                    [
-                        'role' => $role,
-                        'email' => $data['integration_email'] ?? $data['user_email'],
-                        'name' => 'Quick Request User',
-                    ]
-                ],
-                'values' => $this->formatPrefillValues($prefillData),
-            ];
-
-            // Create submission via Docuseal API
-            $response = \Illuminate\Support\Facades\Http::withHeaders([
-                'X-Auth-Token' => $apiKey,
-            ])->post(config('docuseal.api_url', 'https://api.docuseal.com') . '/submissions', $payload);
-
-            if ($response->successful()) {
-                $submissionData = $response->json();
-                $slug = $submissionData['submitters'][0]['slug'] ?? null;
-
-                if (!$slug) {
-                    throw new \Exception('No submission slug received from Docuseal');
-                }
-
-                Log::info('Docuseal submission created successfully', [
-                    'template_id' => $templateId,
-                    'submission_id' => $submissionData['id'] ?? null,
-                    'manufacturer_id' => $data['manufacturerId'],
-                    'user_id' => Auth::id(),
-                    'fields_mapped' => count($mappedData),
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'slug' => $slug,
-                    'submission_id' => $submissionData['id'] ?? null,
-                    'template_id' => $templateId,
-                    'integration_type' => $data['episode_id'] ? 'fhir_enhanced' : 'standard',
-                    'fhir_data_used' => $data['episode_id'] ? 1 : 0,
-                    'fields_mapped' => count($mappedData),
-                    'template_name' => $manufacturer->name . ' IVR Form',
-                    'manufacturer' => $manufacturer->name,
-                    'ai_mapping_used' => true,
-                    'ai_confidence' => 0.95,
-                    'mapping_method' => 'hybrid',
-                ]);
-            }
-
-            throw new \Exception('Docuseal API returned error: ' . $response->body());
-
-        } catch (\Exception $e) {
-            Log::error('Failed to generate Docuseal submission slug', [
-                'error' => $e->getMessage(),
-                'manufacturer_id' => $data['manufacturerId'] ?? null,
-                'user_id' => Auth::id(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to generate submission slug: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Test template count (debugging endpoint)
-     */
-    public function testTemplateCount(Request $request): JsonResponse
-    {
-        try {
-            $apiKey = config('docuseal.api_key');
-            $apiUrl = config('docuseal.api_url', 'https://api.docuseal.com');
-
-            if (!$apiKey) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Docuseal API key not configured'
-                ], 500);
-            }
-
-            $response = Http::withHeaders([
-                'X-Auth-Token' => $apiKey,
-            ])->timeout(15)->get("{$apiUrl}/templates", [
-                'page' => 1,
-                'per_page' => 20
-            ]);
-
-            if (!$response->successful()) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'API request failed: ' . $response->body(),
-                    'status_code' => $response->status()
-                ], 500);
-            }
-
-            $responseData = $response->json();
-            $templates = $responseData['data'] ?? $responseData;
-            $pagination = $responseData['pagination'] ?? null;
-
-            return response()->json([
-                'success' => true,
-                'first_page_count' => count($templates),
-                'pagination_info' => $pagination,
-                'sample_templates' => array_slice($templates, 0, 5),
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage()
+                'message' => 'Failed to finalize episode: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     // Private helper methods
-    private function getManufacturerIdFromPrefillData(array $prefillData): ?int
+
+    /**
+     * Determine the template ID to use
+     */
+    private function determineTemplateId(array $data, Manufacturer $manufacturer): ?string
     {
-        if (!empty($prefillData['manufacturer_id'])) {
-            return is_numeric($prefillData['manufacturer_id']) ? (int) $prefillData['manufacturer_id'] : null;
+        // Use provided template ID if available
+        if (!empty($data['templateId'])) {
+            return $data['templateId'];
         }
 
-        if (!empty($prefillData['selected_products'])) {
-            $product = Product::find($prefillData['selected_products'][0]['product_id'] ?? null);
-            if ($product && $product->manufacturer) {
-                $manufacturer = \App\Models\Order\Manufacturer::whereRaw('LOWER(name) = ?', [strtolower($product->manufacturer)])->first();
-                return $manufacturer?->id;
-            }
+        // Otherwise, get from manufacturer based on document type
+        $documentType = $data['documentType'] ?? 'IVR';
+        
+        if ($documentType === 'OrderForm') {
+            return $manufacturer->docuseal_order_form_template_id;
         }
 
-        return null;
+        return $manufacturer->docuseal_ivr_template_id;
     }
 
-    private function loadUserProfileDataForDocuseal(): array
+    /**
+     * Extract data for DocuSeal using our clean architecture
+     */
+    private function extractDataForDocuseal(array $data, Manufacturer $manufacturer): array
     {
-        try {
-            $user = Auth::user();
-            if (!$user) {
-                return [];
+        // Filter out manufacturer_fields from prefill_data - these are test fields
+        if (isset($data['prefill_data']['manufacturer_fields'])) {
+            Log::warning('Removing test manufacturer_fields from DocuSeal data', [
+                'manufacturer_fields_keys' => array_keys($data['prefill_data']['manufacturer_fields']),
+                'manufacturer_fields_count' => count($data['prefill_data']['manufacturer_fields'])
+            ]);
+            unset($data['prefill_data']['manufacturer_fields']);
+        }
+        
+        // Log incoming data for debugging
+        Log::info('DocuSeal data extraction starting', [
+            'has_episode_id' => isset($data['episode_id']) && !empty($data['episode_id']),
+            'has_facility_id' => isset($data['prefill_data']['facility_id']),
+            'has_provider_id' => isset($data['prefill_data']['provider_id']),
+            'manufacturer' => $manufacturer->name,
+            'prefill_keys' => array_keys($data['prefill_data'] ?? []),
+            'facility_id_value' => $data['prefill_data']['facility_id'] ?? 'not set',
+            'provider_id_value' => $data['prefill_data']['provider_id'] ?? 'not set',
+            'prefill_data_sample' => array_slice($data['prefill_data'] ?? [], 0, 10, true)
+        ]);
+
+        if (isset($data['episode_id']) && !empty($data['episode_id'])) {
+            // We have an episode - use targeted extraction
+            $episode = PatientManufacturerIVREpisode::find($data['episode_id']);
+            if (!$episode) {
+                throw new \Exception('Episode not found');
             }
 
-            $user->load(['providerProfile', 'facilities', 'organizations']);
+            // Use orchestrator's targeted extraction
+            $extractedData = $this->orchestrator->extractTargetedDocusealData($episode, $data['prefill_data']);
+            
+            Log::info('Used targeted extraction for episode', [
+                'episode_id' => $episode->id,
+                'extracted_fields' => count($extractedData),
+            ]);
+            
+            return $extractedData;
+        } else {
+            // No episode - extract data from IDs
+            // Pass manufacturer_id in the prefill_data so the orchestrator can filter properly
+            $dataWithManufacturer = $data['prefill_data'];
+            $dataWithManufacturer['manufacturer_id'] = $manufacturer->id;
+            
+            $extractedData = $this->orchestrator->extractDataFromIds($dataWithManufacturer);
+            
+            Log::info('Used ID-based extraction (no episode)', [
+                'manufacturer_id' => $manufacturer->id,
+                'manufacturer_name' => $manufacturer->name,
+                'extracted_fields' => count($extractedData),
+                'sample_fields' => array_slice(array_keys($extractedData), 0, 10)
+            ]);
+            
+            return $extractedData;
+        }
+    }
 
-            $profileData = [
-                'provider_name' => $user->first_name . ' ' . $user->last_name,
-                'provider_email' => $user->email,
-                'provider_npi' => $user->npi_number ?? '',
-                'request_date' => date('m/d/Y'),
-                'request_time' => date('h:i A'),
+    /**
+     * Extract patient data from form
+     */
+    private function extractPatientData(array $formData): array
+    {
+        return [
+            'first_name' => $formData['patient_first_name'] ?? '',
+            'last_name' => $formData['patient_last_name'] ?? '',
+            'dob' => $formData['patient_dob'] ?? '',
+            'gender' => $formData['patient_gender'] ?? 'unknown',
+            'phone' => $formData['patient_phone'] ?? '',
+            'email' => $formData['patient_email'] ?? '',
+            'address_line1' => $formData['patient_address_line1'] ?? '',
+            'city' => $formData['patient_city'] ?? '',
+            'state' => $formData['patient_state'] ?? '',
+            'zip' => $formData['patient_zip'] ?? '',
+        ];
+    }
+
+    /**
+     * Extract clinical data from form
+     */
+    private function extractClinicalData(array $formData): array
+    {
+        return [
+            'wound_type' => $formData['wound_type'] ?? '',
+            'wound_location' => $formData['wound_location'] ?? '',
+            'wound_size_length' => $formData['wound_size_length'] ?? null,
+            'wound_size_width' => $formData['wound_size_width'] ?? null,
+            'wound_size_depth' => $formData['wound_size_depth'] ?? null,
+            'primary_diagnosis_code' => $formData['primary_diagnosis_code'] ?? '',
+            'wound_duration_weeks' => $formData['wound_duration_weeks'] ?? null,
+        ];
+    }
+
+    /**
+     * Extract insurance data from form
+     */
+    private function extractInsuranceData(array $formData): array
+    {
+        $insuranceData = [];
+
+        if (!empty($formData['primary_insurance_name'])) {
+            $insuranceData[] = [
+                'policy_type' => 'primary',
+                'payer_name' => $formData['primary_insurance_name'],
+                'member_id' => $formData['primary_member_id'] ?? null,
             ];
-
-            // Add facility data if available
-            $facility = $user->facilities()->wherePivot('is_primary', true)->first() ?? $user->facilities->first();
-            if ($facility) {
-                $profileData['facility_name'] = $facility->name;
-                $profileData['facility_phone'] = $facility->phone ?? '';
-                $profileData['facility_address'] = $facility->address ?? '';
-            }
-
-            return array_filter($profileData, fn($value) => $value !== null && $value !== '');
-
-        } catch (\Exception $e) {
-            Log::error('Failed to load user profile data for Docuseal', [
-                'error' => $e->getMessage(),
-                'user_id' => Auth::id()
-            ]);
-            return [];
-        }
-    }
-
-    private function getTemplateRole(string $templateId, string $apiKey): string
-    {
-        try {
-            $response = Http::withHeaders([
-                'X-Auth-Token' => $apiKey,
-            ])->timeout(15)->get(config('docuseal.api_url', 'https://api.docuseal.com') . "/templates/{$templateId}");
-
-            if ($response->successful()) {
-                $templateData = $response->json();
-
-                // Extract role from template data
-                if (isset($templateData['submitter_roles']) && !empty($templateData['submitter_roles'])) {
-                    return is_string($templateData['submitter_roles'][0])
-                        ? $templateData['submitter_roles'][0]
-                        : $templateData['submitter_roles'][0]['name'] ?? 'First Party';
-                }
-            }
-        } catch (\Exception $e) {
-            Log::warning('Failed to get template role', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage(),
-            ]);
         }
 
-        return 'First Party'; // Default role
-    }
+        if (!empty($formData['secondary_insurance_name'])) {
+            $insuranceData[] = [
+                'policy_type' => 'secondary',
+                'payer_name' => $formData['secondary_insurance_name'],
+                'member_id' => $formData['secondary_member_id'] ?? null,
+            ];
+        }
 
-    private function generateJwtToken(array $payload, string $apiKey): string
-    {
-        $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
-        $payload = json_encode($payload);
-
-        $headerEncoded = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($header));
-        $payloadEncoded = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($payload));
-
-        $signature = hash_hmac('sha256', $headerEncoded . "." . $payloadEncoded, $apiKey, true);
-        $signatureEncoded = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
-
-        return $headerEncoded . "." . $payloadEncoded . "." . $signatureEncoded;
-    }
-
-    private function formatPrefillValues(array $prefillData): array
-    {
-        return array_filter($prefillData, fn($value) => $value !== null && $value !== '');
+        return $insuranceData;
     }
 }

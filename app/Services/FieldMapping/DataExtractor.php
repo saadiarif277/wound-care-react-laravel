@@ -70,6 +70,24 @@ class DataExtractor
     }
 
     /**
+     * Extract provider data without requiring an episode
+     * Public method for use by QuickRequestOrchestrator
+     */
+    public function extractProviderData($provider): array
+    {
+        return $this->extractProviderFields($provider);
+    }
+    
+    /**
+     * Extract facility data without requiring an episode
+     * Public method for use by QuickRequestOrchestrator
+     */
+    public function extractFacilityData($facility): array
+    {
+        return $this->extractFacilityFields($facility);
+    }
+
+    /**
      * Extract episode-specific fields
      */
     private function extractEpisodeFields($episode): array

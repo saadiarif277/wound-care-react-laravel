@@ -360,22 +360,22 @@ function QuickRequestCreateNew({
       wound_location_details: 'Plantar surface, first metatarsal head',
       primary_diagnosis_code: 'E11.621',
       secondary_diagnosis_code: 'L97.519',
-      wound_size_length: '2.5',
-      wound_size_width: '1.8',
-      wound_size_depth: '0.3',
+      wound_size_length: '4',
+      wound_size_width: '4',
+      wound_size_depth: '0',
       wound_duration_weeks: '6',
       wound_duration_days: '2',
 
       // Procedure Information
-      application_cpt_codes: ['97597'],
-      prior_applications: '2',
+      application_cpt_codes: [''],
+      prior_applications: '0',
       prior_application_product: 'Standard dressing',
       prior_application_within_12_months: false,
       anticipated_applications: '4',
 
       // Billing Status
       place_of_service: '11',
-      medicare_part_b_authorized: true,
+      medicare_part_b_authorized: false,
       hospice_status: false,
       part_a_status: false,
       global_period_status: false,
@@ -395,35 +395,8 @@ function QuickRequestCreateNew({
       maintain_documentation: true,
       authorize_prior_auth: true,
 
-      // Manufacturer Fields (example)
-      manufacturer_fields: {
-        patient_ambulatory: true,
-        patient_weight_bearing: false,
-        wound_infected: false,
-        wound_drainage: 'minimal',
-        wound_odor: false,
-        tunnel_present: false,
-        undermining_present: false,
-        exposed_bone: false,
-        exposed_tendon: false,
-        patient_diabetic: true,
-        hba1c_level: '7.2',
-        ankle_brachial_index: '0.9',
-        transcutaneous_oxygen: '45',
-        patient_compliant: true,
-        offloading_used: true,
-        compression_therapy: false,
-        hyperbaric_oxygen: false,
-        negative_pressure: false,
-        debridement_frequency: 'weekly',
-        dressing_change_frequency: 'twice_weekly',
-        nutritional_support: true,
-        patient_smoker: false,
-        allergies_collagen: false,
-        allergies_silver: false,
-        allergies_honey: false,
-        contraindications: false
-      }
+      // Manufacturer Fields - kept empty as these should come from actual manufacturer-specific forms
+      manufacturer_fields: {}
     };
 
     updateFormData(testData);

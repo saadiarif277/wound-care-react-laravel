@@ -117,7 +117,8 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
 
         console.group('👨‍⚕️ Provider Information');
         const providerFields = Object.entries(formData).filter(([key]) =>
-            key.includes('provider') || key.includes('physician') || key.includes('doctor')
+            (key.includes('provider') || key.includes('physician') || key.includes('doctor')) && 
+            !key.includes('network_status')
         );
         providerFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
         console.groupEnd();
@@ -139,7 +140,7 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
 
         console.group('🏥 Insurance Information');
         const insuranceFields = Object.entries(formData).filter(([key]) =>
-            key.includes('insurance') || key.includes('member')
+            key.includes('insurance') || key.includes('member') || key.includes('network_status')
         );
         insuranceFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
         console.groupEnd();
@@ -168,7 +169,7 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
       // Enhanced request with FHIR integration support
       const requestData = {
         integration_email: 'limitless@mscwoundcare.com', // Our DocuSeal account email
-        submitter_email: formData.provider_email || 'provider@example.com', // The person who will sign
+        user_email: formData.provider_email || 'provider@example.com', // The person who will sign
         submitter_name: formData.provider_name || 'Healthcare Provider', // The person's name
         prefill_data: formData,
         manufacturerId,
@@ -186,7 +187,12 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
         formDataKeys: Object.keys(formData || {}),
         hasFormData: !!formData,
         hasEpisode: !!episodeId,
-        sampleData: Object.keys(formData || {}).slice(0, 5)
+        sampleData: Object.keys(formData || {}).slice(0, 5),
+        facility_id: formData.facility_id,
+        provider_id: formData.provider_id,
+        provider_email: formData.provider_email,
+        patient_fields: Object.entries(formData).filter(([key]) => key.includes('patient')),
+        fullRequestData: requestData
       });
 
       // Update progress

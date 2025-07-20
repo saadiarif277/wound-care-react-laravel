@@ -611,28 +611,18 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.store');
 
-        // Docuseal IVR Integration - moved to DocusealController
-        Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\DocusealController::class, 'prepareDocusealIVR'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.prepare-docuseal-ivr');
-
-        // Docuseal routes - moved to DocusealController
-        Route::post('/docuseal/generate-form-token', [\App\Http\Controllers\DocusealController::class, 'generateFormToken'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.generate-form-token');
-
-        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\DocusealController::class, 'generateSubmissionSlug'])
+        // DocuSeal Quick Request Integration - using QuickRequest\DocusealController
+        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'generateSubmissionSlug'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-submission-slug');
 
-        // Debug endpoint for Docuseal integration troubleshooting
-        Route::get('/docuseal/debug', [\App\Http\Controllers\DocusealController::class, 'debugDocusealIntegration'])
+        Route::post('/docuseal/create-episode', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'createEpisode'])
             ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.debug');
+            ->name('quick-requests.docuseal.create-episode');
 
-        Route::get('/docuseal/test-count', [\App\Http\Controllers\DocusealController::class, 'testTemplateCount'])
+        Route::post('/docuseal/finalize-episode', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'finalizeEpisode'])
             ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.test-count');
+            ->name('quick-requests.docuseal.finalize-episode');
 
         // Docuseal Builder Token Generation (web auth)
         Route::post('/docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
