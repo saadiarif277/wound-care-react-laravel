@@ -348,6 +348,16 @@ final class ProductRequestController extends Controller
             'episode'
         ]);
 
+        // Debug: Log the loaded relationships
+        Log::info('ProductRequest loaded relationships', [
+            'product_request_id' => $productRequest->id,
+            'has_provider' => $productRequest->provider ? true : false,
+            'has_facility' => $productRequest->facility ? true : false,
+            'facility_id' => $productRequest->facility_id,
+            'provider_id' => $productRequest->provider_id,
+            'products_count' => $productRequest->products->count(),
+        ]);
+
         $user = Auth::user()->load(['roles', 'organizations', 'facilities']);
 
         // Check permissions based on user role
@@ -423,13 +433,14 @@ final class ProductRequestController extends Controller
                     'secondaryPlanType' => $clinicalSummary['insurance']['secondary_plan_type'] ?? null,
                 ],
                 'provider' => [
-                    'name' => $clinicalSummary['provider']['name'] ?? ($productRequest->provider?->first_name ?? '') . ' ' . ($productRequest->provider?->last_name ?? ''),
+                    'name' => $clinicalSummary['provider']['name'] ??
+                        (($productRequest->provider?->first_name ?? '') . ' ' . ($productRequest->provider?->last_name ?? '')).trim() ?: 'N/A',
                     'npi' => $clinicalSummary['provider']['npi'] ?? $productRequest->provider?->npi_number ?? $productRequest->provider?->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
                     'email' => $clinicalSummary['provider']['email'] ?? $productRequest->provider?->email ?? null,
                     'facility' => $clinicalSummary['facility']['name'] ?? $productRequest->facility?->name ?? null,
                 ],
                 'facility' => [
-                    'name' => $clinicalSummary['facility']['name'] ?? $productRequest->facility?->name ?? null,
+                    'name' => $clinicalSummary['facility']['name'] ?? $productRequest->facility?->name ?? 'N/A',
                     'address' => isset($clinicalSummary['facility']['address']) ?
                         implode(', ', array_filter([
                             $clinicalSummary['facility']['address'] ?? '',
@@ -668,9 +679,11 @@ final class ProductRequestController extends Controller
             'docuseal_submission_id' => $productRequest->docuseal_submission_id,
         ];
 
+        // Merge orderData into order object for frontend compatibility
+        $mergedOrderData = array_merge($orderInterfaceData, $orderData);
+
         return Inertia::render('Admin/OrderCenter/OrderDetails', [
-            'order' => $orderInterfaceData,
-            'orderData' => $orderData, // Keep the detailed order data
+            'order' => $mergedOrderData,
             'can_update_status' => $canUpdateStatus,
             'can_view_ivr' => $canViewIvr,
             'userRole' => $userRole,
