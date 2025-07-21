@@ -671,6 +671,8 @@ class UnifiedFieldMappingService
             }
             
             // LIFE FIX: Validate and filter fields against actual DocuSeal template
+            // TEMPORARILY DISABLED: This is filtering out POS fields that might exist in the template
+            /*
             if ($this->fieldValidator && isset($config['docuseal_template_id']) && $config['docuseal_template_id']) {
                 try {
                     $validatedConfig = $this->fieldValidator->filterValidFields($config);
@@ -692,6 +694,7 @@ class UnifiedFieldMappingService
                     ]);
                 }
             }
+            */
             
             return $config;
         }
@@ -983,15 +986,27 @@ class UnifiedFieldMappingService
             }
 
             // Handle boolean values for checkboxes
-            if (is_bool($value) || in_array($value, ['true', 'false', 'Yes', 'No', '1', '0', 1, 0], true)) {
+            // Special handling for Yes/No radio buttons - preserve the string values
+            if (in_array($value, ['Yes', 'No'], true) && 
+                (strpos(strtolower($docuSealFieldName), 'patient') !== false || 
+                 strpos($docuSealFieldName, '?') !== false)) {
+                // These are likely radio button fields that expect Yes/No, not true/false
+                $docuSealFields[] = [
+                    'name' => $docuSealFieldName,
+                    'default_value' => $value
+                ];
+                continue;
+            }
+            
+            if (is_bool($value) || in_array($value, ['true', 'false', '1', '0', 1, 0], true)) {
                 // Convert various boolean representations to Docuseal checkbox format
                 $boolValue = false;
                 
                 if (is_bool($value)) {
                     $boolValue = $value;
-                } elseif (in_array($value, ['true', 'Yes', '1', 1], true)) {
+                } elseif (in_array($value, ['true', '1', 1], true)) {
                     $boolValue = true;
-                } elseif (in_array($value, ['false', 'No', '0', 0], true)) {
+                } elseif (in_array($value, ['false', '0', 0], true)) {
                     $boolValue = false;
                 }
                 

@@ -39,13 +39,17 @@ class QuickRequestServiceProvider extends ServiceProvider
                 $app->make(InsuranceHandler::class),
                 $app->make(OrderHandler::class),
                 $app->make(NotificationHandler::class),
-                $app->make(EntityDataService::class),
-                $app->make(OptimizedMedicalAiService::class),
+                $app->make(\App\Services\UnifiedFieldMappingService::class),
+                $app->make(\App\Services\DocusealService::class),
+                $app->make(\App\Services\DataExtractionService::class),
+                $app->make(\App\Services\FieldMapping\DataExtractor::class),
                 $app->make(\App\Logging\PhiSafeLogger::class)
             );
         });
         // Register facade accessor
         $this->app->alias(QuickRequestOrchestrator::class, 'quickrequest');
+
+
     }
 
     /**

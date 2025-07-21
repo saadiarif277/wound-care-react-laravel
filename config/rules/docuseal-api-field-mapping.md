@@ -1,0 +1,254 @@
+# DocuSeal API Field Mapping Rule
+
+## Rule Name: docuseal-api-mapping
+
+## Purpose
+This rule defines the correct format and structure for sending pre-filled field data to the DocuSeal API, especially for forms that use radio buttons instead of checkboxes.
+
+## When to Apply
+- When creating DocuSeal submissions via API
+- When converting internal data to DocuSeal field format
+- When implementing manufacturer-specific form submissions
+- When debugging DocuSeal 422 validation errors
+
+## API Request Structure
+
+### Basic Structure
+```json
+{
+  "template_id": 1000001,
+  "send_email": true,
+  "submitters": [
+    {
+      "role": "First Party",
+      "email": "submitter@example.com",
+      "fields": [
+        {
+          "name": "Exact Field Name",
+          "default_value": "Value",
+          "readonly": false  // optional
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Field Formatting Rules
+
+### 1. Field Name Matching
+- Field names MUST match EXACTLY as defined in the DocuSeal template
+- Case-sensitive matching required
+- Include all spaces, punctuation, and special characters
+- Use the GET /api/templates/{id} endpoint to verify exact field names
+
+### 2. Radio Button Fields
+Radio buttons require a single string value that matches one of the available options exactly:
+
+```json
+// Correct for radio button
+{ "name": "Place of Service", "default_value": "POS 12" }
+
+// Incorrect (multiple checkbox approach)
+{ "name": "POS 11", "default_value": "false" },
+{ "name": "POS 12", "default_value": "true" }
+```
+
+### 3. Yes/No Radio Fields
+For Yes/No questions converted to radio buttons:
+```json
+// Correct
+{ "name": "Is The Patient Currently in Hospice?", "default_value": "Yes" }
+
+// Incorrect
+{ "name": "Is The Patient Currently in Hospice?", "default_value": true }
+{ "name": "patient_in_hospice_yes", "default_value": "true" }
+```
+
+### 4. Value Types by Field Type
+
+| Field Type | Value Format | Example |
+|------------|--------------|---------|
+| Text | String | `"John Smith"` |
+| Radio | Single string matching option | `"POS 12"` |
+| Checkbox | String boolean | `"true"` or `"false"` |
+| Date | String in template format | `"01/15/2024"` |
+| Number | Number or string | `123` or `"123"` |
+| Multiple Selection | Array of strings | `["Option 1", "Option 2"]` |
+
+### 5. Conditional Fields
+- Can be pre-filled even if the condition is not initially met
+- Will remain hidden until the triggering condition is satisfied
+- Example: "If Yes, List Surgery CPTs" can be filled even if surgery question is "No"
+
+## ACZ & Associates Specific Mappings
+
+### Place of Service
+```json
+// Input: place_of_service = "11"
+{ "name": "Place of Service", "default_value": "POS 11" }
+
+// For custom values
+// Input: place_of_service = "99"
+{ "name": "Place of Service", "default_value": "Other" },
+{ "name": "POS Other Specify", "default_value": "99" }
+```
+
+### Network Status
+```json
+// Input: primary_physician_network_status = "in_network"
+{ "name": "Physician Status With Primary", "default_value": "In-Network" }
+
+// Input: secondary_physician_network_status = "out_of_network"
+{ "name": "Physician Status With Secondary", "default_value": "Out-of-Network" }
+```
+
+### Clinical Questions
+```json
+// Input: hospice_status = true
+{ "name": "Is The Patient Currently in Hospice?", "default_value": "Yes" }
+
+// Input: part_a_status = false
+{ "name": "Is The Patient In A Facility Under Part A Stay?", "default_value": "No" }
+```
+
+### Wound Location
+```json
+// Input: wound_location = "trunk_arms_legs_small"
+{ "name": "Location of Wound", "default_value": "Legs/Arms/Trunk < 100 SQ CM" }
+```
+
+## Implementation Example
+
+### Converting Internal Data to DocuSeal Format
+```php
+// Internal data structure
+$internalData = [
+    'place_of_service' => '12',
+    'hospice_status' => false,
+    'primary_physician_network_status' => 'in_network',
+    'wound_location' => 'hands_feet_head_large'
+];
+
+// Convert to DocuSeal fields
+$docusealFields = [
+    ['name' => 'Place of Service', 'default_value' => 'POS 12'],
+    ['name' => 'Is The Patient Currently in Hospice?', 'default_value' => 'No'],
+    ['name' => 'Physician Status With Primary', 'default_value' => 'In-Network'],
+    ['name' => 'Location of Wound', 'default_value' => 'Feet/Hands/Head > 100 SQ CM']
+];
+```
+
+## Common Errors and Solutions
+
+### Error: 422 Unprocessable Entity - Invalid field name
+**Cause**: Field name doesn't match template exactly
+**Solution**: Use GET /api/templates/{id} to get exact field names
+
+### Error: 422 Unprocessable Entity - Invalid field value
+**Cause**: Radio button value doesn't match available options
+**Solution**: Ensure value matches one of the radio button options exactly
+
+### Error: Multiple values for single-choice field
+**Cause**: Sending checkbox-style multiple fields for a radio button
+**Solution**: Send single field with single value
+
+## Validation Checklist
+
+- [ ] Field names match template exactly (case, spaces, punctuation)
+- [ ] Radio buttons use single string values
+- [ ] Yes/No fields use "Yes" or "No" strings, not booleans
+- [ ] Date formats match template configuration
+- [ ] No duplicate field names in submission
+- [ ] Values match available options for constrained fields
+
+## Testing
+
+To verify field names and types:
+```bash
+curl -X GET https://api.docuseal.com/api/templates/{template_id} \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+This will return the template structure with all field details.
+
+## Migration Notes
+
+When migrating from checkbox to radio button fields:
+1. Remove all individual checkbox field mappings
+2. Add single radio field with appropriate value mapping
+3. Update computation logic to output single string value
+4. Test with all possible input values
+
+## References
+
+- DocuSeal API Documentation: https://www.docuseal.com/docs/api
+- Radio Button Guide: https://www.docuseal.com/resources/use-radio-buttons-and-checkboxes 
+
+## DocuSeal API Field Pre-filling Format Rule
+
+**Rule Name**: DocuSeal API Field Pre-filling
+
+**Context**: When sending field data to DocuSeal API for pre-filling forms
+
+### API Request Structure
+
+```json
+{
+  "template_id": 1000001,
+  "send_email": true,
+  "submitters": [
+    {
+      "role": "First Party",
+      "email": "john.doe@example.com", 
+      "fields": [
+        {
+          "name": "Field Name",
+          "default_value": "Value",
+          "readonly": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Field Formatting Rules
+
+1. **Field Names**: Must match EXACTLY as defined in DocuSeal template (case-sensitive, including spaces and special characters)
+
+2. **Radio Button Fields**: Use single string value matching one option exactly
+   - Place of Service: "POS 11", "POS 12", "POS 22", "POS 24", "POS 32", or "Other"
+   - Network Status: "In-Network" or "Out-of-Network"
+   - Yes/No Questions: "Yes" or "No"
+
+3. **Value Types by Field Type**:
+   - Text fields: String values
+   - Radio buttons: Single string matching an option
+   - Checkboxes: "true" or "false" as strings
+   - Date fields: Format as configured (typically "MM/DD/YYYY")
+   - Multiple selection: Array of strings (for checkbox groups)
+
+4. **Conditional Fields**: Can be pre-filled even if condition not met (will be hidden until triggered)
+
+5. **Empty Fields**: Either omit from array or use empty string ""
+
+6. **Radio Button Defaults**: When checkboxes in the UI are unchecked, radio buttons should default to "No"
+   - For Yes/No radio buttons, explicitly set "No" when checkbox is unchecked/false/null
+   - Use strict equality checks (===) to distinguish between false and null values
+   - Example: `hospice_status === true ? "Yes" : "No"` (defaults to "No" for all falsy values)
+
+### ACZ & Associates Specific Mappings
+
+- Place of Service: Single value like "POS 12" (not multiple checkboxes)
+- Physician Status: "In-Network" or "Out-of-Network" 
+- Clinical Questions: "Yes" or "No" strings (default "No" when checkbox unchecked)
+- Wound Location: Descriptive string like "Legs/Arms/Trunk < 100 SQ CM"
+
+### Common Pitfalls
+
+- Don't send multiple boolean fields for radio buttons
+- Don't use boolean true/false for Yes/No radio fields - use "Yes"/"No" strings
+- Ensure exact field name matching including capitalization
+- For "Other" options, fill the separate specify field if needed
+- Always provide default values for radio buttons when checkbox is unchecked 

@@ -1373,16 +1373,16 @@ class DocusealService
         float $aiConfidence,
         string $mappingMethod
     ): array {
-        // Convert fields to DocuSeal values format
-        $docusealValues = $this->convertFieldsToDocusealValues($docusealFields);
+        // Convert fields to DocuSeal fields array format (NOT values object)
+        $docusealFieldsArray = $this->convertToDocusealFieldsArray($docusealFields);
 
         Log::info('Preparing DocuSeal submission data', [
             'template_id' => $templateId,
             'manufacturer' => $manufacturerName,
             'raw_fields_count' => count($docusealFields),
-            'converted_values_count' => count($docusealValues),
+            'converted_fields_count' => count($docusealFieldsArray),
             'sample_raw_fields' => array_slice($docusealFields, 0, 3),
-            'sample_converted_values' => array_slice($docusealValues, 0, 3),
+            'sample_converted_fields' => array_slice($docusealFieldsArray, 0, 3),
             'mapping_method' => $mappingMethod,
             'ai_used' => $aiMappingUsed
         ]);
@@ -1407,7 +1407,7 @@ class DocusealService
                     'name' => $submitterName,
                     'email' => $submitterEmail,
                     'role' => 'First Party',
-                    'values' => $docusealValues
+                    'fields' => $docusealFieldsArray  // CHANGED FROM 'values' to 'fields'
                 ]
             ]
         ];
@@ -1416,10 +1416,10 @@ class DocusealService
             'template_id' => $templateId,
             'manufacturer' => $manufacturerName,
             'submitter_count' => count($submissionData['submitters']),
-            'values_count' => count($docusealValues),
-            'values_keys' => array_keys($docusealValues),
-            'sample_values' => array_slice($docusealValues, 0, 10, true),
-            'all_values' => $docusealValues // Show all values for debugging
+            'fields_count' => count($docusealFieldsArray),
+            'fields_format' => 'array', // Now using correct array format
+            'sample_fields' => array_slice($docusealFieldsArray, 0, 10),
+            'all_fields' => $docusealFieldsArray // Show all fields for debugging
         ]);
 
         // Make API call to DocuSeal
@@ -2186,5 +2186,45 @@ class DocusealService
 
             throw $e;
         }
+    }
+
+    /**
+     * Convert field mappings to DocuSeal fields array format
+     * DocuSeal API expects an array of field objects with 'name' and 'default_value' properties
+     * According to https://www.docuseal.com/guides/pre-fill-pdf-document-form-fields-with-api
+     */
+    private function convertToDocusealFieldsArray(array $docusealFields): array
+    {
+        $fieldsArray = [];
+
+        foreach ($docusealFields as $fieldName => $fieldValue) {
+            // Handle different input formats
+            if (is_array($fieldValue)) {
+                // If it's already in the correct format with 'name' and 'default_value'
+                if (isset($fieldValue['name']) && isset($fieldValue['default_value'])) {
+                    $fieldsArray[] = [
+                        'name' => $fieldValue['name'],
+                        'default_value' => (string) $fieldValue['default_value'],
+                        'readonly' => $fieldValue['readonly'] ?? false
+                    ];
+                } else {
+                    // Otherwise convert array to comma-separated string
+                    $fieldsArray[] = [
+                        'name' => $fieldName,
+                        'default_value' => $this->formatFieldValue($fieldValue),
+                        'readonly' => false
+                    ];
+                }
+            } else {
+                // Simple key-value pair - convert to field object
+                $fieldsArray[] = [
+                    'name' => $fieldName,
+                    'default_value' => $this->formatFieldValue($fieldValue),
+                    'readonly' => false
+                ];
+            }
+        }
+
+        return $fieldsArray;
     }
 }

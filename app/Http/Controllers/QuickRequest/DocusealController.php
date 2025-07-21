@@ -7,6 +7,8 @@ use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\Manufacturer;
 use App\Services\DocusealService;
 use App\Services\QuickRequest\QuickRequestOrchestrator;
+use App\Services\DataExtractionService;
+use App\Services\FieldMapping\DataExtractor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,7 +27,9 @@ class DocusealController extends Controller
 {
     public function __construct(
         protected DocusealService $docusealService,
-        protected QuickRequestOrchestrator $orchestrator
+        protected QuickRequestOrchestrator $orchestrator,
+        protected DataExtractionService $dataExtractionService,
+        protected DataExtractor $dataExtractor
     ) {}
 
     /**
@@ -280,14 +284,33 @@ class DocusealController extends Controller
             return $data['templateId'];
         }
 
-        // Otherwise, get from manufacturer based on document type
+        // Otherwise, get from manufacturer config using UnifiedFieldMappingService
         $documentType = $data['documentType'] ?? 'IVR';
         
-        if ($documentType === 'OrderForm') {
-            return $manufacturer->docuseal_order_form_template_id;
+        try {
+            $mappingService = app(\App\Services\UnifiedFieldMappingService::class);
+            $manufacturerConfig = $mappingService->getManufacturerConfig($manufacturer->name, $documentType);
+            
+            if ($manufacturerConfig && isset($manufacturerConfig['docuseal_template_id'])) {
+                return (string) $manufacturerConfig['docuseal_template_id'];
+            }
+            
+            Log::warning('No template ID found in manufacturer config', [
+                'manufacturer' => $manufacturer->name,
+                'document_type' => $documentType
+            ]);
+            
+            return null;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to get template ID from config', [
+                'manufacturer' => $manufacturer->name, 
+                'document_type' => $documentType,
+                'error' => $e->getMessage()
+            ]);
+            
+            return null;
         }
-
-        return $manufacturer->docuseal_ivr_template_id;
     }
 
     /**
@@ -323,8 +346,8 @@ class DocusealController extends Controller
                 throw new \Exception('Episode not found');
             }
 
-            // Use orchestrator's targeted extraction
-            $extractedData = $this->orchestrator->extractTargetedDocusealData($episode, $data['prefill_data']);
+            // Use DataExtractor for episode-based extraction
+            $extractedData = $this->dataExtractor->extractEpisodeData($episode->id);
             
             Log::info('Used targeted extraction for episode', [
                 'episode_id' => $episode->id,
@@ -338,7 +361,34 @@ class DocusealController extends Controller
             $dataWithManufacturer = $data['prefill_data'];
             $dataWithManufacturer['manufacturer_id'] = $manufacturer->id;
             
-            $extractedData = $this->orchestrator->extractDataFromIds($dataWithManufacturer);
+            // Use DataExtractionService for ID-based extraction
+            $context = [
+                'provider_id' => $dataWithManufacturer['provider_id'] ?? null,
+                'facility_id' => $dataWithManufacturer['facility_id'] ?? null,
+                'manufacturer_id' => $manufacturer->id,
+            ];
+            
+            // Add all form data to context for direct field extraction
+            $context = array_merge($context, $dataWithManufacturer);
+            
+            Log::info('Extracting data for DocuSeal with context', [
+                'provider_id' => $context['provider_id'],
+                'facility_id' => $context['facility_id'],
+                'manufacturer_id' => $context['manufacturer_id'],
+                'has_episode' => false,
+                'form_data_keys' => array_keys($dataWithManufacturer)
+            ]);
+            
+            $extractedData = $this->dataExtractionService->extractData($context);
+            
+            // Log extraction results
+            Log::info('Data extraction completed', [
+                'extracted_fields_count' => count($extractedData),
+                'has_facility_data' => isset($extractedData['facility_name']),
+                'facility_name' => $extractedData['facility_name'] ?? 'not extracted',
+                'has_provider_data' => isset($extractedData['provider_name']),
+                'provider_name' => $extractedData['provider_name'] ?? 'not extracted'
+            ]);
             
             Log::info('Used ID-based extraction (no episode)', [
                 'manufacturer_id' => $manufacturer->id,

@@ -1,25 +1,13 @@
 <?php
 
-/**
- * ACZ & Associates Manufacturer Configuration
- * 
- * This configuration follows DocuSeal API Field Mapping Rules:
- * - Radio button fields use single string values (e.g., "POS 12", "In-Network", "Yes")
- * - Field names must match DocuSeal template exactly (case-sensitive with spaces)
- * - Yes/No questions use "Yes" or "No" strings, not boolean values
- * - Place of Service uses single radio field with values: "POS 11", "POS 12", etc.
- * - Network Status uses "In-Network" or "Out-of-Network" values
- * 
- * @see config/rules/docuseal-api-field-mapping.md for complete rules
- */
-
 return [
+    // Basic manufacturer information
     'id' => 1,
-    'name' => 'ACZ & ASSOCIATES',
+    'name' => 'ACZ & Associates',
+    'docuseal_template_id' => '852440', // DocuSeal template ID for ACZ IVR form
     'signature_required' => true,
     'has_order_form' => true,
     'supports_insurance_upload_in_ivr' => true,
-    'docuseal_template_id' => 852440,
     'folder_id' => 75423, // TO BE FILLED with actual DocuSeal template ID
     'order_form_template_id' => null, // TO BE FILLED if there's a separate order form
     
@@ -67,8 +55,13 @@ return [
         'facility_contact_info' => 'Facility Contact Phone # / Facility Contact Email',
         'facility_organization' => 'Facility Organization',
         
-        // Place of Service - Now a single radio button field
-        'place_of_service' => 'Place of Service',
+        // Place of Service checkboxes
+        'pos_11' => 'POS 11',
+        'pos_22' => 'POS 22',
+        'pos_24' => 'POS 24',
+        'pos_12' => 'POS 12',
+        'pos_32' => 'POS 32',
+        'pos_other' => 'POS Other',
         'pos_other_specify' => 'POS Other Specify',
         
         // Patient Information
@@ -88,22 +81,32 @@ return [
         'primary_payer_phone' => 'Primary Payer Phone #',
         'secondary_payer_phone' => 'Secondary Payer Phone #',
         
-        // Provider Network Status - Now radio button fields
-        'physician_status_with_primary' => 'Physician Status With Primary',
-        'physician_status_with_secondary' => 'Physician Status With Secondary',
+        // Provider Network Status - New dropdown fields from Step2PatientInsurance
+        'primary_physician_network_status' => 'Primary Physician Network Status',
+        'secondary_physician_network_status' => 'Secondary Physician Network Status',
         
-        // Authorization Permission - Now a single radio button field
-        'permission_to_initiate_and_follow_up_on_prior_auth' => 'Permission To Initiate And Follow Up On Prior Auth?',
+        // Provider Network Status - Checkbox fields (for DocuSeal IVR)
+        'physician_status_primary_in_network' => 'Physician Status With Primary: In-Network',
+        'physician_status_primary_out_of_network' => 'Physician Status With Primary: Out-Of-Network',
+        'physician_status_secondary_in_network' => 'Physician Status With Secondary: In-Network',
+        'physician_status_secondary_out_of_network' => 'Physician Status With Secondary: Out-Of-Network',
         
-        // Clinical Status - Now radio button fields
+        // Authorization Permission
+        'permission_prior_auth_yes' => 'Permission To Initiate And Follow Up On Prior Auth? Yes',
+        'permission_prior_auth_no' => 'Permission To Initiate And Follow Up On Prior Auth? No',
+        
+        // Clinical Status
         'is_the_patient_currently_in_hospice' => 'Is The Patient Currently in Hospice?',
-        'is_the_patient_in_a_facility_under_part_a_stay' => 'Is The Patient In A Facility Under Part A Stay?',
+        'is_the_patient_in_a_facility_under_part_a_stay' => 'Is The Patient In A Facility Under Part A Stay?', 
         'is_the_patient_under_post_op_global_surgery_period' => 'Is The Patient Under Post-Op Global Surgery Period?',
         'surgery_cpts' => 'If Yes, List Surgery CPTs',
         'surgery_date' => 'Surgery Date',
         
-        // Wound Information - Now a single radio button field
-        'location_of_wound' => 'Location of Wound',
+        // Wound Information
+        'wound_location_legs_arms_trunk_less_100' => 'Wound Location: Legs/Arms/Trunk < 100 SQ CM',
+        'wound_location_legs_arms_trunk_greater_100' => 'Wound Location: Legs/Arms/Trunk > 100 SQ CM',
+        'wound_location_feet_hands_head_less_100' => 'Wound Location: Feet/Hands/Head < 100 SQ CM',
+        'wound_location_feet_hands_head_greater_100' => 'Check Wound Location: Feet/Hands/Head > 100 SQ CM',
         'icd_10_codes' => 'ICD-10 Codes',
         'total_wound_size' => 'Total Wound Size',
         'medical_history' => 'Medical History'
@@ -116,14 +119,14 @@ return [
     
     // Field configuration with source mapping and transformations
     'fields' => [
-        // Basic Contact Information
+        // Basic Contact Information - FIXED
         'name' => [
             'source' => 'contact_name || submitter_name || sales_rep_name',
             'required' => true,
             'type' => 'string'
         ],
         'email' => [
-            'source' => 'contact_email || submitter_email || sales_rep_email',
+            'source' => 'contact_email || submitter_email || provider_email || sales_rep_email',
             'required' => true,
             'type' => 'email'
         ],
@@ -134,7 +137,7 @@ return [
             'type' => 'phone'
         ],
         'sales_rep' => [
-            'source' => 'sales_rep_name || sales_representative || representative_name',
+            'source' => 'sales_rep || sales_rep_name || sales_representative || representative_name',
             'required' => false,
             'type' => 'string'
         ],
@@ -311,16 +314,45 @@ return [
             'type' => 'string'
         ],
         
-        // Place of Service - Now a single radio button field
-        'place_of_service' => [
+        // Place of Service - FIXED to use string values for radio buttons  
+        'pos_11' => [
             'source' => 'computed',
-            'computation' => 'place_of_service == "11" ? "POS 11" : (place_of_service == "12" ? "POS 12" : (place_of_service == "22" ? "POS 22" : (place_of_service == "24" ? "POS 24" : (place_of_service == "32" ? "POS 32" : "Other"))))',
-            'required' => true,
+            'computation' => 'place_of_service == "11" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'pos_22' => [
+            'source' => 'computed', 
+            'computation' => 'place_of_service == "22" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'pos_24' => [
+            'source' => 'computed',
+            'computation' => 'place_of_service == "24" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'pos_12' => [
+            'source' => 'computed',
+            'computation' => 'place_of_service == "12" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'pos_32' => [
+            'source' => 'computed',
+            'computation' => 'place_of_service == "32" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'pos_other' => [
+            'source' => 'computed',
+            'computation' => 'place_of_service != "11" && place_of_service != "12" && place_of_service != "22" && place_of_service != "24" && place_of_service != "32" && place_of_service != null && place_of_service != "" ? "true" : "false"',
+            'required' => false,
             'type' => 'string'
         ],
         'pos_other_specify' => [
-            'source' => 'computed',
-            'computation' => 'place_of_service != "11" && place_of_service != "12" && place_of_service != "22" && place_of_service != "24" && place_of_service != "32" && place_of_service != null ? place_of_service : ""',
+            'source' => 'place_of_service_other || pos_other_description',
             'required' => false,
             'type' => 'string'
         ],
@@ -388,36 +420,66 @@ return [
             'type' => 'string'
         ],
         'primary_payer_phone' => [
-            'source' => 'primary_insurance_phone || payer_phone',
+            'source' => 'primary_payer_phone || primary_insurance_phone || payer_phone',
             'transform' => 'phone:US',
             'required' => false,
             'type' => 'phone'
         ],
         'secondary_payer_phone' => [
-            'source' => 'secondary_insurance_phone || secondary_payer_phone',
+            'source' => 'secondary_payer_phone || secondary_insurance_phone',
             'transform' => 'phone:US',
             'required' => false,
             'type' => 'phone'
         ],
         
-        // Provider Network Status - Now radio button fields
-        'physician_status_with_primary' => [
-            'source' => 'computed',
-            'computation' => 'primary_physician_network_status == "in_network" || primary_network_status == "in_network" ? "In-Network" : "Out-of-Network"',
+        // Provider Network Status - New dropdown fields from Step2PatientInsurance
+        'primary_physician_network_status' => [
+            'source' => 'primary_physician_network_status || primary_network_status',
             'required' => false,
             'type' => 'string'
         ],
-        'physician_status_with_secondary' => [
-            'source' => 'computed',
-            'computation' => 'secondary_physician_network_status == "in_network" || secondary_network_status == "in_network" ? "In-Network" : "Out-of-Network"',
+        'secondary_physician_network_status' => [
+            'source' => 'secondary_physician_network_status || secondary_network_status',
             'required' => false,
             'type' => 'string'
         ],
         
-        // Authorization Permission - Now a single radio button field
-        'permission_to_initiate_and_follow_up_on_prior_auth' => [
+        // Provider Network Status - Checkbox fields (computed from network status)
+        'physician_status_primary_in_network' => [
             'source' => 'computed',
-            'computation' => 'prior_auth_permission == true || prior_auth_permission == "yes" ? "Yes" : "No"',
+            'computation' => 'primary_network_status == "in_network" || primary_physician_network_status == "in_network" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'physician_status_primary_out_of_network' => [
+            'source' => 'computed',
+            'computation' => 'primary_network_status == "out_of_network" || primary_physician_network_status == "out_of_network" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'physician_status_secondary_in_network' => [
+            'source' => 'computed',
+            'computation' => 'secondary_network_status == "in_network" || secondary_physician_network_status == "in_network" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'physician_status_secondary_out_of_network' => [
+            'source' => 'computed',
+            'computation' => 'secondary_network_status == "out_of_network" || secondary_physician_network_status == "out_of_network" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        
+        // Authorization Permission - FIXED to handle missing data
+        'permission_prior_auth_yes' => [
+            'source' => 'computed',
+            'computation' => 'prior_auth_permission == true || prior_auth_permission == "yes" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'permission_prior_auth_no' => [
+            'source' => 'computed',
+            'computation' => 'prior_auth_permission == false || prior_auth_permission == "no" || prior_auth_permission == null ? "true" : "false"',
             'required' => false,
             'type' => 'string'
         ],
@@ -425,21 +487,21 @@ return [
         // Clinical Status Questions - Now radio button fields
         'is_the_patient_currently_in_hospice' => [
             'source' => 'computed',
-            'computation' => 'hospice_status === true ? "Yes" : "No"',
+            'computation' => 'hospice_status == true ? "Yes" : "No"',
             'required' => false,
             'type' => 'string',
             'default' => 'No'
         ],
         'is_the_patient_in_a_facility_under_part_a_stay' => [
             'source' => 'computed',
-            'computation' => 'part_a_status === true ? "Yes" : "No"',
+            'computation' => 'part_a_status == true ? "Yes" : "No"',
             'required' => false,
             'type' => 'string',
             'default' => 'No'
         ],
         'is_the_patient_under_post_op_global_surgery_period' => [
             'source' => 'computed',
-            'computation' => 'global_period_status === true ? "Yes" : "No"',
+            'computation' => 'global_period_status == true ? "Yes" : "No"',
             'required' => false,
             'type' => 'string',
             'default' => 'No'
@@ -456,26 +518,41 @@ return [
             'type' => 'date'
         ],
         
-        // Already defined above in the configuration
-        
-        // Wound Location - Now a single radio button field
-        'location_of_wound' => [
+        // Wound Location - checkboxes (mapped from Step4ClinicalBilling.tsx wound_location field)
+        'wound_location_legs_arms_trunk_less_100' => [
             'source' => 'computed',
-            'computation' => 'wound_location == "trunk_arms_legs_small" ? "Legs/Arms/Trunk < 100 SQ CM" : (wound_location == "trunk_arms_legs_large" ? "Legs/Arms/Trunk > 100 SQ CM" : (wound_location == "hands_feet_head_small" ? "Feet/Hands/Head < 100 SQ CM" : (wound_location == "hands_feet_head_large" ? "Feet/Hands/Head > 100 SQ CM" : "")))',
+            'computation' => 'wound_location == "trunk_arms_legs_small" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'wound_location_legs_arms_trunk_greater_100' => [
+            'source' => 'computed',
+            'computation' => 'wound_location == "trunk_arms_legs_large" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'wound_location_feet_hands_head_less_100' => [
+            'source' => 'computed',
+            'computation' => 'wound_location == "hands_feet_head_small" ? "true" : "false"',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'wound_location_feet_hands_head_greater_100' => [
+            'source' => 'computed',
+            'computation' => 'wound_location == "hands_feet_head_large" ? "true" : "false"',
             'required' => false,
             'type' => 'string'
         ],
         
-        // Clinical Information - Updated to match Step4ClinicalBilling.tsx fields
+        // Clinical Information - Simplified to get it working
         'icd_10_codes' => [
-            'source' => 'computed',
-            'computation' => 'primary_diagnosis_code && secondary_diagnosis_code ? primary_diagnosis_code + ", " + secondary_diagnosis_code : (diagnosis_code || primary_diagnosis_code || secondary_diagnosis_code)',
+            'source' => 'primary_diagnosis_code || secondary_diagnosis_code || diagnosis_code',
             'required' => true,
             'type' => 'string'
         ],
         'total_wound_size' => [
             'source' => 'computed',
-            'computation' => 'wound_size_length && wound_size_width ? wound_size_length * wound_size_width : (wound_area_calculated || wound_size_total)',
+            'computation' => 'wound_size_length && wound_size_width ? wound_size_length * wound_size_width : 0',
             'transform' => 'number:2',
             'required' => true,
             'type' => 'string'

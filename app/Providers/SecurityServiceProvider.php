@@ -106,9 +106,6 @@ class SecurityServiceProvider extends ServiceProvider
         // Apply security headers to all web routes
         $this->app['router']->pushMiddlewareToGroup('web', SecurityHeaders::class);
         
-        // Apply rate limiting to API routes
-        $this->app['router']->pushMiddlewareToGroup('api', 'throttle:api');
-        
         // Configure CORS for API routes
         config(['cors.paths' => ['api/*', 'fhir/*']]);
         config(['cors.allowed_origins' => [env('APP_URL'), 'https://app.mscwoundcare.com']]);

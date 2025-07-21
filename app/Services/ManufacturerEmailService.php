@@ -134,7 +134,7 @@ class ManufacturerEmailService
             $attachments = [];
             if ($emailData['include_ivr'] && $episode->docuseal_submission_id) {
                 // Fetch IVR document from Docuseal
-        $docusealService = app(\App\Services\DocusealService::class);
+                    $docusealService = app(\App\Services\DocusealService::class);
         try {
             $submissionStatus = $docusealService->getSubmissionStatus($episode->docuseal_submission_id);
             $ivrDocument = $submissionStatus['completed'] ?? false ? $submissionStatus : null;
