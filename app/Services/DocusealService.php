@@ -1206,11 +1206,25 @@ class DocusealService
         ]);
         
         // Check if data is already mapped (from QuickRequestOrchestrator)
+        // Mapped fields have proper DocuSeal field names with spaces and proper capitalization
         $isAlreadyMapped = false;
         $sampleKeys = array_slice(array_keys($prefillData), 0, 10);
         foreach ($sampleKeys as $key) {
-            if (str_contains($key, 'physician_') || str_contains($key, 'patient_') || str_contains($key, 'facility_')) {
+            // DocuSeal field names have spaces and proper capitalization
+            // Raw database fields use underscores and lowercase
+            if (str_contains($key, ' ') || 
+                preg_match('/[A-Z]/', $key) || // Has uppercase letters (DocuSeal fields)
+                in_array($key, ['Name', 'Email', 'Phone'])) { // Common DocuSeal fields
                 $isAlreadyMapped = true;
+                break;
+            }
+        }
+        
+        // Additional check: raw database fields that should NOT be considered as mapped
+        $rawDatabaseFields = ['provider_id', 'facility_id', 'patient_id', 'organization_id', 'manufacturer_id'];
+        foreach ($rawDatabaseFields as $rawField) {
+            if (isset($prefillData[$rawField])) {
+                $isAlreadyMapped = false; // Override - this is definitely raw data
                 break;
             }
         }
