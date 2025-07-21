@@ -2,7 +2,7 @@
 
 namespace App\Services\QuickRequest\Handlers;
 
-use App\Models\Episode;
+use App\Models\PatientManufacturerIVREpisode as Episode;
 use App\Mail\ManufacturerApprovalMail;
 use App\Mail\EpisodeCompletionMail;
 use App\Mail\OrderStatusUpdateMail;
@@ -56,7 +56,7 @@ class NotificationHandler
                 'episode_id' => $episode->id,
                 'error' => $e->getMessage()
             ]);
-            
+
             // Don't throw - notification failure shouldn't break the workflow
         }
     }
@@ -110,7 +110,7 @@ class NotificationHandler
 
         try {
             $episode = $order->episode;
-            
+
             // Determine who to notify based on status change
             $recipients = $this->determineStatusUpdateRecipients($order, $oldStatus, $newStatus);
 
@@ -135,7 +135,7 @@ class NotificationHandler
         try {
             // Notify admins of new episode
             $admins = $this->getAdminUsers();
-            
+
             Notification::send($admins, new EpisodeCreatedNotification($episode));
 
             $this->logger->info('Episode created notifications sent', [
@@ -158,7 +158,7 @@ class NotificationHandler
     {
         // Primary contact
         $contacts = [];
-        
+
         if ($manufacturer->primary_contact_email) {
             $contacts[] = [
                 'name' => $manufacturer->primary_contact_name ?? 'Primary Contact',
@@ -169,10 +169,10 @@ class NotificationHandler
 
         // Approval team contacts
         if ($manufacturer->approval_team_emails) {
-            $emails = is_array($manufacturer->approval_team_emails) 
-                ? $manufacturer->approval_team_emails 
+            $emails = is_array($manufacturer->approval_team_emails)
+                ? $manufacturer->approval_team_emails
                 : json_decode($manufacturer->approval_team_emails, true);
-                
+
             foreach ($emails as $email) {
                 $contacts[] = [
                     'name' => 'Approval Team',

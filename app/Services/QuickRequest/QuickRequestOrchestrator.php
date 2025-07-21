@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * QuickRequestOrchestratorV2 - A clean coordinator for Quick Request workflow
- * 
+ *
  * Responsibilities:
  * - Coordinate between services
  * - Manage transaction boundaries
@@ -154,11 +154,11 @@ class QuickRequestOrchestrator
     protected function extractEpisodeData(PatientManufacturerIVREpisode $episode, array $additionalData): array
     {
         $metadata = $episode->metadata ?? [];
-        
+
         // If this is a draft, use the stored request data
         if ($metadata['is_draft'] ?? false) {
             $requestData = $metadata['request_data'] ?? [];
-            
+
             // Merge all data sources for draft
             $rawData = array_merge(
                 $requestData,
@@ -167,11 +167,11 @@ class QuickRequestOrchestrator
                     'episode_id' => $episode->id,
                     'manufacturer_id' => $episode->manufacturer_id,
                     'patient_id' => $episode->patient_id,
-                    'facility_id' => $episode->facility_id,
                     'provider_id' => $metadata['provider_id'] ?? null,
+                    'facility_id' => $metadata['facility_id'] ?? null,
                 ]
             );
-            
+
             // Use DataExtractionService for non-episode data
             if (!empty($rawData['provider_id']) || !empty($rawData['facility_id'])) {
                 $context = [
@@ -179,36 +179,36 @@ class QuickRequestOrchestrator
                     'facility_id' => $rawData['facility_id'] ?? null,
                     'episode_id' => $episode->id,
                 ];
-                
+
                 $extractedData = $this->dataExtractionService->extractData($context);
                 $rawData = array_merge($rawData, $extractedData);
             }
-            
+
             return $rawData;
         }
-        
+
         // For non-draft episodes with FHIR data, use DataExtractor
         // which properly extracts FHIR patient names and other FHIR resources
         try {
             $extractedData = $this->dataExtractor->extractEpisodeData($episode->id);
-            
+
             // Merge with additional data
             return array_merge($extractedData, $additionalData);
-            
+
         } catch (\Exception $e) {
             $this->logger->warning('Failed to extract episode data with DataExtractor, falling back', [
                 'episode_id' => $episode->id,
                 'error' => $e->getMessage()
             ]);
-            
+
             // Fallback to basic extraction if DataExtractor fails
             return array_merge(
                 [
                     'episode_id' => $episode->id,
                     'manufacturer_id' => $episode->manufacturer_id,
                     'patient_id' => $episode->patient_id,
-                    'facility_id' => $episode->facility_id,
                     'provider_id' => $metadata['provider_id'] ?? null,
+                    'facility_id' => $metadata['facility_id'] ?? null,
                 ],
                 $additionalData
             );
@@ -246,7 +246,7 @@ class QuickRequestOrchestrator
                 'organization_id' => $fhirIds['organization_id'] ?? null,
                 'clinical' => $requestData['clinical']
             ]);
-            
+
             $fhirIds = array_merge($fhirIds, $clinicalResources);
         }
 
@@ -256,7 +256,7 @@ class QuickRequestOrchestrator
                 $requestData['insurance'],
                 $fhirIds['patient_id']
             );
-            
+
             $fhirIds['coverage_ids'] = $coverageIds;
             $fhirIds['primary_coverage_id'] = $coverageIds['primary'] ?? null;
         }
@@ -274,13 +274,13 @@ class QuickRequestOrchestrator
             'patient_fhir_id' => $fhirIds['patient_id'] ?? null,
             'patient_display_id' => $requestData['patient']['display_id'] ?? null,
             'manufacturer_id' => $requestData['manufacturer_id'],
-            'facility_id' => $requestData['facility']['id'] ?? null,
             'status' => PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW,
             'ivr_status' => PatientManufacturerIVREpisode::IVR_STATUS_NA,
             'created_by' => Auth::id(),
             'metadata' => [
                 'fhir_ids' => $fhirIds,
                 'provider_id' => $requestData['provider']['id'] ?? null,
+                'facility_id' => $requestData['facility']['id'] ?? null,
                 'created_at' => now()->toISOString()
             ]
         ]);
@@ -361,4 +361,4 @@ class QuickRequestOrchestrator
             throw $e;
         }
     }
-} 
+}

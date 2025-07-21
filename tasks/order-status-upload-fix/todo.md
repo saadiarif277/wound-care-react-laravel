@@ -58,6 +58,15 @@ Fix the file upload functionality in the Status Upload modal and ensure order st
 4. **Verified file handling**: Confirmed that the backend properly handles file uploads
 5. **Checked saveStatusDocument**: Verified the method correctly saves files and creates database records
 
+### Backend (QuickRequestOrchestrator.php)
+1. **Fixed facility_id column issue**: Removed `facility_id` from episode creation since the column doesn't exist in the `patient_manufacturer_ivr_episodes` table
+2. **Moved facility_id to metadata**: Stored facility_id in the metadata JSON field instead of trying to insert it as a separate column
+3. **Updated data extraction**: Fixed the extractEpisodeData method to get facility_id from metadata instead of episode column
+
+### Backend (NotificationHandler.php)
+1. **Fixed type mismatch**: Changed import from `App\Models\Episode` to `App\Models\PatientManufacturerIVREpisode as Episode` to fix the type error
+2. **Updated type hints**: All methods now properly accept `PatientManufacturerIVREpisode` instead of the non-existent `Episode` model
+
 ## Review
 
 The main issues were:
@@ -66,11 +75,15 @@ The main issues were:
 
 2. **Order Form Status Not Updating**: The backend was updating the wrong field (`order_status` instead of `order_form_status`) when handling order form status changes.
 3. **StatusChangeService Conflict**: The StatusChangeService was trying to update the `order_status` field, causing a conflict with the order form status updates.
+4. **Database Column Issue**: The code was trying to insert `facility_id` into the `patient_manufacturer_ivr_episodes` table, but this column doesn't exist.
+5. **Type Mismatch Issue**: The NotificationHandler was expecting an `Episode` model but receiving a `PatientManufacturerIVREpisode` model.
 
 The fixes involved:
 1. **Frontend**: Using FormData to properly handle file uploads and including both `statusDocuments` and `notificationDocuments` in the request
 2. **Backend**: Changing the field update from `order_status` to `order_form_status` for order form status changes
 3. **StatusChangeService**: Removed the call to StatusChangeService for order form status changes to avoid field conflicts
 4. **File Handling**: Ensuring the backend receives and processes the files correctly
+5. **Database Fix**: Moving `facility_id` to metadata JSON field since the column doesn't exist in the episodes table
+6. **Type Fix**: Updated NotificationHandler to use the correct model type
 
-This resolves both the file upload and order form status update issues. 
+This resolves the file upload, order form status update, database column, and type mismatch issues. 
