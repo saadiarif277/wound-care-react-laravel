@@ -7,10 +7,14 @@ use App\Services\Document\DocumentProcessingService;
 use App\Services\DocumentIntelligenceService;
 use App\Services\AI\AzureFoundryService;
 use App\Services\Medical\OptimizedMedicalAiService;
+use App\Services\AI\FormFillingOptimizer;
 use App\Models\PatientManufacturerIVREpisode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Exception;
+use Illuminate\Http\JsonResponse;
+use App\Services\FhirService;
+use App\Logging\PhiSafeLogger;
 
 class DocumentProcessingController extends Controller
 {
@@ -18,7 +22,10 @@ class DocumentProcessingController extends Controller
         private DocumentProcessingService $documentService,
         private DocumentIntelligenceService $azureService,
         private AzureFoundryService $foundryService,
-        private OptimizedMedicalAiService $medicalAiService
+        private OptimizedMedicalAiService $medicalAiService,
+        private FhirService $fhirService,
+        private PhiSafeLogger $logger,
+        private FormFillingOptimizer $formOptimizer
     ) {}
 
     /**
@@ -139,19 +146,30 @@ class DocumentProcessingController extends Controller
                 $medicalValidation = $this->validateMedicalTermsWithAI($medicalTerms, $formContext);
             }
 
+            // Step 4: Enhance with FormFillingOptimizer based on document type
+            $stage = match($type) {
+                'insurance_card' => 'insurance_data',
+                'clinical_note' => 'clinical_data',
+                'demographics' => 'patient_info',
+                default => 'general'
+            };
+            
+            $enhancedFields = $this->formOptimizer->enhanceFormData(
+                $aiResult['filled_fields'] ?? [],
+                $stage
+            );
+
             return response()->json([
                 'success' => true,
-                'original_ocr' => $ocrData,
-                'ai_enhanced' => $aiResult['filled_fields'] ?? [],
+                'extracted_data' => $ocrData,
+                'filled_fields' => $enhancedFields,
                 'confidence_scores' => $aiResult['confidence_scores'] ?? [],
                 'quality_grade' => $aiResult['quality_grade'] ?? 'C',
                 'suggestions' => $aiResult['suggestions'] ?? [],
                 'processing_notes' => $aiResult['processing_notes'] ?? [],
+                'ai_enhanced' => true,
                 'medical_validation' => $medicalValidation,
-                'is_ai_enhanced' => $aiResult['ai_enhanced'] ?? false,
-                'document_type' => $type,
-                'filename' => $file->getClientOriginalName(),
-                'message' => 'Document processed with AI enhancement successfully'
+                'enhancement_stage' => $stage
             ]);
 
         } catch (Exception $e) {
@@ -725,9 +743,15 @@ class DocumentProcessingController extends Controller
                 }
             }
 
+            // Step 3: Final enhancement with FormFillingOptimizer
+            $finalEnhancedData = $this->formOptimizer->enhanceFormData(
+                $enhancedData,
+                'general'
+            );
+
             return [
                 'success' => true,
-                'enhanced_data' => $enhancedData,
+                'enhanced_data' => $finalEnhancedData,
                 'original_data' => $formData,
                 'processing_notes' => $processingNotes,
                 'ai_enhanced' => true,

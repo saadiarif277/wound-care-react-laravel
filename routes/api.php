@@ -849,6 +849,11 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
     // Docuseal Builder Token
     Route::post('docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
         ->middleware('permission:create-product-requests');
+        
+    // Docuseal Test Mapping - for debugging field mappings (restored full auth)
+    Route::post('docuseal/test-mapping', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'testFieldMapping'])
+        ->middleware(['auth:sanctum', 'permission:create-product-requests'])
+        ->name('api.quick-requests.docuseal.test-mapping');
 });
 
 // QuickRequest Episode Creation Route (Enhanced)

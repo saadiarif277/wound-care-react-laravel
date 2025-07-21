@@ -77,6 +77,14 @@ class FieldTransformer
             return $this->notInTransform($value, $format);
         }
         
+        if ($type === 'prefix') {
+            return $format . $value;
+        }
+        
+        if ($type === 'suffix') {
+            return $value . $format;
+        }
+        
         if (!isset($this->transformers[$type][$format])) {
             throw new InvalidArgumentException("Unknown transformer: {$transformer}");
         }

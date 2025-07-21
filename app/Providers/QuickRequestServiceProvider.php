@@ -43,7 +43,8 @@ class QuickRequestServiceProvider extends ServiceProvider
                 $app->make(\App\Services\DocusealService::class),
                 $app->make(\App\Services\DataExtractionService::class),
                 $app->make(\App\Services\FieldMapping\DataExtractor::class),
-                $app->make(\App\Logging\PhiSafeLogger::class)
+                $app->make(\App\Logging\PhiSafeLogger::class),
+                $app->make(\App\Services\AI\FormFillingOptimizer::class)
             );
         });
         // Register facade accessor

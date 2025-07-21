@@ -616,6 +616,10 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-submission-slug');
 
+        Route::post('/docuseal/test-mapping', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'testFieldMapping'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.test-mapping');
+
         Route::post('/docuseal/create-episode', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'createEpisode'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.create-episode');

@@ -274,16 +274,53 @@ class UnifiedFieldMappingService
      */
     private function computeField(string $computation, array $data): mixed
     {
+        // Log the computation for debugging
+        Log::debug('Computing field', [
+            'computation' => $computation,
+            'data_keys' => array_keys($data),
+            'sample_data' => array_slice($data, 0, 5, true)
+        ]);
+        
         // Special computations
         if ($computation === 'format_duration') {
             return $this->fieldTransformer->formatDuration($data);
         }
 
+        // Handle conditional expressions FIRST (condition ? value1 : value2)
+        // This must come before other operators to handle complex expressions
+        if (str_contains($computation, ' ? ') && str_contains($computation, ' : ')) {
+            return $this->evaluateConditional($computation, $data);
+        }
+
         // Handle concatenation (field1 + field2)
         if (str_contains($computation, ' + ')) {
             $parts = array_map('trim', explode(' + ', $computation));
-            $values = array_map(fn($part) => $this->getValueByPath($data, $part), $parts);
-            return implode(' ', array_filter($values));
+            $values = [];
+            
+            foreach ($parts as $part) {
+                // Check if the part is a quoted string
+                if ((str_starts_with($part, '"') && str_ends_with($part, '"')) ||
+                    (str_starts_with($part, "'") && str_ends_with($part, "'"))) {
+                    $values[] = trim($part, '"\'');
+                } 
+                // Check if the part contains operators that need evaluation
+                elseif (str_contains($part, ' || ') || str_contains($part, ' && ') || 
+                       str_starts_with($part, '(') && str_ends_with($part, ')')) {
+                    // Recursively compute the part
+                    $values[] = $this->computeField($part, $data);
+                } 
+                else {
+                    // Simple field path
+                    $values[] = $this->getValueByPath($data, $part);
+                }
+            }
+            
+            Log::debug('Concatenation result', [
+                'parts' => $parts,
+                'values' => $values,
+                'result' => implode('', array_filter($values, fn($v) => $v !== null && $v !== ''))
+            ]);
+            return implode('', array_filter($values, fn($v) => $v !== null && $v !== ''));
         }
 
         // Handle multiplication (field1 * field2)
@@ -295,9 +332,24 @@ class UnifiedFieldMappingService
 
         // Handle OR conditions (field1 || field2)
         if (str_contains($computation, ' || ')) {
-            $parts = array_map('trim', explode(' || ', $computation));
+            // First check if the entire expression is wrapped in parentheses
+            $trimmedComputation = $computation;
+            if (str_starts_with($trimmedComputation, '(') && str_ends_with($trimmedComputation, ')')) {
+                $trimmedComputation = substr($trimmedComputation, 1, -1);
+            }
+            
+            $parts = array_map('trim', explode(' || ', $trimmedComputation));
             foreach ($parts as $part) {
-                $value = $this->getValueByPath($data, $part);
+                // For each part, check if it needs further computation
+                if (str_contains($part, ' && ') || str_contains($part, ' + ') || 
+                    str_contains($part, ' * ') || str_contains($part, ' / ')) {
+                    // Recursively compute complex parts
+                    $value = $this->computeField($part, $data);
+                } else {
+                    // Simple field path
+                    $value = $this->getValueByPath($data, $part);
+                }
+                
                 if (!empty($value)) {
                     return $value;
                 }
@@ -315,11 +367,6 @@ class UnifiedFieldMappingService
             }
         }
 
-        // Handle conditional expressions (condition ? value1 : value2)
-        if (str_contains($computation, ' ? ') && str_contains($computation, ' : ')) {
-            return $this->evaluateConditional($computation, $data);
-        }
-
         // If no special operators, treat as a simple field path (including array indexing)
         return $this->getValueByPath($data, $computation);
     }
@@ -334,6 +381,7 @@ class UnifiedFieldMappingService
         $colonPos = strpos($computation, ' : ');
         
         if ($questionPos === false || $colonPos === false || $colonPos <= $questionPos) {
+            Log::warning('Invalid conditional expression', ['computation' => $computation]);
             return null;
         }
         
@@ -344,6 +392,14 @@ class UnifiedFieldMappingService
         // Evaluate the condition
         $conditionResult = $this->evaluateCondition($condition, $data);
         
+        Log::debug('Evaluating conditional', [
+            'computation' => $computation,
+            'condition' => $condition,
+            'condition_result' => $conditionResult,
+            'true_value' => $trueValue,
+            'false_value' => $falseValue
+        ]);
+        
         // Return appropriate value
         if ($conditionResult) {
             // Handle quoted strings
@@ -351,12 +407,22 @@ class UnifiedFieldMappingService
                 (str_starts_with($trueValue, "'") && str_ends_with($trueValue, "'"))) {
                 return trim($trueValue, '"\'');
             }
+            // Check if the true value contains operators that need computation
+            if (str_contains($trueValue, ' + ') || str_contains($trueValue, ' || ') || 
+                str_contains($trueValue, ' * ') || str_contains($trueValue, ' / ')) {
+                return $this->computeField($trueValue, $data);
+            }
             return $this->getValueByPath($data, $trueValue);
         } else {
             // Handle quoted strings
             if ((str_starts_with($falseValue, '"') && str_ends_with($falseValue, '"')) ||
                 (str_starts_with($falseValue, "'") && str_ends_with($falseValue, "'"))) {
                 return trim($falseValue, '"\'');
+            }
+            // Check if the false value contains operators that need computation
+            if (str_contains($falseValue, ' + ') || str_contains($falseValue, ' || ') || 
+                str_contains($falseValue, ' * ') || str_contains($falseValue, ' / ')) {
+                return $this->computeField($falseValue, $data);
             }
             return $this->getValueByPath($data, $falseValue);
         }
@@ -367,6 +433,16 @@ class UnifiedFieldMappingService
      */
     private function evaluateCondition(string $condition, array $data): bool
     {
+        Log::debug('Evaluating condition', [
+            'condition' => $condition,
+            'data_sample' => array_slice($data, 0, 5, true)
+        ]);
+        
+        // Handle parentheses - extract and evaluate inner expression first
+        if (str_starts_with($condition, '(') && str_ends_with($condition, ')')) {
+            $condition = substr($condition, 1, -1);
+        }
+        
         // Handle OR conditions (||)
         if (str_contains($condition, ' || ')) {
             $parts = explode(' || ', $condition);
@@ -381,8 +457,16 @@ class UnifiedFieldMappingService
         // Handle AND conditions (&&)
         if (str_contains($condition, ' && ')) {
             $parts = explode(' && ', $condition);
+            $results = [];
             foreach ($parts as $part) {
-                if (!$this->evaluateCondition(trim($part), $data)) {
+                $partResult = $this->evaluateCondition(trim($part), $data);
+                $results[trim($part)] = $partResult;
+                if (!$partResult) {
+                    Log::debug('AND condition failed', [
+                        'full_condition' => $condition,
+                        'failed_part' => trim($part),
+                        'part_results' => $results
+                    ]);
                     return false;
                 }
             }
@@ -390,11 +474,11 @@ class UnifiedFieldMappingService
         }
         
         // Handle comparison operators
-        $operators = ['==', '!=', '>=', '<=', '>', '<'];
+        $operators = ['===', '!==', '==', '!=', '>=', '<=', '>', '<'];
         
         foreach ($operators as $operator) {
-            if (str_contains($condition, " $operator ")) {
-                $parts = explode(" $operator ", $condition, 2);
+            if (str_contains($condition, $operator)) {
+                $parts = explode($operator, $condition, 2);
                 if (count($parts) === 2) {
                     $left = trim($parts[0]);
                     $right = trim($parts[1]);
@@ -417,6 +501,10 @@ class UnifiedFieldMappingService
                     
                     // Perform comparison
                     switch ($operator) {
+                        case '===':
+                            return $leftValue === $rightValue;
+                        case '!==':
+                            return $leftValue !== $rightValue;
                         case '==':
                             return $leftValue == $rightValue;
                         case '!=':
@@ -436,7 +524,15 @@ class UnifiedFieldMappingService
         
         // If no operators found, treat as a simple boolean check
         $value = $this->getValueByPath($data, $condition);
-        return !empty($value);
+        $result = !empty($value);
+        
+        Log::debug('Simple field evaluation', [
+            'field' => $condition,
+            'value' => $value,
+            'result' => $result
+        ]);
+        
+        return $result;
     }
 
     /**
@@ -939,6 +1035,18 @@ class UnifiedFieldMappingService
             ]);
         }
         
+        // Handle FHIR-prefixed patient fields
+        if (isset($mappedData['fhir_patient_first_name']) && isset($mappedData['fhir_patient_last_name']) && 
+            !isset($mappedData['patient_name']) && isset($fieldNameMapping['patient_name'])) {
+            // Compute patient_name from FHIR first and last names
+            $mappedData['patient_name'] = trim($mappedData['fhir_patient_first_name'] . ' ' . $mappedData['fhir_patient_last_name']);
+            Log::info('Computed patient_name from FHIR first and last names', [
+                'patient_name' => $mappedData['patient_name'],
+                'fhir_first' => $mappedData['fhir_patient_first_name'],
+                'fhir_last' => $mappedData['fhir_patient_last_name']
+            ]);
+        }
+        
         // Also handle camelCase versions of the fields
         if (isset($mappedData['patientFirstName']) && isset($mappedData['patientLastName']) && 
             !isset($mappedData['patient_name']) && isset($fieldNameMapping['patient_name'])) {
@@ -971,6 +1079,106 @@ class UnifiedFieldMappingService
 
             // Get the Docuseal field name for this canonical field
             $docuSealFieldName = $fieldNameMapping[$canonicalName];
+
+            // Special handling for radio button fields
+            if ($canonicalName === 'place_of_service') {
+                // Handle Place of Service radio button
+                if (is_array($value)) {
+                    // If we have an array of POS options, find the selected one
+                    foreach ($value as $posKey => $isSelected) {
+                        if ($isSelected === true || $isSelected === 'true' || $isSelected === 1 || $isSelected === '1') {
+                            if (preg_match('/pos[_\s]*(\d+)/i', $posKey, $matches)) {
+                                $docuSealFields[] = [
+                                    'name' => $docuSealFieldName,
+                                    'default_value' => 'POS ' . $matches[1]
+                                ];
+                                Log::info("Mapped Place of Service radio from array", [
+                                    'field' => $docuSealFieldName,
+                                    'value' => 'POS ' . $matches[1]
+                                ]);
+                            } elseif (strtolower($posKey) === 'other') {
+                                $docuSealFields[] = [
+                                    'name' => $docuSealFieldName,
+                                    'default_value' => 'Other'
+                                ];
+                            }
+                            break;
+                        }
+                    }
+                } elseif (is_string($value) || is_numeric($value)) {
+                    // Handle string/numeric POS values
+                    if (preg_match('/^\d+$/', $value)) {
+                        // Just a number, add POS prefix
+                        $docuSealFields[] = [
+                            'name' => $docuSealFieldName,
+                            'default_value' => 'POS ' . $value
+                        ];
+                    } elseif (preg_match('/pos[_\s]*(\d+)/i', $value, $matches)) {
+                        // Already has POS prefix, normalize format
+                        $docuSealFields[] = [
+                            'name' => $docuSealFieldName,
+                            'default_value' => 'POS ' . $matches[1]
+                        ];
+                    } else {
+                        // Use as-is (might be "Other")
+                        $docuSealFields[] = [
+                            'name' => $docuSealFieldName,
+                            'default_value' => $value
+                        ];
+                    }
+                    Log::info("Mapped Place of Service radio from string", [
+                        'field' => $docuSealFieldName,
+                        'value' => $docuSealFields[count($docuSealFields) - 1]['default_value']
+                    ]);
+                }
+                continue;
+            }
+            
+            // Handle network status radio buttons (In-Network/Out-of-Network)
+            if (in_array($canonicalName, ['physician_status_primary', 'physician_status_secondary'])) {
+                if (is_bool($value)) {
+                    $docuSealFields[] = [
+                        'name' => $docuSealFieldName,
+                        'default_value' => $value ? 'In-Network' : 'Out-of-Network'
+                    ];
+                } elseif (is_string($value)) {
+                    $docuSealFields[] = [
+                        'name' => $docuSealFieldName,
+                        'default_value' => $value
+                    ];
+                }
+                Log::info("Mapped network status radio", [
+                    'field' => $docuSealFieldName,
+                    'value' => $docuSealFields[count($docuSealFields) - 1]['default_value']
+                ]);
+                continue;
+            }
+            
+            // Handle Yes/No radio buttons
+            if (in_array($canonicalName, ['permission_prior_auth', 'patient_in_hospice', 'patient_part_a_stay', 'patient_global_surgery'])) {
+                if (is_bool($value)) {
+                    $docuSealFields[] = [
+                        'name' => $docuSealFieldName,
+                        'default_value' => $value ? 'Yes' : 'No'
+                    ];
+                } elseif (in_array($value, ['Yes', 'No'], true)) {
+                    $docuSealFields[] = [
+                        'name' => $docuSealFieldName,
+                        'default_value' => $value
+                    ];
+                } else {
+                    // Convert truthy/falsy values
+                    $docuSealFields[] = [
+                        'name' => $docuSealFieldName,
+                        'default_value' => !empty($value) ? 'Yes' : 'No'
+                    ];
+                }
+                Log::info("Mapped Yes/No radio", [
+                    'field' => $docuSealFieldName,
+                    'value' => $docuSealFields[count($docuSealFields) - 1]['default_value']
+                ]);
+                continue;
+            }
 
             // Special handling for gender checkboxes (Centurion)
             if ($canonicalName === 'patient_gender' && $docuSealFieldName === 'Male/Female') {

@@ -36,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\AddContentTypeOptionsHeader::class,
             \App\Http\Middleware\StaticAssetHeaders::class,
+            \App\Http\Middleware\SecureCookies::class, // Ensure cookies have proper security attributes
         ]);
 
         // Configure API middleware group  

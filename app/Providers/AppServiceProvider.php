@@ -17,6 +17,7 @@ use App\Services\DocusealService;
 use Illuminate\Support\Facades\Response;
 use App\Models\Order\Order;
 use App\Observers\OrderObserver;
+use App\Services\AI\FormFillingOptimizer;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -129,6 +130,15 @@ class AppServiceProvider extends ServiceProvider
                 return \Mockery::mock(\App\Services\MedicalTerminologyService::class);
             }
             return new \App\Services\MedicalTerminologyService();
+        });
+
+        // Register Form Filling Optimizer
+        $this->app->singleton(FormFillingOptimizer::class, function ($app) {
+            return new FormFillingOptimizer(
+                $app->make(\App\Services\Medical\OptimizedMedicalAiService::class),
+                $app->make(\App\Services\DocumentIntelligenceService::class),
+                $app->make(\App\Services\AI\AzureFoundryService::class)
+            );
         });
 
 
