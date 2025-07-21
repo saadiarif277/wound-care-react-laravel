@@ -23,24 +23,15 @@ return [
     'folder_id' => 75423, // TO BE FILLED with actual DocuSeal template ID
     'order_form_template_id' => null, // TO BE FILLED if there's a separate order form
     
-    // IVR form field mappings - exact field names from DocuSeal template
+    // IVR form field mappings - EXACT field names from DocuSeal template API
     'docuseal_field_names' => [
-        // Header Information
-        'name' => 'Name',
-        'email' => 'Email',
-        'phone' => 'Phone',
-        'q4205' => 'Q4205',
-        'q4290' => 'Q4290',
-        'q4344' => 'Q4344',
-        'q4289' => 'Q4289',
-        'q4275' => 'Q4275',
-        'q4341' => 'Q4341',
-        'q4313' => 'Q4313',
-        'q4316' => 'Q4316',
-        'q4164' => 'Q4164',
-        'sales_rep' => 'Sales Rep',
+        // Product Selection - Single radio field with all product codes
+        'product_q_code' => 'Product Q Code',
+        
+        // Basic Information
+        'representative_name' => 'Representative Name',
         'iso_if_applicable' => 'ISO if applicable',
-        'additional_emails' => 'Additional Emails for Notification',
+        'additional_emails' => 'Additional Emails for Notification (requires BAA)',
         
         // Physician Information
         'physician_name' => 'Physician Name',
@@ -67,7 +58,7 @@ return [
         'facility_contact_info' => 'Facility Contact Phone # / Facility Contact Email',
         'facility_organization' => 'Facility Organization',
         
-        // Place of Service - Now a single radio button field
+        // Place of Service - Single radio field
         'place_of_service' => 'Place of Service',
         'pos_other_specify' => 'POS Other Specify',
         
@@ -88,25 +79,25 @@ return [
         'primary_payer_phone' => 'Primary Payer Phone #',
         'secondary_payer_phone' => 'Secondary Payer Phone #',
         
-        // Provider Network Status - Now radio button fields
-        'physician_status_with_primary' => 'Physician Status With Primary',
-        'physician_status_with_secondary' => 'Physician Status With Secondary',
+        // Network Status - Radio fields
+        'physician_status_primary' => 'Physician Status With Primary',
+        'physician_status_secondary' => 'Physician Status With Secondary',
         
-        // Authorization Permission - Now a single radio button field
-        'permission_to_initiate_and_follow_up_on_prior_auth' => 'Permission To Initiate And Follow Up On Prior Auth?',
+        // Authorization Questions - Radio fields
+        'permission_prior_auth' => 'Permission To Initiate And Follow Up On Prior Auth?',
+        'patient_in_hospice' => 'Is The Patient Currently in Hospice?',
+        'patient_part_a_stay' => 'Is The Patient In A Facility Under Part A Stay?',
+        'patient_global_surgery' => 'Is The Patient Under Post-Op Global Surgery Period?',
         
-        // Clinical Status - Now radio button fields
-        'is_the_patient_currently_in_hospice' => 'Is The Patient Currently in Hospice?',
-        'is_the_patient_in_a_facility_under_part_a_stay' => 'Is The Patient In A Facility Under Part A Stay?',
-        'is_the_patient_under_post_op_global_surgery_period' => 'Is The Patient Under Post-Op Global Surgery Period?',
+        // Conditional Surgery Fields
         'surgery_cpts' => 'If Yes, List Surgery CPTs',
         'surgery_date' => 'Surgery Date',
         
-        // Wound Information - Now a single radio button field
+        // Location and Clinical
         'location_of_wound' => 'Location of Wound',
         'icd_10_codes' => 'ICD-10 Codes',
         'total_wound_size' => 'Total Wound Size',
-        'medical_history' => 'Medical History'
+        'medical_history' => 'Medical History',
     ],
     
     // Order form field mappings (if separate from IVR)
@@ -116,374 +107,297 @@ return [
     
     // Field configuration with source mapping and transformations
     'fields' => [
-        // Basic Contact Information
-        'name' => [
-            'source' => 'contact_name || submitter_name || sales_rep_name',
-            'required' => true,
-            'type' => 'string'
-        ],
-        'email' => [
-            'source' => 'contact_email || submitter_email || sales_rep_email',
-            'required' => true,
-            'type' => 'email'
-        ],
-        'phone' => [
-            'source' => 'contact_phone || submitter_phone || sales_rep_phone',
-            'transform' => 'phone:US',
-            'required' => true,
-            'type' => 'phone'
-        ],
-        'sales_rep' => [
-            'source' => 'sales_rep_name || sales_representative || representative_name',
+        // Product Selection - Single radio field that needs the selected product code
+        'product_q_code' => [
+            'source' => 'computed',
+            'computation' => 'selected_products && selected_products[0] && selected_products[0].product ? selected_products[0].product.q_code : (selected_products && selected_products[0] ? selected_products[0].code : "")',
             'required' => false,
+            'type' => 'string' // Will be "Q4316", "Q4205", etc.
+        ],
+        
+        // Basic Information
+        'representative_name' => [
+            'source' => 'sales_rep || sales_rep_name || sales_representative || representative_name || name',
+            'required' => true,
             'type' => 'string'
         ],
         'iso_if_applicable' => [
-            'source' => 'iso_number || iso_id || iso',
+            'source' => 'iso_number || iso_if_applicable',
             'required' => false,
             'type' => 'string'
         ],
         'additional_emails' => [
-            'source' => 'additional_notification_emails || cc_emails',
+            'source' => 'additional_emails || additional_notification_emails',
             'required' => false,
             'type' => 'string'
-        ],
-        
-        // Product Selection (Q-codes) - checkboxes - FIXED to use correct data structure
-        'q4205' => [
-            'source' => 'q4205', // Pre-computed boolean from QuickRequestOrchestrator
-            'required' => false,
-            'type' => 'boolean'
-        ],
-        'q4290' => [
-            'source' => 'q4290', // Pre-computed boolean from QuickRequestOrchestrator
-            'required' => false,
-            'type' => 'boolean'
-        ],
-        'q4344' => [
-            'source' => 'q4344', // Pre-computed boolean from QuickRequestOrchestrator
-            'required' => false,
-            'type' => 'boolean'
-        ],
-        'q4289' => [
-            'source' => 'q4289', // Pre-computed boolean from QuickRequestOrchestrator
-            'required' => false,
-            'type' => 'boolean'
-        ],
-        'q4275' => [
-            'source' => 'q4275', // Pre-computed boolean from QuickRequestOrchestrator
-            'required' => false,
-            'type' => 'boolean'
-        ],
-        'q4341' => [
-            'source' => 'q4341', // Pre-computed boolean from QuickRequestOrchestrator
-            'required' => false,
-            'type' => 'boolean'
-        ],
-        'q4313' => [
-            'source' => 'q4313', // Pre-computed boolean from QuickRequestOrchestrator
-            'required' => false,
-            'type' => 'boolean'
-        ],
-        'q4316' => [
-            'source' => 'q4316', // Pre-computed boolean from QuickRequestOrchestrator
-            'required' => false,
-            'type' => 'boolean'
-        ],
-        'q4164' => [
-            'source' => 'q4164', // Pre-computed boolean from QuickRequestOrchestrator
-            'required' => false,
-            'type' => 'boolean'
         ],
         
         // Physician Information
         'physician_name' => [
-            'source' => 'provider_name || physician_name || prescriber_name',
+            'source' => 'physician_name || provider_name || current_user.name',
             'required' => true,
             'type' => 'string'
         ],
         'physician_npi' => [
-            'source' => 'provider_npi || physician_npi || prescriber_npi',
-            'required' => true,
+            'source' => 'physician_npi || provider_npi',
+            'required' => false,
             'type' => 'string'
         ],
         'physician_specialty' => [
-            'source' => 'provider_specialty || physician_specialty || specialty',
+            'source' => 'physician_specialty || provider_specialty',
             'required' => false,
             'type' => 'string'
         ],
         'physician_tax_id' => [
-            'source' => 'provider_tax_id || physician_tax_id || tax_id',
+            'source' => 'physician_tax_id || provider_tax_id',
             'required' => false,
             'type' => 'string'
         ],
         'physician_ptan' => [
-            'source' => 'provider_ptan || physician_ptan || ptan',
+            'source' => 'physician_ptan || provider_ptan',
             'required' => false,
             'type' => 'string'
         ],
         'physician_medicaid' => [
-            'source' => 'provider_medicaid_number || physician_medicaid_id || medicaid_number',
+            'source' => 'physician_medicaid || provider_medicaid || physician_medicaid_number',
             'required' => false,
             'type' => 'string'
         ],
         'physician_phone' => [
-            'source' => 'provider_phone || physician_phone || prescriber_phone',
-            'transform' => 'phone:US',
+            'source' => 'physician_phone || provider_phone',
             'required' => false,
-            'type' => 'phone'
+            'type' => 'string'
         ],
         'physician_fax' => [
-            'source' => 'provider_fax || physician_fax || prescriber_fax',
-            'transform' => 'phone:US',
+            'source' => 'physician_fax || provider_fax',
             'required' => false,
-            'type' => 'phone'
+            'type' => 'string'
         ],
         'physician_organization' => [
-            'source' => 'provider_organization || physician_organization || practice_name',
+            'source' => 'physician_organization || organization_name',
             'required' => false,
             'type' => 'string'
         ],
         
-        // Facility Information - FIXED with proper field mappings
-        'facility_name' => [
-            'source' => 'facility_name || location_name || practice_name',
-            'required' => true,
-            'type' => 'string'
-        ],
+        // Facility Information
         'facility_npi' => [
-            'source' => 'facility_npi || facility_group_npi || location_npi || practice_npi',
-            'required' => true,
+            'source' => 'facility_npi',
+            'required' => false,
             'type' => 'string'
         ],
         'facility_tax_id' => [
-            'source' => 'facility_tax_id || facility_tin || organization_tax_id || ein',
+            'source' => 'facility_tax_id || facility_tin',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'facility_name' => [
+            'source' => 'facility_name',
             'required' => false,
             'type' => 'string'
         ],
         'facility_ptan' => [
-            'source' => 'facility_ptan || location_ptan',
+            'source' => 'facility_ptan',
             'required' => false,
             'type' => 'string'
         ],
         'facility_address' => [
-            'source' => 'facility_address || facility_address_line1 || facility_street || location_address',
-            'required' => true,
+            'source' => 'facility_address || facility_address_line1',
+            'required' => false,
             'type' => 'string'
         ],
         'facility_medicaid' => [
-            'source' => 'facility_medicaid_number || facility_medicaid || facility_medicaid_id',
+            'source' => 'facility_medicaid || facility_medicaid_number',
             'required' => false,
             'type' => 'string'
         ],
         'facility_city_state_zip' => [
-            'source' => 'computed',
-            'computation' => 'facility_city + ", " + facility_state + " " + facility_zip',
-            'required' => true,
+            'source' => 'facility_city_state_zip',
+            'required' => false,
             'type' => 'string'
         ],
         'facility_phone' => [
-            'source' => 'facility_phone || location_phone',
-            'transform' => 'phone:US',
+            'source' => 'facility_phone',
             'required' => false,
-            'type' => 'phone'
+            'type' => 'string'
         ],
         'facility_contact_name' => [
-            'source' => 'facility_contact_name || office_manager_name || contact_person',
+            'source' => 'facility_contact_name',
             'required' => false,
             'type' => 'string'
         ],
         'facility_fax' => [
-            'source' => 'facility_fax || location_fax',
-            'transform' => 'phone:US',
+            'source' => 'facility_fax',
             'required' => false,
-            'type' => 'phone'
+            'type' => 'string'
         ],
         'facility_contact_info' => [
-            'source' => 'computed',
-            'computation' => 'facility_contact_phone || facility_contact_email',
+            'source' => 'facility_contact_info',
             'required' => false,
             'type' => 'string'
         ],
         'facility_organization' => [
-            'source' => 'facility_organization_name || organization_name || parent_organization || health_system',
+            'source' => 'facility_organization || organization_name',
             'required' => false,
             'type' => 'string'
         ],
         
-        // Place of Service - Now a single radio button field
+        // Place of Service - Single radio field
         'place_of_service' => [
             'source' => 'computed',
-            'computation' => 'place_of_service == "11" ? "POS 11" : (place_of_service == "12" ? "POS 12" : (place_of_service == "22" ? "POS 22" : (place_of_service == "24" ? "POS 24" : (place_of_service == "32" ? "POS 32" : "Other"))))',
+            'computation' => 'place_of_service ? "POS " + place_of_service : ""',
             'required' => true,
-            'type' => 'string'
+            'type' => 'string' // Will be "POS 11", "POS 12", etc.
         ],
         'pos_other_specify' => [
-            'source' => 'computed',
-            'computation' => 'place_of_service != "11" && place_of_service != "12" && place_of_service != "22" && place_of_service != "24" && place_of_service != "32" && place_of_service != null ? place_of_service : ""',
+            'source' => 'pos_other_specify || place_of_service_other',
             'required' => false,
             'type' => 'string'
         ],
         
         // Patient Information
         'patient_name' => [
-            'source' => 'computed',
-            'computation' => 'fhir_patient_first_name + fhir_patient_last_name',
+            'source' => 'patient_name',
             'required' => true,
             'type' => 'string'
         ],
         'patient_dob' => [
-            'source' => 'patient_date_of_birth || patient_dob',
-            'transform' => 'date:m/d/Y',
-            'required' => true,
-            'type' => 'date'
+            'source' => 'patient_dob',
+            'required' => false,
+            'type' => 'string'
         ],
         'patient_address' => [
-            'source' => 'patient_street_address || patient_address_line1',
-            'required' => true,
+            'source' => 'patient_address || patient_address_line1',
+            'required' => false,
             'type' => 'string'
         ],
         'patient_city_state_zip' => [
             'source' => 'computed',
-            'computation' => 'patient_city + ", " + patient_state + " " + patient_zip',
-            'required' => true,
+            'computation' => 'patient_city && patient_state && patient_zip ? patient_city + ", " + patient_state + " " + patient_zip : (patient_city_state_zip || "")',
+            'required' => false,
             'type' => 'string'
         ],
         'patient_phone' => [
-            'source' => 'patient_phone_number || patient_phone',
-            'transform' => 'phone:US',
+            'source' => 'patient_phone',
             'required' => false,
-            'type' => 'phone'
+            'type' => 'string'
         ],
         'patient_email' => [
-            'source' => 'patient_email_address || patient_email',
+            'source' => 'patient_email',
             'required' => false,
-            'type' => 'email'
+            'type' => 'string'
         ],
         'patient_caregiver_info' => [
-            'source' => 'patient_caregiver_name || caregiver_contact || responsible_party',
+            'source' => 'patient_caregiver_info',
             'required' => false,
             'type' => 'string'
         ],
         
         // Insurance Information
         'primary_insurance_name' => [
-            'source' => 'primary_insurance_name || insurance_company || payer_name',
-            'required' => true,
+            'source' => 'primary_insurance_name',
+            'required' => false,
             'type' => 'string'
         ],
         'secondary_insurance_name' => [
-            'source' => 'secondary_insurance_name || secondary_payer_name',
+            'source' => 'secondary_insurance_name',
             'required' => false,
             'type' => 'string'
         ],
         'primary_policy_number' => [
-            'source' => 'primary_member_id || primary_policy_number || insurance_id',
-            'required' => true,
+            'source' => 'primary_policy_number || primary_member_id',
+            'required' => false,
             'type' => 'string'
         ],
         'secondary_policy_number' => [
-            'source' => 'secondary_member_id || secondary_policy_number',
+            'source' => 'secondary_policy_number || secondary_member_id',
             'required' => false,
             'type' => 'string'
         ],
         'primary_payer_phone' => [
-            'source' => 'primary_insurance_phone || payer_phone',
-            'transform' => 'phone:US',
+            'source' => 'primary_payer_phone',
             'required' => false,
-            'type' => 'phone'
+            'type' => 'string'
         ],
         'secondary_payer_phone' => [
-            'source' => 'secondary_insurance_phone || secondary_payer_phone',
-            'transform' => 'phone:US',
-            'required' => false,
-            'type' => 'phone'
-        ],
-        
-        // Provider Network Status - Now radio button fields
-        'physician_status_with_primary' => [
-            'source' => 'computed',
-            'computation' => 'primary_physician_network_status == "in_network" || primary_network_status == "in_network" ? "In-Network" : "Out-of-Network"',
-            'required' => false,
-            'type' => 'string'
-        ],
-        'physician_status_with_secondary' => [
-            'source' => 'computed',
-            'computation' => 'secondary_physician_network_status == "in_network" || secondary_network_status == "in_network" ? "In-Network" : "Out-of-Network"',
+            'source' => 'secondary_payer_phone',
             'required' => false,
             'type' => 'string'
         ],
         
-        // Authorization Permission - Now a single radio button field
-        'permission_to_initiate_and_follow_up_on_prior_auth' => [
+        // Network Status - Radio fields with exact values
+        'physician_status_primary' => [
             'source' => 'computed',
-            'computation' => 'prior_auth_permission == true || prior_auth_permission == "yes" ? "Yes" : "No"',
-            'required' => false,
-            'type' => 'string'
+            'computation' => 'primary_physician_network_status === "in_network" ? "In-Network" : "Out-of-Network"',
+            'required' => true,
+            'type' => 'string' // Will be "In-Network" or "Out-of-Network"
+        ],
+        'physician_status_secondary' => [
+            'source' => 'computed',
+            'computation' => 'secondary_physician_network_status === "in_network" ? "In-Network" : "Out-of-Network"',
+            'required' => true,
+            'type' => 'string' // Will be "In-Network" or "Out-of-Network"
         ],
         
-        // Clinical Status Questions - Now radio button fields
-        'is_the_patient_currently_in_hospice' => [
+        // Authorization Questions - Radio fields with Yes/No values
+        'permission_prior_auth' => [
+            'source' => 'computed',
+            'computation' => 'prior_auth_permission === true ? "Yes" : "No"',
+            'required' => true,
+            'type' => 'string' // Will be "Yes" or "No"
+        ],
+        'patient_in_hospice' => [
             'source' => 'computed',
             'computation' => 'hospice_status === true ? "Yes" : "No"',
             'required' => false,
-            'type' => 'string',
-            'default' => 'No'
+            'type' => 'string' // Will be "Yes" or "No"
         ],
-        'is_the_patient_in_a_facility_under_part_a_stay' => [
+        'patient_part_a_stay' => [
             'source' => 'computed',
             'computation' => 'part_a_status === true ? "Yes" : "No"',
             'required' => false,
-            'type' => 'string',
-            'default' => 'No'
+            'type' => 'string' // Will be "Yes" or "No"
         ],
-        'is_the_patient_under_post_op_global_surgery_period' => [
+        'patient_global_surgery' => [
             'source' => 'computed',
             'computation' => 'global_period_status === true ? "Yes" : "No"',
             'required' => false,
-            'type' => 'string',
-            'default' => 'No'
+            'type' => 'string' // Will be "Yes" or "No"
         ],
+        
+        // Conditional Surgery Fields
         'surgery_cpts' => [
-            'source' => 'global_period_cpt || surgery_cpts || prior_surgery_cpts',
+            'source' => 'surgery_cpts',
             'required' => false,
             'type' => 'string'
         ],
         'surgery_date' => [
-            'source' => 'global_period_surgery_date || surgery_date',
-            'transform' => 'date:m/d/Y',
-            'required' => false,
-            'type' => 'date'
-        ],
-        
-        // Already defined above in the configuration
-        
-        // Wound Location - Now a single radio button field
-        'location_of_wound' => [
-            'source' => 'computed',
-            'computation' => 'wound_location == "trunk_arms_legs_small" ? "Legs/Arms/Trunk < 100 SQ CM" : (wound_location == "trunk_arms_legs_large" ? "Legs/Arms/Trunk > 100 SQ CM" : (wound_location == "hands_feet_head_small" ? "Feet/Hands/Head < 100 SQ CM" : (wound_location == "hands_feet_head_large" ? "Feet/Hands/Head > 100 SQ CM" : "")))',
+            'source' => 'surgery_date',
             'required' => false,
             'type' => 'string'
         ],
         
-        // Clinical Information - Updated to match Step4ClinicalBilling.tsx fields
+        // Location and Clinical - Radio field with exact option values
+        'location_of_wound' => [
+            'source' => 'computed',
+            'computation' => 'wound_location_details || "Legs/Arms/Trunk < 100 SQ CM"',
+            'required' => true,
+            'type' => 'string' // Will be one of the 4 specific options
+        ],
         'icd_10_codes' => [
             'source' => 'computed',
-            'computation' => 'primary_diagnosis_code && secondary_diagnosis_code ? primary_diagnosis_code + ", " + secondary_diagnosis_code : (diagnosis_code || primary_diagnosis_code || secondary_diagnosis_code)',
-            'required' => true,
+            'computation' => 'primary_diagnosis_code && secondary_diagnosis_code ? primary_diagnosis_code + ", " + secondary_diagnosis_code : (primary_diagnosis_code || secondary_diagnosis_code || "")',
+            'required' => false,
             'type' => 'string'
         ],
         'total_wound_size' => [
-            'source' => 'computed',
-            'computation' => 'wound_size_length && wound_size_width ? wound_size_length * wound_size_width : (wound_area_calculated || wound_size_total)',
-            'transform' => 'number:2',
-            'required' => true,
+            'source' => 'total_wound_size',
+            'required' => false,
             'type' => 'string'
         ],
         'medical_history' => [
-            'source' => 'previous_treatments || medical_history_notes || patient_medical_history || clinical_notes',
+            'source' => 'medical_history',
             'required' => false,
             'type' => 'string'
-        ]
+        ],
     ]
 ];

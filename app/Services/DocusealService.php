@@ -1170,14 +1170,23 @@ class DocusealService
     {
         // Map of template IDs to manufacturer names (based on config files)
         $templateToManufacturerMap = [
+            '852440' => 'ACZ & ASSOCIATES',        // ACZ & Associates IVR template
+            '852554' => 'ACZ & ASSOCIATES',        // ACZ & Associates Order Form template
             '1233913' => 'MEDLIFE SOLUTIONS',      // MedLife IVR template
             '1234279' => 'MEDLIFE SOLUTIONS',      // MedLife Order Form template
+            '1233918' => 'CENTURION THERAPEUTICS', // Centurion Therapeutics IVR template
             '1199885' => 'ADVANCED SOLUTION',      // Advanced Solution IVR template
             '1299488' => 'ADVANCED SOLUTION ORDER FORM', // Advanced Solution Order Form template
             '1254774' => 'BIOWOUND SOLUTIONS',     // Biowound IVR template
             '1299495' => 'BIOWOUND SOLUTIONS',     // Biowound Order Form template
-            '1233918' => 'CENTURION THERAPEUTICS', // Centurion IVR template
-            // Add more mappings as needed
+            '1234285' => 'EXTREMITY CARE LLC',     // Extremity Care - Coll-e-Derm
+            '1234284' => 'EXTREMITY CARE LLC',     // Extremity Care - Restorigin
+            '1234283' => 'EXTREMITY CARE LLC',     // Extremity Care - Complete FT
+            '1330769' => 'CELULARITY',             // Celularity IVR template
+            '1330771' => 'CELULARITY',             // Celularity Order Form template
+            '1234272' => 'IMBED',                  // Imbed IVR template
+            '1234276' => 'IMBED',                  // Imbed Order Form template
+            '1340334' => 'SKYE BIOLOGICS',         // Skye Biologics IVR template
         ];
 
         return $templateToManufacturerMap[$templateId] ?? null;
