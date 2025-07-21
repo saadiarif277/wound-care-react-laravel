@@ -128,3 +128,13 @@ test-*.log
 *.swp
 *.swo
 /scripts/ai_service_env/*
+scripts/.venv/lib/python3.12/site-packages/uvicorn/__pycache__/*
+scripts/.venv/lib/python3.12/site-packages/uvicorn/*
+scripts/.venv/lib/python3.12/site-packages/uvicorn.egg-info/*
+scripts/.venv/lib/python3.12/site-packages/uvicorn.egg-info/PKG-INFO
+scripts/.venv/lib/python3.12/site-packages/uvicorn.egg-info/SOURCES.txt
+scripts/.venv/lib/python3.12/site-packages/uvicorn.egg-info/dependency_links.txt
+scripts/.venv/lib/python3.12/site-packages/uvicorn.egg-info/requires.txt
+scripts/.venv/lib/python3.12/site-packages/uvicorn.egg-info/top_level.txt
+scripts/.venv/lib/python3.12/site-packages/uvicorn.egg-info/zip-safe
+scripts/.venv/lib/python3.12/site-packages/uvicorn.egg-info/zip-safe

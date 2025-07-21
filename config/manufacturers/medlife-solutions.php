@@ -11,9 +11,14 @@ return [
     
     // IVR form field mappings - complete mapping from field-mapping.php
     'docuseal_field_names' => [
-        // Basic Contact Information
-        'name' => 'Name',
-        'email' => 'Email',
+        // AUTO-FIXED: Invalid fields removed on 2025-07-21 03:33:08
+
+        // Basic Contact Information        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
+        'name' => 'Name',        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
+        'email' => 'Email',        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
         'phone' => 'Phone',
         'distributor_company' => 'Distributor/Company',
         
@@ -37,14 +42,18 @@ return [
         'patient_dob' => 'Patient DOB',
         
         // Insurance Information
-        'primary_insurance_name' => 'Primary Insurance',
+        'primary_insurance_name' => 'Primary Insurance',        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
         'primary_member_id' => 'Member ID',
         'secondary_insurance_name' => 'Secondary Insurance',
         'secondary_member_id' => 'Secondary Member ID',
         
-        // Place of Service checkboxes - exact field names from Docuseal template
-        'place_of_service_office' => 'Office: POS-11',
-        'place_of_service_home' => 'Home: POS 12', 
+        // Place of Service checkboxes - exact field names from Docuseal template        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
+        'place_of_service_office' => 'Office: POS-11',        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
+        'place_of_service_home' => 'Home: POS 12',        // REMOVED: Field doesn't exist in DocuSeal template
+        //  
         'place_of_service_assisted' => 'Assisted Living: POS-13',
         'place_of_service_other' => 'Other',
         
@@ -82,9 +91,12 @@ return [
     
     // Order form field mappings using exact Docuseal field names
     'order_form_field_names' => [
-        // Contact Information
-        'name' => 'Name',
-        'email' => 'Email', 
+        // Contact Information        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
+        'name' => 'Name',        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
+        'email' => 'Email',        // REMOVED: Field doesn't exist in DocuSeal template
+        //  
         'phone' => 'Phone',
         
         // Shipping Method Checkboxes

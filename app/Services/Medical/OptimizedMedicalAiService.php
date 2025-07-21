@@ -28,12 +28,12 @@ class OptimizedMedicalAiService
         protected AzureHealthDataService $azureHealthService,
         protected PhiSafeLogger $logger
     ) {
-        $this->aiServiceUrl = Config::get('services.medical_ai.url', 'http://localhost:8081');
-        $this->aiServiceKey = Config::get('services.medical_ai.key', '');
-        $this->enabled = Config::get('services.medical_ai.enabled', true);
-        $this->debugMode = Config::get('services.medical_ai.debug', false);
-        $this->fallbackEnabled = Config::get('services.medical_ai.fallback_enabled', true);
-        $this->timeout = Config::get('services.medical_ai.timeout', 30);
+        $this->aiServiceUrl = Config::get('services.medical_base_ai.base_url', 'http://127.0.0.1:8081');
+        $this->aiServiceKey = Config::get('services.medical_base_ai.key', '');
+        $this->enabled = Config::get('services.medical_base_ai.enabled', true);
+        $this->debugMode = Config::get('services.medical_base_ai.debug', false);
+        $this->fallbackEnabled = Config::get('services.medical_base_ai.fallback_enabled', true);
+        $this->timeout = Config::get('services.medical_base_ai.timeout', 30);
     }
 
     /**
@@ -174,7 +174,7 @@ class OptimizedMedicalAiService
     /**
      * Enhanced DocuSeal field mapping using AI with FHIR context
      */
-    public function enhanceDocusealFieldMapping(PatientManufacturerIVREpisode $episode, array $baseData, string $templateId): array
+    public function enhanceDocusealFieldMapping(?PatientManufacturerIVREpisode $episode = null, array $baseData, string $templateId): array
     {
         try {
             // Check if service is enabled
@@ -184,12 +184,17 @@ class OptimizedMedicalAiService
             }
 
             $this->logger->info('Starting AI-enhanced DocuSeal field mapping', [
-                'episode_id' => $episode->id,
+                'episode_id' => $episode->id ?? 'N/A',
                 'template_id' => $templateId
             ]);
 
             // Get comprehensive FHIR context
-            $fhirContext = $this->buildFhirContext($episode);
+            if ($episode === null) {
+                $this->logger->warning('Enhancing mapping without episode context', ['template_id' => $templateId]);
+                $fhirContext = [];
+            } else {
+                $fhirContext = $this->buildFhirContext($episode);
+            }
             
             // Get template structure from DocuSeal
             $templateStructure = $this->docusealService->getTemplateFieldsFromAPI($templateId);
@@ -212,7 +217,7 @@ class OptimizedMedicalAiService
             $validatedData = $this->validateAndOptimizeFieldMappings($enhancedData, $templateStructure);
             
             $this->logger->info('AI-enhanced DocuSeal field mapping completed', [
-                'episode_id' => $episode->id,
+                'episode_id' => $episode->id ?? 'N/A',
                 'base_fields' => count($baseData),
                 'enhanced_fields' => count($validatedData),
                 'ai_confidence' => $aiResponse['confidence'] ?? 0
@@ -222,7 +227,7 @@ class OptimizedMedicalAiService
 
         } catch (Exception $e) {
             $this->logger->error('AI-enhanced DocuSeal field mapping failed', [
-                'episode_id' => $episode->id,
+                'episode_id' => $episode->id ?? 'N/A',
                 'error' => $e->getMessage()
             ]);
 
@@ -402,7 +407,7 @@ class OptimizedMedicalAiService
         $cacheKey = 'medical_ai_' . md5(json_encode($context));
         
         // Check cache first (5 minute TTL)
-        if (Config::get('services.medical_ai.cache_enabled', true)) {
+        if (Config::get('services.medical_base_ai.cache_enabled', true)) {
             $cachedResult = Cache::get($cacheKey);
             if ($cachedResult) {
                 $this->logger->info('Using cached AI response');
@@ -428,7 +433,7 @@ class OptimizedMedicalAiService
                     $result = $response->json();
                     
                     // Cache successful response
-                    if (Config::get('services.medical_ai.cache_enabled', true)) {
+                    if (Config::get('services.medical_base_ai.cache_enabled', true)) {
                         Cache::put($cacheKey, $result, 300); // 5 minutes
                     }
                     
@@ -654,15 +659,13 @@ class OptimizedMedicalAiService
     protected function getManufacturerRequirements(int $manufacturerId): array
     {
         return Cache::remember("manufacturer_requirements_{$manufacturerId}", 3600, function() use ($manufacturerId) {
-            // Get from config or database
-            $config = Config::get("manufacturers.{$manufacturerId}.requirements", []);
-            
-            return [
-                'required_fields' => $config['required_fields'] ?? [],
-                'preferred_formats' => $config['preferred_formats'] ?? [],
-                'validation_rules' => $config['validation_rules'] ?? [],
-                'clinical_requirements' => $config['clinical_requirements'] ?? []
-            ];
+            $manufacturer = \App\Models\Order\Manufacturer::find($manufacturerId);
+            if (!$manufacturer) return [];
+            $filename = \Illuminate\Support\Str::slug($manufacturer->name);
+            $path = config_path("manufacturers/{$filename}.php");
+            if (!file_exists($path)) return [];
+            $config = include $path;
+            return $config['requirements'] ?? [];
         });
     }
 
@@ -672,14 +675,13 @@ class OptimizedMedicalAiService
     protected function getManufacturerFieldPreferences(int $manufacturerId): array
     {
         return Cache::remember("manufacturer_field_prefs_{$manufacturerId}", 3600, function() use ($manufacturerId) {
-            $config = Config::get("manufacturers.{$manufacturerId}.field_preferences", []);
-            
-            return [
-                'priority_fields' => $config['priority_fields'] ?? [],
-                'field_mappings' => $config['field_mappings'] ?? [],
-                'default_values' => $config['default_values'] ?? [],
-                'formatting_rules' => $config['formatting_rules'] ?? []
-            ];
+            $manufacturer = \App\Models\Order\Manufacturer::find($manufacturerId);
+            if (!$manufacturer) return [];
+            $filename = \Illuminate\Support\Str::slug($manufacturer->name);
+            $path = config_path("manufacturers/{$filename}.php");
+            if (!file_exists($path)) return [];
+            $config = include $path;
+            return $config['field_preferences'] ?? [];
         });
     }
 

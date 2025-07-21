@@ -109,8 +109,8 @@ return [
         'enabled' => env('AI_FORM_FILLER_ENABLED', true),
     ],
 
-    'medical_ai' => [
-        'url' => env('MEDICAL_AI_SERVICE_URL', 'http://localhost:8081'),
+    'medical_base_ai' => [
+        'base_url' => env('MEDICAL_AI_BASE_URL', 'http://127.0.0.1:8081'),
         'timeout' => env('MEDICAL_AI_SERVICE_TIMEOUT', 30),
         'key' => env('MEDICAL_AI_SERVICE_API_KEY', ''),
         'enabled' => env('MEDICAL_AI_SERVICE_ENABLED', true),

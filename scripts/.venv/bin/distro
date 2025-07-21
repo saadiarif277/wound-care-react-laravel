@@ -1,4 +1,4 @@
-#!/home/rvalen/Projects/Milestones/wound-care-react-laravel/scripts/.venv/bin/python3
+#!/home/rvalen/Desktop/wound-care-react-laravel/scripts/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -78,6 +78,14 @@ function Step2PatientInsurance({
     { value: 'other', label: 'Other' },
   ];
 
+  // Provider network status options
+  const networkStatusOptions = [
+    { value: '', label: 'Please Select' },
+    { value: 'in_network', label: 'In-Network' },
+    { value: 'out_of_network', label: 'Out-of-Network' },
+    { value: 'not_sure', label: 'Not Sure' },
+  ];
+
   const handleInsuranceCardUpload = async (file: File, side: 'front' | 'back') => {
     // Create preview
     if (file.type.startsWith('image/')) {
@@ -639,20 +647,37 @@ function Step2PatientInsurance({
             </div>
           </div>
 
-          {/* Plan Type on separate row */}
-          <div>
-            <Select
-              label="Plan Type"
-              value={formData.primary_plan_type || ''}
-              onChange={(e) => updateFormData({ primary_plan_type: e.target.value })}
-              options={planTypes.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
-              placeholder="Please Select Plan Type"
-              error={errors.primary_plan_type}
-              required
-            />
-            {errors.primary_plan_type && (
-              <p className="mt-1 text-sm text-red-500">{errors.primary_plan_type}</p>
-            )}
+          {/* Plan Type and Network Status on same row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Select
+                label="Plan Type"
+                value={formData.primary_plan_type || ''}
+                onChange={(e) => updateFormData({ primary_plan_type: e.target.value })}
+                options={planTypes.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
+                placeholder="Please Select Plan Type"
+                error={errors.primary_plan_type}
+                required
+              />
+              {errors.primary_plan_type && (
+                <p className="mt-1 text-sm text-red-500">{errors.primary_plan_type}</p>
+              )}
+            </div>
+
+            <div>
+              <Select
+                label="Physician Status With Primary"
+                value={formData.primary_physician_network_status || ''}
+                onChange={(e) => updateFormData({ primary_physician_network_status: e.target.value })}
+                options={networkStatusOptions.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
+                placeholder="Please Select Network Status"
+                error={errors.primary_physician_network_status}
+                required
+              />
+              {errors.primary_physician_network_status && (
+                <p className="mt-1 text-sm text-red-500">{errors.primary_physician_network_status}</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -797,15 +822,31 @@ function Step2PatientInsurance({
                 </div>
               </div>
 
-              {/* Plan Type on separate row */}
-              <div>
-                <Select
-                  label="Plan Type"
-                  value={formData.secondary_plan_type || ''}
-                  onChange={(e) => updateFormData({ secondary_plan_type: e.target.value })}
-                  options={planTypes.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
-                  placeholder="Please Select Plan Type"
-                />
+              {/* Plan Type and Network Status on same row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Select
+                    label="Plan Type"
+                    value={formData.secondary_plan_type || ''}
+                    onChange={(e) => updateFormData({ secondary_plan_type: e.target.value })}
+                    options={planTypes.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
+                    placeholder="Please Select Plan Type"
+                  />
+                </div>
+
+                <div>
+                  <Select
+                    label="Physician Status With Secondary"
+                    value={formData.secondary_physician_network_status || ''}
+                    onChange={(e) => updateFormData({ secondary_physician_network_status: e.target.value })}
+                    options={networkStatusOptions.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
+                    placeholder="Please Select Network Status"
+                    error={errors.secondary_physician_network_status}
+                  />
+                  {errors.secondary_physician_network_status && (
+                    <p className="mt-1 text-sm text-red-500">{errors.secondary_physician_network_status}</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

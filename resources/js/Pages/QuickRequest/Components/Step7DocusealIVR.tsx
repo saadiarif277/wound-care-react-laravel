@@ -7,6 +7,7 @@ import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import { useCallback } from 'react';
 import { AuthButton } from '@/Components/ui/auth-button';
 // Removed useAuthState import - Inertia handles authentication automatically
+import axios from 'axios'; // Added axios import
 
 // This component now relies on the backend orchestrator for all data aggregation
 // No frontend data preparation is needed - the backend is the single source of truth
@@ -320,6 +321,27 @@ export default function Step7DocusealIVR({
       }
     }
   }, [manufacturersLoading, selectedProduct?.manufacturer, formData.docuseal_submission_id, updateFormData, getManufacturerByName]);
+
+  // ===== NEW: Fetch enhanced DocuSeal data (must be before any early returns) =====
+  useEffect(() => {
+    async function fetchEnhancedData() {
+      if (formData.episode_id) {
+        try {
+          const response = await axios.post('/api/quick-requests/prepare-docuseal-data', {
+            episode_id: formData.episode_id,
+            formData,
+          });
+          if (response.data.success && response.data.enhancedData) {
+            updateFormData(response.data.enhancedData);
+          }
+        } catch (err) {
+          console.error('Failed to fetch enhanced data:', err);
+          setSubmissionError('Failed to load enhanced form data. Using local data.');
+        }
+      }
+    }
+    fetchEnhancedData();
+  }, [formData.episode_id]);
 
   // No product selected
   if (!selectedProduct) {

@@ -380,6 +380,7 @@ export default function GoogleAddressAutocompleteWithFallback({
           type="text"
           placeholder="Loading Google Maps..."
           disabled
+          value=""
           className={cn(
             "w-full pl-10 pr-10 opacity-50",
             t.input.base,

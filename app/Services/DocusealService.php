@@ -724,35 +724,40 @@ class DocusealService
                 continue;
             }
 
-            // Convert empty values to empty strings for Docuseal
-            if ($value === null) {
+            // Get field type
+            $fieldType = $templateFields[$key]['type'] ?? 'text';
+
+            // Handle value based on type
+            if (is_array($value)) {
+                $value = implode(', ', $value);
+            } elseif (is_bool($value)) {
+                if ($fieldType === 'checkbox') {
+                    // Keep boolean for checkboxes
+                } else {
+                    $value = $value ? 'true' : 'false';
+                }
+            } elseif ($value === null) {
                 $value = '';
             }
 
-            // Handle array values (like checkboxes)
-            if (is_array($value)) {
-                $value = implode(', ', $value);
-            }
-
-            // Handle boolean values
-            if (is_bool($value)) {
-                $value = $value ? 'Yes' : 'No';
-            }
-
-            // Use field UUID if available from template definition
-            $fieldId = $key;
-            if (!empty($templateFields[$key]['id'])) {
-                $fieldId = $templateFields[$key]['id'];
-                Log::debug('Using Docuseal field UUID', [
-                    'field_name' => $key,
-                    'field_uuid' => $fieldId
-                ]);
-            }
-
-            $DocusealFields[] = [
-                'name' => $fieldId,
-                'default_value' => (string) $value,
+            // Add to DocusealFields
+            $fieldEntry = [
+                'name' => $key,
+                'value' => $value
             ];
+            
+            if (!empty($templateFields[$key]['id'])) {
+                $fieldEntry['uuid'] = $templateFields[$key]['id'];
+            }
+            
+            $DocusealFields[] = $fieldEntry;
+
+            Log::debug('Prepared Docuseal field', [
+                'name' => $key,
+                'type' => $fieldType,
+                'value' => $value,
+                'is_boolean' => is_bool($value)
+            ]);
         }
 
         if (!empty($skippedFields)) {
@@ -1165,14 +1170,23 @@ class DocusealService
     {
         // Map of template IDs to manufacturer names (based on config files)
         $templateToManufacturerMap = [
+            '852440' => 'ACZ & ASSOCIATES',        // ACZ & Associates IVR template
+            '852554' => 'ACZ & ASSOCIATES',        // ACZ & Associates Order Form template
             '1233913' => 'MEDLIFE SOLUTIONS',      // MedLife IVR template
             '1234279' => 'MEDLIFE SOLUTIONS',      // MedLife Order Form template
+            '1233918' => 'CENTURION THERAPEUTICS', // Centurion Therapeutics IVR template
             '1199885' => 'ADVANCED SOLUTION',      // Advanced Solution IVR template
             '1299488' => 'ADVANCED SOLUTION ORDER FORM', // Advanced Solution Order Form template
             '1254774' => 'BIOWOUND SOLUTIONS',     // Biowound IVR template
             '1299495' => 'BIOWOUND SOLUTIONS',     // Biowound Order Form template
-            '1233918' => 'CENTURION THERAPEUTICS', // Centurion IVR template
-            // Add more mappings as needed
+            '1234285' => 'EXTREMITY CARE LLC',     // Extremity Care - Coll-e-Derm
+            '1234284' => 'EXTREMITY CARE LLC',     // Extremity Care - Restorigin
+            '1234283' => 'EXTREMITY CARE LLC',     // Extremity Care - Complete FT
+            '1330769' => 'CELULARITY',             // Celularity IVR template
+            '1330771' => 'CELULARITY',             // Celularity Order Form template
+            '1234272' => 'IMBED',                  // Imbed IVR template
+            '1234276' => 'IMBED',                  // Imbed Order Form template
+            '1340334' => 'SKYE BIOLOGICS',         // Skye Biologics IVR template
         ];
 
         return $templateToManufacturerMap[$templateId] ?? null;
@@ -1190,16 +1204,97 @@ class DocusealService
         array $prefillData = [],
         ?int $episodeId = null
     ): array {
-        Log::info('Creating DocuSeal submission for Quick Request with AI mapping', [
+        Log::info('Creating DocuSeal submission for Quick Request', [
             'template_id' => $templateId,
             'integration_email' => $integrationEmail,
             'submitter_email' => $submitterEmail,
             'submitter_name' => $submitterName,
             'episode_id' => $episodeId,
-            'prefill_data_keys' => array_keys($prefillData)
+            'prefill_data_keys' => array_keys($prefillData),
+            'prefill_data_count' => count($prefillData)
+        ]);
+        
+        // Check if data is already mapped (from QuickRequestOrchestrator)
+        // Mapped fields have proper DocuSeal field names with spaces and proper capitalization
+        $isAlreadyMapped = false;
+        $sampleKeys = array_slice(array_keys($prefillData), 0, 10);
+        foreach ($sampleKeys as $key) {
+            // DocuSeal field names have spaces and proper capitalization
+            // Raw database fields use underscores and lowercase
+            if (str_contains($key, ' ') || 
+                preg_match('/[A-Z]/', $key) || // Has uppercase letters (DocuSeal fields)
+                in_array($key, ['Name', 'Email', 'Phone'])) { // Common DocuSeal fields
+                $isAlreadyMapped = true;
+                break;
+            }
+        }
+        
+        // Additional check: raw database fields that should NOT be considered as mapped
+        $rawDatabaseFields = ['provider_id', 'facility_id', 'patient_id', 'organization_id', 'manufacturer_id'];
+        foreach ($rawDatabaseFields as $rawField) {
+            if (isset($prefillData[$rawField])) {
+                $isAlreadyMapped = false; // Override - this is definitely raw data
+                break;
+            }
+        }
+        
+        Log::warning('=== DocusealService FIELD MAPPING ANALYSIS ===', [
+            'template_id' => $templateId,
+            'is_already_mapped' => $isAlreadyMapped,
+            'prefill_data_keys' => array_keys($prefillData),
+            'prefill_data_count' => count($prefillData),
+            'sample_data' => array_slice($prefillData, 0, 5, true),
+            'patient_fields' => array_filter(array_keys($prefillData), fn($k) => str_contains($k, 'patient')),
+            'provider_fields' => array_filter(array_keys($prefillData), fn($k) => str_contains($k, 'provider') || str_contains($k, 'physician')),
+            'facility_fields' => array_filter(array_keys($prefillData), fn($k) => str_contains($k, 'facility') || str_contains($k, 'practice'))
         ]);
 
         try {
+            // If data is already mapped by QuickRequestOrchestrator, use it directly
+            if ($isAlreadyMapped) {
+                Log::info('Data is already mapped by orchestrator, bypassing AI/canonical mapping', [
+                    'template_id' => $templateId,
+                    'field_count' => count($prefillData),
+                    'sample_fields' => array_slice(array_keys($prefillData), 0, 10)
+                ]);
+                
+                // Find manufacturer for metadata
+                $manufacturerName = $this->findManufacturerByTemplateId($templateId);
+                
+                // Filter out empty values and format for DocuSeal
+                $docusealFields = array_filter($prefillData, function($value) {
+                    return $value !== null && $value !== '';
+                });
+                
+                // Convert boolean values to lowercase "true"/"false" strings for DocuSeal checkboxes
+                foreach ($docusealFields as $key => $value) {
+                    if (is_bool($value)) {
+                        $docusealFields[$key] = $value ? 'true' : 'false';
+                    }
+                }
+                
+                Log::warning('=== ALREADY MAPPED DATA - Sending to DocuSeal ===', [
+                    'template_id' => $templateId,
+                    'manufacturer' => $manufacturerName ?? 'Unknown',
+                    'total_fields' => count($docusealFields),
+                    'field_names' => array_keys($docusealFields),
+                    'sample_fields' => array_slice($docusealFields, 0, 10, true)
+                ]);
+                
+                return $this->createDocusealSubmission(
+                    $templateId, 
+                    $docusealFields, 
+                    $integrationEmail, 
+                    $submitterEmail, 
+                    $submitterName, 
+                    $episodeId, 
+                    $manufacturerName ?? 'Unknown', 
+                    false, 
+                    1.0, 
+                    'orchestrator_mapped'
+                );
+            }
+            
             // Find manufacturer by template ID
             $manufacturerName = $this->findManufacturerByTemplateId($templateId);
 
@@ -1301,16 +1396,16 @@ class DocusealService
         float $aiConfidence,
         string $mappingMethod
     ): array {
-        // Convert fields to DocuSeal values format
-        $docusealValues = $this->convertFieldsToDocusealValues($docusealFields);
+        // Convert fields to DocuSeal fields array format (NOT values object)
+        $docusealFieldsArray = $this->convertToDocusealFieldsArray($docusealFields);
 
         Log::info('Preparing DocuSeal submission data', [
             'template_id' => $templateId,
             'manufacturer' => $manufacturerName,
             'raw_fields_count' => count($docusealFields),
-            'converted_values_count' => count($docusealValues),
+            'converted_fields_count' => count($docusealFieldsArray),
             'sample_raw_fields' => array_slice($docusealFields, 0, 3),
-            'sample_converted_values' => array_slice($docusealValues, 0, 3),
+            'sample_converted_fields' => array_slice($docusealFieldsArray, 0, 3),
             'mapping_method' => $mappingMethod,
             'ai_used' => $aiMappingUsed
         ]);
@@ -1335,10 +1430,20 @@ class DocusealService
                     'name' => $submitterName,
                     'email' => $submitterEmail,
                     'role' => 'First Party',
-                    'values' => $docusealValues
+                    'fields' => $docusealFieldsArray  // CHANGED FROM 'values' to 'fields'
                 ]
             ]
         ];
+
+        Log::warning('=== FINAL DOCUSEAL API REQUEST ===', [
+            'template_id' => $templateId,
+            'manufacturer' => $manufacturerName,
+            'submitter_count' => count($submissionData['submitters']),
+            'fields_count' => count($docusealFieldsArray),
+            'fields_format' => 'array', // Now using correct array format
+            'sample_fields' => array_slice($docusealFieldsArray, 0, 10),
+            'all_fields' => $docusealFieldsArray // Show all fields for debugging
+        ]);
 
         // Make API call to DocuSeal
         $response = Http::withHeaders([
@@ -1442,7 +1547,8 @@ class DocusealService
     private function formatFieldValue($value): string
     {
         if (is_bool($value)) {
-            return $value ? 'Yes' : 'No';
+            // DocuSeal expects lowercase string values for checkbox fields
+            return $value ? 'true' : 'false';
         } elseif (is_array($value)) {
             // Handle nested arrays by converting to comma-separated string
             $flattenedValues = array_map(function($item) {
@@ -1476,20 +1582,44 @@ class DocusealService
                     'available_mappings' => count($fieldMappings),
                     'mapping_fields' => array_keys($fieldMappings)
                 ]);
+                
+                // DEBUG: Log input data keys to see what we're working with
+                Log::warning('DEBUG - transformQuickRequestData input analysis', [
+                    'manufacturer' => $manufacturerName,
+                    'input_data_keys' => array_keys($prefillData),
+                    'expected_keys_in_config' => array_keys($fieldMappings),
+                    'sample_input_data' => array_slice($prefillData, 0, 10, true)
+                ]);
 
                 // Apply manufacturer-specific field mappings
+                $matchedFields = [];
+                $missedFields = [];
+                
                 foreach ($fieldMappings as $canonicalField => $docusealField) {
                     if (isset($prefillData[$canonicalField]) && $prefillData[$canonicalField] !== null && $prefillData[$canonicalField] !== '') {
                         $value = $prefillData[$canonicalField];
 
                         // Convert boolean values to text
                         if (is_bool($value)) {
-                            $value = $value ? 'Yes' : 'No';
+                            $value = $value ? 'true' : 'false';
                         }
 
                         $docusealFields[$docusealField] = $value;
+                        $matchedFields[$canonicalField] = $docusealField;
+                    } else {
+                        $missedFields[] = $canonicalField;
                     }
                 }
+                
+                // DEBUG: Log field matching results
+                Log::warning('DEBUG - Field mapping results in transformQuickRequestData', [
+                    'manufacturer' => $manufacturerName,
+                    'matched_fields' => $matchedFields,
+                    'matched_count' => count($matchedFields),
+                    'missed_fields' => $missedFields,
+                    'missed_count' => count($missedFields),
+                    'total_mappings' => count($fieldMappings)
+                ]);
 
                 // Handle special computed fields based on manufacturer config
                 if (isset($manufacturerConfig['fields'])) {
@@ -1583,7 +1713,7 @@ class DocusealService
 
                 // Convert boolean values to text
                 if (is_bool($value)) {
-                    $value = $value ? 'Yes' : 'No';
+                    $value = $value ? 'true' : 'false';
                 }
 
                 $docusealFields[$targetKey] = $value;
@@ -1599,14 +1729,13 @@ class DocusealService
             $docusealFields['Diagnosis Codes'] = $prefillData['diagnosis_codes_display'];
         }
 
-        // Handle manufacturer-specific fields
-        if (isset($prefillData['manufacturer_fields']) && is_array($prefillData['manufacturer_fields'])) {
-            foreach ($prefillData['manufacturer_fields'] as $key => $value) {
-                if (is_bool($value)) {
-                    $value = $value ? 'Yes' : 'No';
-                }
-                $docusealFields[ucfirst(str_replace('_', ' ', $key))] = $value;
-            }
+        // Skip manufacturer_fields in fallback mapping
+        // These are test fields that don't correspond to actual DocuSeal fields
+        if (isset($prefillData['manufacturer_fields'])) {
+            Log::warning('Skipping manufacturer_fields in fallback mapping', [
+                'manufacturer_fields_count' => count($prefillData['manufacturer_fields']),
+                'manufacturer_fields_keys' => array_keys($prefillData['manufacturer_fields'])
+            ]);
         }
 
         Log::info('Transformed Quick Request data to DocuSeal fields (fallback)', [
@@ -1921,14 +2050,9 @@ class DocusealService
     ): array {
         try {
             // Use intelligent mapping if available, otherwise fallback to standard
-            if ($this->intelligentMapping) {
+            if ($this->aiService !== null) {
                 Log::info('Using AI-enhanced field mapping for Docuseal submission');
-                $mappingResult = $this->intelligentMapping->mapEpisodeWithAI(
-                    null, // No episode ID since we're providing data directly
-                    $manufacturerName,
-                    $comprehensiveData,
-                    ['use_cache' => true, 'adaptive_validation' => true]
-                );
+                $mappingResult = $this->aiService->enhanceDocusealFieldMapping(null, $comprehensiveData, $manufacturerName); // Use manufacturerName as templateId if that's the intent
             } else {
                 Log::info('Using standard field mapping for Docuseal submission');
                 $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
@@ -2030,6 +2154,20 @@ class DocusealService
                 throw new \Exception("No DocuSeal template found for manufacturer: {$manufacturerName}. Please ensure the manufacturer has an active IVR template configured.");
             }
 
+            // Prepare submission data before making the request
+            if (!isset($submissionData) || empty($submissionData)) {
+                Log::error('Docuseal submission data is not set or empty', [
+                    'episode_id' => $episode->id ?? null,
+                    'manufacturer' => $manufacturerName,
+                ]);
+                throw new \Exception('Docuseal submission data is missing.');
+            }
+
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json'
+            ])->post("{$this->apiUrl}/submissions", $submissionData);
+
             $responseData = $response->json();
 
             // Extract submission ID from response
@@ -2071,5 +2209,45 @@ class DocusealService
 
             throw $e;
         }
+    }
+
+    /**
+     * Convert field mappings to DocuSeal fields array format
+     * DocuSeal API expects an array of field objects with 'name' and 'default_value' properties
+     * According to https://www.docuseal.com/guides/pre-fill-pdf-document-form-fields-with-api
+     */
+    private function convertToDocusealFieldsArray(array $docusealFields): array
+    {
+        $fieldsArray = [];
+
+        foreach ($docusealFields as $fieldName => $fieldValue) {
+            // Handle different input formats
+            if (is_array($fieldValue)) {
+                // If it's already in the correct format with 'name' and 'default_value'
+                if (isset($fieldValue['name']) && isset($fieldValue['default_value'])) {
+                    $fieldsArray[] = [
+                        'name' => $fieldValue['name'],
+                        'default_value' => (string) $fieldValue['default_value'],
+                        'readonly' => $fieldValue['readonly'] ?? false
+                    ];
+                } else {
+                    // Otherwise convert array to comma-separated string
+                    $fieldsArray[] = [
+                        'name' => $fieldName,
+                        'default_value' => $this->formatFieldValue($fieldValue),
+                        'readonly' => false
+                    ];
+                }
+            } else {
+                // Simple key-value pair - convert to field object
+                $fieldsArray[] = [
+                    'name' => $fieldName,
+                    'default_value' => $this->formatFieldValue($fieldValue),
+                    'readonly' => false
+                ];
+            }
+        }
+
+        return $fieldsArray;
     }
 }

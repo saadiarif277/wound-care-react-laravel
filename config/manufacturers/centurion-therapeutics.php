@@ -7,9 +7,13 @@ return [
     'has_order_form' => false,
     'docuseal_template_id' => '1233918',
     'docuseal_field_names' => [
-        // Basic Contact Information
+        // AUTO-FIXED: Invalid fields removed on 2025-07-21 03:33:08
+
+        // Basic Contact Information        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
         'name' => 'Name',
-        'email' => 'Email',
+        'email' => 'Email',        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
         'phone' => 'Phone',
         
         // Checkboxes for wound status

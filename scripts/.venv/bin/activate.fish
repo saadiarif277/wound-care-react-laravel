@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV /home/rvalen/Projects/Milestones/wound-care-react-laravel/scripts/.venv
+set -gx VIRTUAL_ENV /home/rvalen/Desktop/wound-care-react-laravel/scripts/.venv
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH

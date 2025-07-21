@@ -45,28 +45,25 @@ class UnifiedFieldMappingService
     ) {
         $this->fhirService = $fhirService;
         $this->medicalTerminologyService = $medicalTerminologyService;
-        $this->aiServiceUrl = config('services.medical_ai.base_url');
+        $this->aiServiceUrl = config('services.medical_base_ai.base_url');
         $this->aiServiceEnabled = !empty($this->aiServiceUrl);
         
-        $this->config = config('field-mapping');
-        $this->orderFormConfig = config('order-form-mapping');
-        
-        if (!$this->config) {
-            Log::warning('Field mapping configuration not found, using defaults');
-            $this->config = [
-                'transformations' => [],
-                'validation' => [],
-                'defaults' => []
-            ];
-        }
-        
-        if (!$this->orderFormConfig) {
-            Log::warning('Order form mapping configuration not found, using defaults');
-            $this->orderFormConfig = [
-                'templates' => [],
-                'field_mapping' => []
-            ];
-        }
+                // Initialize configs directly since we're using manufacturer-specific configs
+        $this->config = [];
+        $this->orderFormConfig = [];
+
+        // Set default structure for configs
+        $this->config = [
+            'transformations' => [],
+            'validation' => [],
+            'defaults' => [],
+            'manufacturers' => []
+        ];
+
+        $this->orderFormConfig = [
+            'templates' => [],
+            'field_mapping' => []
+        ];
         
         // Initialize field validator if not provided (for dependency injection)
         if (!$this->fieldValidator) {
@@ -449,18 +446,19 @@ class UnifiedFieldMappingService
     {
         $manufacturerName = $config['name'];
 
-        // ACZ specific rules
-        if ($manufacturerName === 'ACZ' && isset($config['duration_requirement'])) {
+        // Apply duration requirements from configuration
+        if (isset($config['duration_requirement'])) {
             if ($config['duration_requirement'] === 'greater_than_4_weeks') {
                 $weeks = (int)($sourceData['wound_duration_weeks'] ?? 0);
                 if ($weeks <= 4) {
-                    Log::warning("ACZ requires wound duration > 4 weeks", [
+                    Log::warning("Manufacturer requires wound duration > 4 weeks", [
+                        'manufacturer' => $manufacturerName,
                         'actual_weeks' => $weeks,
                         'episode_id' => $sourceData['episode_id'] ?? null
                     ]);
-                    // You might want to add a flag or warning to the data
+                    // Add a flag or warning to the data
                     $data['_warnings'] = ($data['_warnings'] ?? []);
-                    $data['_warnings'][] = 'Wound duration does not meet ACZ requirement of > 4 weeks';
+                    $data['_warnings'][] = 'Wound duration does not meet manufacturer requirement of > 4 weeks';
                 }
             }
         }
@@ -673,6 +671,8 @@ class UnifiedFieldMappingService
             }
             
             // LIFE FIX: Validate and filter fields against actual DocuSeal template
+            // TEMPORARILY DISABLED: This is filtering out POS fields that might exist in the template
+            /*
             if ($this->fieldValidator && isset($config['docuseal_template_id']) && $config['docuseal_template_id']) {
                 try {
                     $validatedConfig = $this->fieldValidator->filterValidFields($config);
@@ -694,6 +694,7 @@ class UnifiedFieldMappingService
                     ]);
                 }
             }
+            */
             
             return $config;
         }
@@ -922,6 +923,10 @@ class UnifiedFieldMappingService
             'mapped_data_keys' => array_keys($mappedData),
             'available_docuseal_fields' => array_keys($fieldNameMapping)
         ]);
+        
+        // DEBUG: Log exact field mapping to identify mismatches
+        $skippedFields = [];
+        $mappedFields = [];
 
         // First, check if we're receiving raw data that needs mapping
         // This can happen when the data hasn't been properly mapped through mapFields
@@ -953,6 +958,7 @@ class UnifiedFieldMappingService
             // IMPORTANT: Only include fields that are explicitly defined in the field mapping
             // This prevents sending unknown fields to Docuseal which causes 422 errors
             if (!isset($fieldNameMapping[$canonicalName])) {
+                $skippedFields[] = $canonicalName;
                 Log::debug("Skipping field not in Docuseal template mapping", [
                     'field' => $canonicalName,
                     'document_type' => $documentType,
@@ -960,6 +966,8 @@ class UnifiedFieldMappingService
                 ]);
                 continue;
             }
+            
+            $mappedFields[] = $canonicalName;
 
             // Get the Docuseal field name for this canonical field
             $docuSealFieldName = $fieldNameMapping[$canonicalName];
@@ -978,15 +986,27 @@ class UnifiedFieldMappingService
             }
 
             // Handle boolean values for checkboxes
-            if (is_bool($value) || in_array($value, ['true', 'false', 'Yes', 'No', '1', '0', 1, 0], true)) {
+            // Special handling for Yes/No radio buttons - preserve the string values
+            if (in_array($value, ['Yes', 'No'], true) && 
+                (strpos(strtolower($docuSealFieldName), 'patient') !== false || 
+                 strpos($docuSealFieldName, '?') !== false)) {
+                // These are likely radio button fields that expect Yes/No, not true/false
+                $docuSealFields[] = [
+                    'name' => $docuSealFieldName,
+                    'default_value' => $value
+                ];
+                continue;
+            }
+            
+            if (is_bool($value) || in_array($value, ['true', 'false', '1', '0', 1, 0], true)) {
                 // Convert various boolean representations to Docuseal checkbox format
                 $boolValue = false;
                 
                 if (is_bool($value)) {
                     $boolValue = $value;
-                } elseif (in_array($value, ['true', 'Yes', '1', 1], true)) {
+                } elseif (in_array($value, ['true', '1', 1], true)) {
                     $boolValue = true;
-                } elseif (in_array($value, ['false', 'No', '0', 0], true)) {
+                } elseif (in_array($value, ['false', '0', 0], true)) {
                     $boolValue = false;
                 }
                 
@@ -1018,6 +1038,19 @@ class UnifiedFieldMappingService
             ];
         }
 
+        // DEBUG: Log comprehensive field mapping results
+        Log::warning('DocuSeal field conversion complete - DETAILED DEBUG', [
+            'manufacturer' => $manufacturerConfig['name'] ?? 'unknown',
+            'total_input_fields' => count($mappedData),
+            'total_output_fields' => count($docuSealFields),
+            'successfully_mapped' => $mappedFields,
+            'skipped_fields' => $skippedFields,
+            'skipped_count' => count($skippedFields),
+            'field_name_mapping' => $fieldNameMapping,
+            'sample_input_data' => array_slice($mappedData, 0, 10, true),
+            'sample_output_fields' => array_slice($docuSealFields, 0, 10)
+        ]);
+        
         return $docuSealFields;
     }
 

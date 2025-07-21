@@ -65,10 +65,7 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        // Register FhirService
-        $this->app->singleton(FhirService::class, function ($app) {
-            return new FhirService();
-        });
+        // FhirService is registered in FHIRServiceProvider with circuit breaker functionality
 
         // Register PatientService with FhirService injection
         $this->app->singleton(PatientService::class, function ($app) {
@@ -108,7 +105,6 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(\App\Services\UnifiedFieldMappingService::class)
             );
         });
-
         // Register PayerService
         $this->app->singleton(\App\Services\PayerService::class, function ($app) {
             return new \App\Services\PayerService();
@@ -120,8 +116,13 @@ class AppServiceProvider extends ServiceProvider
                 return \Mockery::mock(\App\Services\DocumentIntelligenceService::class);
             }
             return new \App\Services\DocumentIntelligenceService();
-        });
-        
+        });        
+        // Register Entity Data Service
+        $this->app->singleton(\App\Services\EntityDataService::class, function ($app) {
+            return new \App\Services\EntityDataService(
+                $app->make(\App\Logging\PhiSafeLogger::class)
+            );
+        });        
         // Medical Terminology Service
         $this->app->singleton(\App\Services\MedicalTerminologyService::class, function ($app) {
             if (app()->runningUnitTests()) {
@@ -156,8 +157,6 @@ class AppServiceProvider extends ServiceProvider
 
     public function bootRoute(): void
     {
-        RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
-        });
+        // Rate limiting is configured in SecurityServiceProvider with comprehensive error handling
     }
 }

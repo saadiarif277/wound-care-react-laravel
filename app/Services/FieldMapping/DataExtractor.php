@@ -24,7 +24,7 @@ class DataExtractor
         return Cache::remember($cacheKey, 300, function() use ($episodeId) {
             try {
                 $episode = PatientManufacturerIVREpisode::with([
-                    'patient',
+                    // NOTE: No 'patient' relationship - patient data is in FHIR only
                     'productRequests' => function($query) {
                         $query->where('status', 'approved')
                               ->orderBy('created_at', 'desc');
@@ -47,7 +47,7 @@ class DataExtractor
                 // Extract all data sources
                 $data = [
                     'episode' => $this->extractEpisodeFields($episode),
-                    'patient' => $this->extractPatientFields($episode->patient),
+                    'patient' => $this->extractPatientFields(null), // No local patient model
                     'product_request' => $this->extractProductRequestFields($productRequest),
                     'provider' => $this->extractProviderFields($productRequest->provider ?? null),
                     'facility' => $this->extractFacilityFields($productRequest->facility ?? null),
@@ -67,6 +67,24 @@ class DataExtractor
                 throw $e;
             }
         });
+    }
+
+    /**
+     * Extract provider data without requiring an episode
+     * Public method for use by QuickRequestOrchestrator
+     */
+    public function extractProviderData($provider): array
+    {
+        return $this->extractProviderFields($provider);
+    }
+    
+    /**
+     * Extract facility data without requiring an episode
+     * Public method for use by QuickRequestOrchestrator
+     */
+    public function extractFacilityData($facility): array
+    {
+        return $this->extractFacilityFields($facility);
     }
 
     /**
@@ -90,26 +108,9 @@ class DataExtractor
      */
     private function extractPatientFields($patient): array
     {
-        if (!$patient) {
-            return [];
-        }
-
-        return [
-            'patient_id' => $patient->id,
-            'patient_mrn' => $patient->mrn,
-            'patient_display_name' => $patient->display_name,
-            'patient_dob' => $patient->birth_date,
-            'patient_gender' => $patient->gender,
-            'patient_phone' => $patient->phone,
-            'patient_email' => $patient->email,
-            'patient_address_line1' => $patient->address_line1,
-            'patient_address_line2' => $patient->address_line2,
-            'patient_city' => $patient->city,
-            'patient_state' => $patient->state,
-            'patient_zip' => $patient->postal_code,
-            'patient_member_id' => $patient->member_id,
-            'fhir_patient_id' => $patient->azure_fhir_id,
-        ];
+        // Since we don't have a local patients table, return empty array
+        // Patient data comes from FHIR only
+        return [];
     }
 
     /**
@@ -357,23 +358,23 @@ class DataExtractor
         $fhirData = [];
 
         // Extract Patient FHIR data
-        if ($episode->patient && $episode->patient->azure_fhir_id) {
+        if ($episode->patient_fhir_id) {
             try {
-                $patient = $this->fhirService->getPatient($episode->patient->azure_fhir_id);
+                $patient = $this->fhirService->getPatient($episode->patient_fhir_id);
                 $fhirData['patient'] = $this->parseFhirPatient($patient);
             } catch (\Exception $e) {
                 Log::warning("Failed to fetch FHIR patient", [
-                    'patient_id' => $episode->patient->azure_fhir_id,
+                    'patient_id' => $episode->patient_fhir_id,
                     'error' => $e->getMessage()
                 ]);
             }
         }
 
         // Extract Coverage FHIR data
-        if ($episode->patient && $episode->patient->azure_fhir_id) {
+        if ($episode->patient_fhir_id) {
             try {
                 $coverages = $this->fhirService->searchCoverage([
-                    'patient' => $episode->patient->azure_fhir_id,
+                    'patient' => $episode->patient_fhir_id,
                     'status' => 'active'
                 ]);
 
@@ -382,7 +383,7 @@ class DataExtractor
                 }
             } catch (\Exception $e) {
                 Log::warning("Failed to fetch FHIR coverage", [
-                    'patient_id' => $episode->patient->azure_fhir_id,
+                    'patient_id' => $episode->patient_fhir_id,
                     'error' => $e->getMessage()
                 ]);
             }
@@ -443,12 +444,8 @@ class DataExtractor
         }
 
         // Full names
-        if ($episode->patient) {
-            $computed['patient_full_name'] = trim(
-                ($episode->patient->first_name ?? '') . ' ' .
-                ($episode->patient->last_name ?? '')
-            );
-        }
+        // NOTE: Patient names come from FHIR data, not local model
+        // The parseFhirPatient method extracts first_name and last_name into fhir_patient_ fields
 
         if ($productRequest->provider) {
             $computed['provider_full_name'] = trim(
@@ -458,15 +455,7 @@ class DataExtractor
         }
 
         // Full address
-        if ($episode->patient) {
-            $computed['patient_full_address'] = implode(', ', array_filter([
-                $episode->patient->address_line1,
-                $episode->patient->address_line2,
-                $episode->patient->city,
-                $episode->patient->state,
-                $episode->patient->zip_code
-            ]));
-        }
+        // NOTE: Patient address also comes from FHIR data only
 
         return $computed;
     }

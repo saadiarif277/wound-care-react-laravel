@@ -7,9 +7,14 @@ return [
     'has_order_form' => false,
     'docuseal_template_id' => '1299488',
     'docuseal_field_names' => [
-        // Contact Information
-        'name' => 'Name',
-        'email' => 'Email',
+        // AUTO-FIXED: Invalid fields removed on 2025-07-21 03:33:08
+
+        // Contact Information        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
+        'name' => 'Name',        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
+        'email' => 'Email',        // REMOVED: Field doesn't exist in DocuSeal template
+        // 
         'phone' => 'Phone',
         
         // Shipping Information

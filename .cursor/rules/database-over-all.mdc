@@ -1,0 +1,4 @@
+---
+alwaysApply: true
+---
+Everything should always be pulled from the database. If you notice something is hard-coded, even if we're working on something completely unrelated, bring it up so that way we can determine if it needs to be changed now or put on our backlog to be changed at a later time. But we should never implement new changes or refactor or modify code and leave in hard-coded things unless we are only doing so to fix a problem currently and making a note of it to be gone back and changed at a later time. 

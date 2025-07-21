@@ -38,6 +38,13 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\StaticAssetHeaders::class,
         ]);
 
+        // Configure API middleware group  
+        $middleware->api([
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            'throttle:60,1', // Use specific rate limit instead of named limiter
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+        ]);
+
         // Register role-based financial access control middleware
         $middleware->alias([
             'auth' => \Illuminate\Auth\Middleware\Authenticate::class,
@@ -48,8 +55,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
             'handle.quick.request.errors' => \App\Http\Middleware\HandleQuickRequestErrors::class,
         ]);
-
-        $middleware->throttleApi();
 
         $middleware->replace(\Illuminate\Http\Middleware\TrustProxies::class, \App\Http\Middleware\TrustProxies::class);
     })

@@ -1,0 +1,106 @@
+---
+description: Always when creating new services, refactoring existing services, or debugging "undefined method" errors.
+alwaysApply: false
+---
+**## Clean Service Architecture Rule**
+
+**Rule Name**: `clean-service-architecture`
+
+**Context**: Service layer organization and responsibilities in our Laravel application
+
+**Core Principles**:
+
+1. **Single Responsibility Per Service**
+   - Each service has ONE clear purpose
+   - Services never overlap in functionality
+   - If a service exceeds 500 lines, it needs to be split
+
+2. **Orchestrator Pattern**
+   - Orchestrators ONLY coordinate between services
+   - NO data extraction, mapping, or transformation in orchestrators
+   - NO business logic in orchestrators
+   - Example: `QuickRequestOrchestrator` only manages workflow state
+
+3. **Data Layer Separation**
+   ```php
+   // ✅ CORRECT - Use specialized services
+   $this->dataExtractor->extractEpisodeData($episodeId);           // Episode-based
+   $this->dataExtractionService->extractData($context);           // ID-based
+   $this->fieldMappingService->mapEpisodeToDocuSeal($episode);    // Field mapping
+   
+   // ❌ WRONG - Don't put extraction in orchestrators
+   $this->orchestrator->extractDataFromIds($data);
+   $this->orchestrator->mapFieldsForDocuSeal($data);
+   ```
+
+4. **Service Dependency Rules**
+   - Controllers inject specific services for specific tasks
+   - Services don't contain business logic of other services
+   - Configuration-driven over hard-coded logic
+
+5. **Field Mapping Architecture**
+   - All field mappings live in `config/manufacturers/` files
+   - `UnifiedFieldMappingService` orchestrates mapping using configs
+   - NO hard-coded field mappings in services or controllers
+
+6. **Red Flags to Avoid**
+   - Methods like `extractDataFromIds()` in orchestrators
+   - Hard-coded field mappings in services
+   - Business rules embedded in orchestration logic
+   - Services that do multiple unrelated things
+
+**When to Apply**: Always when creating new services, refactoring existing services, or debugging "undefined method" errors.
+
+This rule ensures we maintain the clean architecture we established and prevents regression to the monolithic service pattern we cleaned up.Ran tool
+
+Now let me create a rule that captures our clean service architecture principles:
+Ran tool
+
+Based on our service cleanup and the architecture principles we've established, I'll create a comprehensive rule for our clean service architecture:
+
+**## Clean Service Architecture Rule**
+
+**Rule Name**: `clean-service-architecture`
+
+**Context**: Service layer organization and responsibilities in our Laravel application
+
+**Core Principles**:
+
+1. **Single Responsibility Per Service**
+   - Each service has ONE clear purpose
+   - Services never overlap in functionality
+   - If a service exceeds 500 lines, it needs to be split
+
+2. **Orchestrator Pattern**
+   - Orchestrators ONLY coordinate between services
+   - NO data extraction, mapping, or transformation in orchestrators
+   - NO business logic in orchestrators
+   - Example: `QuickRequestOrchestrator` only manages workflow state
+
+3. **Data Layer Separation**
+   ```php
+   // ✅ CORRECT - Use specialized services
+   $this->dataExtractor->extractEpisodeData($episodeId);           // Episode-based
+   $this->dataExtractionService->extractData($context);           // ID-based
+   $this->fieldMappingService->mapEpisodeToDocuSeal($episode);    // Field mapping
+   
+   // ❌ WRONG - Don't put extraction in orchestrators
+   $this->orchestrator->extractDataFromIds($data);
+   $this->orchestrator->mapFieldsForDocuSeal($data);
+   ```
+
+4. **Service Dependency Rules**
+   - Controllers inject specific services for specific tasks
+   - Services don't contain business logic of other services
+   - Configuration-driven over hard-coded logic
+
+5. **Field Mapping Architecture**
+   - All field mappings live in `config/manufacturers/` files
+   - `UnifiedFieldMappingService` orchestrates mapping using configs
+   - NO hard-coded field mappings in services or controllers
+
+6. **Red Flags to Avoid**
+   - Methods like `extractDataFromIds()` in orchestrators
+   - Hard-coded field mappings in services
+   - Business rules embedded in orchestration logic
+   - Services that do multiple unrelated things
