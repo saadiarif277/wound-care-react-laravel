@@ -441,7 +441,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                       )}
                       {isLoadingIVR ? 'Loading...' : 'View IVR Form'}
                     </Button>
-                    {ivrData.docusealSubmissionId && (
+                    {/* {ivrData.docusealSubmissionId && (
                       <Button
                         onClick={handleViewAllSigners}
                         className="flex-1"
@@ -456,7 +456,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                         )}
                         {isLoadingSignerUrls ? 'Loading...' : 'All Signers'}
                       </Button>
-                    )}
+                    )} */}
                   </div>
 
                   {userRole === 'Admin' && (
