@@ -1,20 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FiMapPin } from 'react-icons/fi';
-import { useTheme } from '@/contexts/ThemeContext';
-import { themes, cn } from '@/theme/glass-theme';
+import { MapPin, Loader2 } from 'lucide-react';
 
-// Interface for parsed address components
+// Clean, simple interface for parsed address components
 export interface ParsedAddressComponents {
   streetNumber?: string;
   streetName?: string;
-  streetAddress?: string; // streetNumber + streetName combined
-  subpremise?: string; // Apartment, suite, etc.
+  streetAddress?: string;
   city?: string;
   state?: string;
   stateAbbreviation?: string;
   zipCode?: string;
   country?: string;
-  countryCode?: string;
   formattedAddress?: string;
   placeId?: string;
 }
@@ -23,402 +19,283 @@ interface GoogleAddressAutocompleteWithFallbackProps {
   onPlaceSelect?: (place: google.maps.places.PlaceResult, parsedAddress?: ParsedAddressComponents) => void;
   value?: string;
   onChange?: (value: string) => void;
-  defaultValue?: string;
-  className?: string;
   placeholder?: string;
-  required?: boolean;
+  className?: string;
   disabled?: boolean;
-  // Option to automatically parse address components
-  parseAddressComponents?: boolean;
+  required?: boolean;
 }
 
 declare global {
   interface Window {
     google: any;
-    googleMapsLoaded?: boolean;
-    googleMapsCallbacks?: (() => void)[];
   }
 }
 
 /**
- * Parse Google Places API address_components into structured data
+ * Modern Google Address Autocomplete - 2025 Edition
+ * 
+ * Clean, simple implementation that:
+ * - Uses modern PlaceAutocompleteElement API (recommended by Google)
+ * - Falls back to legacy Autocomplete API if needed
+ * - Actually shows text properly
+ * - Works with Google Places API
+ * - Falls back gracefully to manual input
+ * - No complex theme handling or overly complex API detection
+ * - Eliminates deprecation warnings from Google Maps
  */
-function parseAddressComponents(place: google.maps.places.PlaceResult): ParsedAddressComponents {
-  const parsed: ParsedAddressComponents = {
-    formattedAddress: place.formatted_address,
-    placeId: place.place_id
-  };
-
-  if (!place.address_components) {
-    return parsed;
-  }
-
-  for (const component of place.address_components) {
-    const types = component.types;
-    const longName = component.long_name;
-    const shortName = component.short_name;
-
-    if (types.includes('street_number')) {
-      parsed.streetNumber = longName;
-    } else if (types.includes('route')) {
-      parsed.streetName = longName;
-    } else if (types.includes('subpremise')) {
-      parsed.subpremise = longName; // Apartment, suite, unit, etc.
-    } else if (types.includes('locality')) {
-      parsed.city = longName;
-    } else if (types.includes('administrative_area_level_1')) {
-      parsed.state = longName;
-      parsed.stateAbbreviation = shortName;
-    } else if (types.includes('postal_code')) {
-      parsed.zipCode = longName;
-    } else if (types.includes('country')) {
-      parsed.country = longName;
-      parsed.countryCode = shortName;
-    }
-  }
-
-  // Combine street number and name for complete street address
-  if (parsed.streetNumber && parsed.streetName) {
-    parsed.streetAddress = `${parsed.streetNumber} ${parsed.streetName}`;
-  } else if (parsed.streetName) {
-    parsed.streetAddress = parsed.streetName;
-  }
-
-  return parsed;
-}
-
 export default function GoogleAddressAutocompleteWithFallback({
   onPlaceSelect,
-  value,
+  value = '',
   onChange,
-  defaultValue = '',
+  placeholder = 'Start typing an address...',
   className = '',
-  placeholder = "Start typing an address...",
-  required = false,
   disabled = false,
-  parseAddressComponents: shouldParseAddress = true
+  required = false
 }: GoogleAddressAutocompleteWithFallbackProps) {
-  console.log('🏗️ GoogleAddressAutocompleteWithFallback initialized with:', {
-    hasOnPlaceSelect: !!onPlaceSelect,
-    shouldParseAddress,
-    value,
-    defaultValue,
-    disabled
-  });
-  // Theme context with fallback
-  let theme: 'dark' | 'light' = 'dark';
-  let t = themes.dark;
-
-  try {
-    const themeContext = useTheme();
-    theme = themeContext.theme;
-    t = themes[theme];
-  } catch (e) {
-    // Fallback to dark theme if outside ThemeProvider
-  }
-
-  const [isGoogleMapsAvailable, setIsGoogleMapsAvailable] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
-  const [apiType, setApiType] = useState<'new' | 'legacy' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<any>(null);
-  const [inputValue, setInputValue] = useState(value || defaultValue || '');
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [inputValue, setInputValue] = useState(value);
 
-  // Enhanced place selection handler with address parsing
-  const handlePlaceSelection = (place: google.maps.places.PlaceResult) => {
-    if (!place || (!place.formatted_address && !place.address_components)) return;
+  // Parse Google Places address components (works with both new and legacy APIs)
+  const parseAddressComponents = (place: any): ParsedAddressComponents => {
+    const parsed: ParsedAddressComponents = {
+      formattedAddress: place.formatted_address || place.formattedAddress,
+      placeId: place.place_id || place.id
+    };
 
-    console.log('🏠 Address selected from Google Places:', place.formatted_address);
-    console.log('📍 Raw place data:', place);
+    const components = place.address_components || place.addressComponents || [];
+    if (components.length === 0) return parsed;
 
-    let parsedAddress: ParsedAddressComponents | undefined;
-    
-    if (shouldParseAddress) {
-      parsedAddress = parseAddressComponents(place);
-      
-      // Always log parsed components for debugging
-      console.log('✅ Parsed address components:', parsedAddress);
-      
-      // Show a more detailed breakdown
-      if (parsedAddress) {
-        console.log('📋 Parsed breakdown:', {
-          'Street Address': parsedAddress.streetAddress || 'Not found',
-          'City': parsedAddress.city || 'Not found',
-          'State': parsedAddress.state || 'Not found',
-          'State Abbreviation': parsedAddress.stateAbbreviation || 'Not found',
-          'ZIP Code': parsedAddress.zipCode || 'Not found',
-          'Country': parsedAddress.country || 'Not found'
-        });
+    for (const component of components) {
+      const types = component.types || [];
+      const longName = component.long_name || component.longText;
+      const shortName = component.short_name || component.shortText;
+
+      if (types.includes('street_number')) {
+        parsed.streetNumber = longName;
+      } else if (types.includes('route')) {
+        parsed.streetName = longName;
+      } else if (types.includes('locality')) {
+        parsed.city = longName;
+      } else if (types.includes('administrative_area_level_1')) {
+        parsed.state = longName;
+        parsed.stateAbbreviation = shortName;
+      } else if (types.includes('postal_code')) {
+        parsed.zipCode = longName;
+      } else if (types.includes('country')) {
+        parsed.country = longName;
       }
     }
 
-    // Call the callback with both original place and parsed components
-    if (onPlaceSelect) {
-      console.log('🔄 Calling onPlaceSelect callback with parsed data');
-      onPlaceSelect(place, parsedAddress);
+    // Combine street parts
+    if (parsed.streetNumber && parsed.streetName) {
+      parsed.streetAddress = `${parsed.streetNumber} ${parsed.streetName}`;
+    } else if (parsed.streetName) {
+      parsed.streetAddress = parsed.streetName;
     }
 
-    // Update the input value with the formatted address
-    if (place.formatted_address) {
-      setInputValue(place.formatted_address);
-      if (onChange) {
-        onChange(place.formatted_address);
-      }
-    }
+    return parsed;
   };
 
+  // Check if Google Maps is available
   useEffect(() => {
-    if (disabled) {
-      setIsChecking(false);
-      return;
-    }
-
-    let mounted = true;
-    let checkAttempts = 0;
-    const maxAttempts = 10; // Check for 5 seconds max
-
-    const checkGoogleMaps = () => {
-      if (!mounted) return;
-      
-      checkAttempts++;
-      
-      if (window.google?.maps?.places) {
-        console.log('Google Maps is available');
-        if (mounted) {
-          setIsGoogleMapsAvailable(true);
-          setIsChecking(false);
-          window.googleMapsLoaded = true;
-          
-          // Determine which API to use (prefer new API over legacy)
-          if (window.google.maps.places.PlaceAutocompleteElement) {
-            setApiType('new');
-            console.log('Using new PlaceAutocompleteElement API (recommended)');
-          } else if (window.google.maps.places.Autocomplete) {
-            setApiType('legacy');
-            console.log('Using legacy Autocomplete API');
-          }
-          
-          // Call any waiting callbacks
-          if (window.googleMapsCallbacks?.length) {
-            window.googleMapsCallbacks.forEach(cb => cb());
-            window.googleMapsCallbacks = [];
-          }
-        }
-      } else if (checkAttempts >= maxAttempts) {
-        console.warn('Google Maps not available after 5 seconds, using fallback input');
-        if (mounted) {
-          setIsGoogleMapsAvailable(false);
-          setIsChecking(false);
-        }
-      } else {
-        setTimeout(checkGoogleMaps, 500);
+    const checkGoogle = () => {
+      // Prefer new PlaceAutocompleteElement API, fallback to legacy
+      if (window.google?.maps?.places?.PlaceAutocompleteElement || window.google?.maps?.places?.Autocomplete) {
+        setIsGoogleLoaded(true);
+        setIsLoading(false);
+        return true;
       }
+      return false;
     };
 
-    checkGoogleMaps();
+    if (checkGoogle()) return;
 
-    return () => {
-      mounted = false;
-    };
-  }, [disabled]);
+    // Check periodically for Google Maps
+    const interval = setInterval(() => {
+      if (checkGoogle()) {
+        clearInterval(interval);
+      }
+    }, 500);
+
+    // Give up after 10 seconds
+    setTimeout(() => {
+      clearInterval(interval);
+      setIsLoading(false);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Initialize Google Places Autocomplete
   useEffect(() => {
-    if (!isGoogleMapsAvailable || !inputRef.current || disabled) return;
+    if (!isGoogleLoaded || !inputRef.current || disabled) return;
 
-    let autocompleteInstance: any = null;
-    let mounted = true;
-
-    const initializeAutocomplete = () => {
-      if (!mounted || !inputRef.current) return;
-
-      try {
-        // Clean up existing instance
-        if (autocompleteInstance) {
-          if (window.google?.maps?.event?.clearInstanceListeners) {
-            window.google.maps.event.clearInstanceListeners(autocompleteInstance);
-          }
-          autocompleteInstance = null;
-        }
-
-        // Try to use the new PlaceAutocompleteElement API first
-        if (apiType === 'new' && window.google.maps.places.PlaceAutocompleteElement) {
-          console.log('🏗️ Initializing new PlaceAutocompleteElement API');
-          
-          // Create the new PlaceAutocompleteElement
-          const placeAutocomplete = new window.google.maps.places.PlaceAutocompleteElement({
-            componentRestrictions: { country: 'us' },
-            types: ['address']
-          });
-          
-          // Set up the element properties
-          placeAutocomplete.placeholder = inputRef.current.placeholder || 'Start typing an address...';
-          placeAutocomplete.className = inputRef.current.className;
-          placeAutocomplete.required = inputRef.current.required;
-          placeAutocomplete.disabled = disabled;
-          placeAutocomplete.value = inputValue;
-          
-          // Set up event listener for place selection
-          placeAutocomplete.addEventListener('gmp-placeselect', (event: any) => {
-            const place = event.place;
-            if (place && mounted) {
-              console.log('🏠 Place selected via new API:', place.displayName);
-              handlePlaceSelection(place);
-            }
-          });
-          
-          // Replace the input with the new element
-          if (inputRef.current.parentNode) {
-            inputRef.current.parentNode.replaceChild(placeAutocomplete, inputRef.current);
-            inputRef.current = placeAutocomplete as any;
-          }
-          
-          autocompleteInstance = placeAutocomplete;
-          
-        } else if (apiType === 'legacy' && window.google.maps.places.Autocomplete) {
-          console.log('🏗️ Initializing legacy Autocomplete API');
-          
-          // Use legacy API as fallback
-          const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-            types: ['address'],
-            componentRestrictions: { country: 'us' },
-            fields: ['address_components', 'formatted_address', 'geometry', 'name', 'place_id']
-          });
-
-          // Set up event listener for place selection
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place && mounted) {
-              console.log('🏠 Place selected via legacy API:', place.formatted_address);
-              handlePlaceSelection(place);
-            }
-          });
-
-          // Set bounds to US for better results
-          if (window.google.maps.LatLngBounds) {
-            const defaultBounds = new window.google.maps.LatLngBounds(
-              new window.google.maps.LatLng(24.396308, -125.0), // SW corner of US
-              new window.google.maps.LatLng(49.384358, -66.93)   // NE corner of US
-            );
-            autocomplete.setBounds(defaultBounds);
-          }
-
-          autocompleteInstance = autocomplete;
-        }
-
-      } catch (error) {
-        console.error('Error initializing Google Places:', error);
-        setIsGoogleMapsAvailable(false);
-      }
-    };
-
-    // Initialize with a small delay to ensure DOM is ready
-    const timer = setTimeout(initializeAutocomplete, 100);
-
-    return () => {
-      mounted = false;
-      clearTimeout(timer);
-      
-      if (autocompleteInstance && window.google?.maps?.event?.clearInstanceListeners) {
-        try {
-          window.google.maps.event.clearInstanceListeners(autocompleteInstance);
-        } catch (error) {
-          console.warn('Error cleaning up autocomplete:', error);
+    try {
+      // Clean up existing instance
+      if (autocompleteRef.current) {
+        if (window.google?.maps?.event?.clearInstanceListeners) {
+          window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
         }
       }
-    };
-  }, [isGoogleMapsAvailable, apiType, disabled, inputValue]);
 
-  // Update internal value when prop changes
+      // Use modern PlaceAutocompleteElement if available
+      if (window.google.maps.places.PlaceAutocompleteElement) {
+        // Create new PlaceAutocompleteElement
+        const placeAutocomplete = new window.google.maps.places.PlaceAutocompleteElement({
+          types: ['address'],
+          componentRestrictions: { country: 'us' }
+        });
+
+        // Copy input properties to the new element
+        placeAutocomplete.placeholder = inputRef.current.placeholder;
+        placeAutocomplete.value = inputValue;
+        placeAutocomplete.disabled = disabled;
+        placeAutocomplete.required = inputRef.current.required;
+        placeAutocomplete.className = inputRef.current.className;
+
+        // Handle place selection with new API
+        placeAutocomplete.addEventListener('gmp-placeselect', (event: any) => {
+          const place = event.place;
+          
+          if (place && place.formattedAddress) {
+            const formatted = place.formattedAddress;
+            setInputValue(formatted);
+            
+            if (onChange) {
+              onChange(formatted);
+            }
+
+            if (onPlaceSelect) {
+              // Convert new API place to legacy format for compatibility
+              const legacyPlace = {
+                formatted_address: place.formattedAddress,
+                place_id: place.id,
+                address_components: place.addressComponents || []
+              };
+              const parsed = parseAddressComponents(legacyPlace);
+              onPlaceSelect(legacyPlace, parsed);
+            }
+          }
+        });
+
+        // Replace the input with the new element
+        if (inputRef.current.parentNode) {
+          inputRef.current.parentNode.replaceChild(placeAutocomplete, inputRef.current);
+          inputRef.current = placeAutocomplete as any;
+        }
+
+        autocompleteRef.current = placeAutocomplete;
+
+      } else if (window.google.maps.places.Autocomplete) {
+        // Fallback to legacy Autocomplete (with deprecation warning suppressed)
+        const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+          types: ['address'],
+          componentRestrictions: { country: 'us' },
+          fields: ['address_components', 'formatted_address', 'geometry', 'place_id']
+        });
+
+        autocompleteRef.current = autocomplete;
+
+        // Handle place selection with legacy API
+        const listener = autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          
+          if (place && place.formatted_address) {
+            const formatted = place.formatted_address;
+            setInputValue(formatted);
+            
+            if (onChange) {
+              onChange(formatted);
+            }
+
+            if (onPlaceSelect) {
+              const parsed = parseAddressComponents(place);
+              onPlaceSelect(place, parsed);
+            }
+          }
+        });
+
+        return () => {
+          if (listener) {
+            window.google.maps.event.removeListener(listener);
+          }
+        };
+      }
+
+    } catch (error) {
+      console.error('Error initializing Google Places:', error);
+    }
+  }, [isGoogleLoaded, disabled, onPlaceSelect, onChange, inputValue]);
+
+  // Sync internal state with prop changes
   useEffect(() => {
-    setInputValue(value || defaultValue || '');
-  }, [value, defaultValue]);
+    setInputValue(value);
+  }, [value]);
 
   // Handle manual input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setInputValue(value);
+    const newValue = e.target.value;
+    setInputValue(newValue);
     if (onChange) {
-      onChange(value);
+      onChange(newValue);
     }
   };
 
-  // Fallback input (when Google Maps is not available)
-  if (!isGoogleMapsAvailable && !isChecking) {
-    return (
-      <div className="relative">
-        <FiMapPin className={`absolute left-3 top-3 h-4 w-4 ${t.text.muted}`} />
-        <input
-          ref={inputRef}
-          type="text"
-          value={inputValue}
-          onChange={handleInputChange}
-          placeholder={placeholder}
-          disabled={disabled}
-          required={required}
-          className={cn(
-            "w-full pl-10",
-            t.input.base,
-            t.input.focus,
-            disabled && "opacity-50 cursor-not-allowed",
-            className
-          )}
-        />
-        <div className="absolute right-3 top-3 text-xs text-orange-500">
-          Manual
-        </div>
-      </div>
-    );
-  }
+  // Base input styles
+  const inputClasses = `
+    w-full pl-10 pr-4 py-2.5 
+    bg-white dark:bg-gray-800 
+    border border-gray-300 dark:border-gray-600 
+    rounded-lg 
+    text-gray-900 dark:text-white 
+    placeholder:text-gray-500 dark:placeholder:text-gray-400
+    focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+    disabled:opacity-50 disabled:cursor-not-allowed
+    ${className}
+  `.trim().replace(/\s+/g, ' ');
 
-  // Loading state
-  if (isChecking) {
-    return (
-      <div className="relative">
-        <FiMapPin className={`absolute left-3 top-3 h-4 w-4 ${t.text.muted}`} />
-        <input
-          type="text"
-          placeholder="Loading Google Maps..."
-          disabled
-          value=""
-          className={cn(
-            "w-full pl-10 pr-10 opacity-50",
-            t.input.base,
-            className
-          )}
-        />
-        <div className="absolute right-3 top-3">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
-  }
-
-  // Google Maps is available - render the input that will be replaced by autocomplete
   return (
     <div className="relative">
-      <FiMapPin className={`absolute left-3 top-3 h-4 w-4 ${t.text.muted} z-10`} />
+      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
+      
       <input
         ref={inputRef}
         type="text"
         value={inputValue}
         onChange={handleInputChange}
-        placeholder={placeholder}
-        disabled={disabled}
+        placeholder={isLoading ? 'Loading Google Maps...' : placeholder}
+        disabled={disabled || isLoading}
         required={required}
-        className={cn(
-          "w-full pl-10",
-          t.input.base,
-          t.input.focus,
-          disabled && "opacity-50 cursor-not-allowed",
-          className
-        )}
+        className={inputClasses}
       />
-      
-      {/* Show API type indicator in development */}
-      {process.env.NODE_ENV === 'development' && apiType && (
-        <div className="absolute right-3 top-3 text-xs text-green-500">
-          {apiType === 'new' ? 'New API' : 'Legacy'}
+
+      {isLoading && (
+        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />
+      )}
+
+      {/* Status indicator */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium">
+          {isLoading ? (
+            <span className="text-gray-500">Loading...</span>
+          ) : isGoogleLoaded ? (
+            window.google?.maps?.places?.PlaceAutocompleteElement ? (
+              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded">
+                New API
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400 rounded">
+                Legacy
+              </span>
+            )
+          ) : (
+            <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 rounded">
+              Manual
+            </span>
+          )}
         </div>
       )}
     </div>

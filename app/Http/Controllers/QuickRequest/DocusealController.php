@@ -272,6 +272,138 @@ class DocusealController extends Controller
         }
     }
 
+    /**
+     * Create DocuSeal submission for Quick Request workflow
+     * POST /api/v1/quick-request/docuseal/test-mapping
+     * 
+     * This endpoint creates actual DocuSeal submissions for the new 
+     * DocusealEmbed component, following clean architecture principles
+     */
+    public function testFieldMapping(Request $request): JsonResponse
+    {
+        try {
+            // Validate incoming request
+            $validated = $request->validate([
+                'manufacturerId' => 'required|integer|exists:manufacturers,id',
+                'templateId' => 'nullable|string',
+                'productCode' => 'required|string',
+                'documentType' => 'required|string|in:IVR,OrderForm',
+                'formData' => 'required|array',
+                'episode_id' => 'nullable|integer'
+            ]);
+            
+            // Extract data
+            $manufacturer = Manufacturer::find($validated['manufacturerId']);
+            $episodeId = $validated['episode_id'] ?? null;
+            
+            // Determine template ID
+            $templateId = $validated['templateId'] ?? $manufacturer->docuseal_template_id;
+            if (!$templateId) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'No DocuSeal template configured for this manufacturer'
+                ], 422);
+            }
+            
+            // Prepare data for DocuSeal submission
+            $submissionData = [
+                'user_email' => $validated['formData']['patient_email'] ?? 'noreply@mscwoundcare.com',
+                'integration_email' => 'limitless@mscwoundcare.com',
+                'prefill_data' => $validated['formData'],
+                'manufacturerId' => $validated['manufacturerId'],
+                'templateId' => $templateId,
+                'productCode' => $validated['productCode'],
+                'documentType' => $validated['documentType'],
+                'episode_id' => $episodeId
+            ];
+            
+            // Extract and transform data using clean services
+            $extractedData = $this->extractDataForDocuseal($submissionData, $manufacturer);
+            
+            // Log extracted data for debugging
+            Log::info('DocuSeal field extraction complete', [
+                'manufacturer' => $manufacturer->name,
+                'template_id' => $templateId,
+                'extracted_field_count' => count($extractedData),
+                'extracted_fields' => array_keys($extractedData),
+            ]);
+            
+            // Create DocuSeal submission using the service
+            $result = $this->docusealService->createSubmissionForQuickRequest(
+                $templateId,
+                $submissionData['integration_email'],
+                $submissionData['user_email'],
+                $validated['formData']['patient_first_name'] . ' ' . $validated['formData']['patient_last_name'],
+                $extractedData,
+                $episodeId
+            );
+            
+            // Calculate field coverage analytics
+            if (isset($result['data']['field_analytics'])) {
+                $analytics = $result['data']['field_analytics'];
+                Log::info('DocuSeal field coverage analytics', [
+                    'manufacturer' => $manufacturer->name,
+                    'template_id' => $templateId,
+                    'total_fields' => $analytics['total_fields'] ?? 0,
+                    'mapped_fields' => $analytics['mapped_fields'] ?? 0,
+                    'coverage_percentage' => $analytics['coverage_percentage'] ?? 0,
+                    'missing_fields' => $analytics['missing_fields'] ?? []
+                ]);
+            }
+            
+            if (!$result['success']) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $result['error'] ?? 'Failed to create DocuSeal submission',
+                    'message' => $result['message'] ?? null
+                ], 422);
+            }
+            
+            $submission = $result['data'];
+            
+            // Log successful submission
+            Log::info('DocuSeal submission created via Quick Request', [
+                'submission_id' => $submission['submission_id'] ?? null,
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturer->name,
+                'document_type' => $validated['documentType'],
+                'episode_id' => $episodeId
+            ]);
+            
+            // Return response matching what DocusealEmbed expects
+            return response()->json([
+                'success' => true,
+                'slug' => $submission['slug'] ?? null,
+                'submission_id' => $submission['submission_id'] ?? null,
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturer->name,
+                'document_type' => $validated['documentType'],
+                'ai_mapping_used' => $result['ai_mapping_used'] ?? false,
+                'ai_confidence' => $result['ai_confidence'] ?? 0.0,
+                'mapping_method' => $result['mapping_method'] ?? 'config_based'
+            ]);
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Failed to create DocuSeal submission', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->except(['formData'])
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to create submission',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     // Private helper methods
 
     /**
@@ -370,6 +502,42 @@ class DocusealController extends Controller
             
             // Add all form data to context for direct field extraction
             $context = array_merge($context, $dataWithManufacturer);
+            
+            // Ensure patient data is properly extracted from both flat and nested structures
+            if (isset($dataWithManufacturer['patient']) && is_array($dataWithManufacturer['patient'])) {
+                // Extract nested patient data and flatten it
+                $patientData = $dataWithManufacturer['patient'];
+                foreach ($patientData as $key => $value) {
+                    $context['patient_' . $key] = $value;
+                }
+            }
+            
+            // Ensure patient_name is computed if we have first and last names
+            if (!isset($context['patient_name']) && 
+                (isset($context['patient_first_name']) || isset($context['patient_last_name']))) {
+                $context['patient_name'] = trim(
+                    ($context['patient_first_name'] ?? '') . ' ' . 
+                    ($context['patient_last_name'] ?? '')
+                );
+            }
+            
+            // Handle place_of_service field specially
+            if (isset($context['place_of_service'])) {
+                // If it's an array, find the selected value
+                if (is_array($context['place_of_service'])) {
+                    foreach ($context['place_of_service'] as $key => $value) {
+                        if ($value === true || $value === 'true' || $value === 1 || $value === '1') {
+                            // Extract the number from pos_XX format
+                            if (preg_match('/pos[_\s]*(\d+)/i', $key, $matches)) {
+                                $context['place_of_service'] = $matches[1];
+                            } else {
+                                $context['place_of_service'] = $key;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
             
             Log::info('Extracting data for DocuSeal with context', [
                 'provider_id' => $context['provider_id'],

@@ -117,7 +117,8 @@ return [
         
         // Basic Information - Fixed to work with available data
         'representative_name' => [
-            'source' => 'name || sales_rep || sales_rep_name || sales_representative || representative_name',
+            'source' => 'computed',
+            'computation' => 'sales_rep_name || sales_rep || organization_sales_rep_name || current_user.name || ""',
             'required' => false, // Changed from true to false to avoid blocking
             'type' => 'string'
         ],
@@ -243,10 +244,10 @@ return [
         
         // Place of Service - Single radio field
         'place_of_service' => [
-            'source' => 'computed',
-            'computation' => 'place_of_service ? "POS " + place_of_service : ""',
+            'source' => 'place_of_service',
             'required' => true,
-            'type' => 'string' // Will be "POS 11", "POS 12", etc.
+            'type' => 'string',
+            'transform' => 'prefix:POS ' // Add POS prefix during transformation
         ],
         'pos_other_specify' => [
             'source' => 'pos_other_specify || place_of_service_other',
@@ -256,33 +257,35 @@ return [
         
         // Patient Information
         'patient_name' => [
-            'source' => 'patient_name',
+            'source' => 'computed',
+            'computation' => 'fhir_patient_first_name && fhir_patient_last_name ? fhir_patient_first_name + " " + fhir_patient_last_name : (patient_name || "")',
             'required' => true,
             'type' => 'string'
         ],
         'patient_dob' => [
-            'source' => 'patient_dob',
+            'source' => 'fhir_patient_birth_date || patient_dob',
             'required' => false,
             'type' => 'string'
         ],
         'patient_address' => [
-            'source' => 'patient_address || patient_address_line1',
+            'source' => 'computed',
+            'computation' => 'fhir_patient_address_line1 || patient_address || patient_address_line1',
             'required' => false,
             'type' => 'string'
         ],
         'patient_city_state_zip' => [
             'source' => 'computed',
-            'computation' => 'patient_city && patient_state && patient_zip ? patient_city + ", " + patient_state + " " + patient_zip : (patient_city_state_zip || "")',
+            'computation' => '(fhir_patient_address_city || patient_city) && (fhir_patient_address_state || patient_state) && (fhir_patient_address_postal_code || patient_zip) ? (fhir_patient_address_city || patient_city) + ", " + (fhir_patient_address_state || patient_state) + " " + (fhir_patient_address_postal_code || patient_zip) : (patient_city_state_zip || "")',
             'required' => false,
             'type' => 'string'
         ],
         'patient_phone' => [
-            'source' => 'patient_phone',
+            'source' => 'fhir_patient_phone || patient_phone',
             'required' => false,
             'type' => 'string'
         ],
         'patient_email' => [
-            'source' => 'patient_email',
+            'source' => 'fhir_patient_email || patient_email',
             'required' => false,
             'type' => 'string'
         ],
@@ -304,7 +307,8 @@ return [
             'type' => 'string'
         ],
         'primary_policy_number' => [
-            'source' => 'primary_policy_number || primary_member_id',
+            'source' => 'computed',
+            'computation' => 'fhir_coverage_subscriber_id || primary_policy_number || primary_member_id || ""',
             'required' => false,
             'type' => 'string'
         ],
@@ -314,12 +318,12 @@ return [
             'type' => 'string'
         ],
         'primary_payer_phone' => [
-            'source' => 'primary_payer_phone',
+            'source' => 'primary_payer_phone || primary_insurance_phone',
             'required' => false,
             'type' => 'string'
         ],
         'secondary_payer_phone' => [
-            'source' => 'secondary_payer_phone',
+            'source' => 'secondary_payer_phone || secondary_insurance_phone',
             'required' => false,
             'type' => 'string'
         ],
@@ -385,17 +389,18 @@ return [
         ],
         'icd_10_codes' => [
             'source' => 'computed',
-            'computation' => 'primary_diagnosis_code && secondary_diagnosis_code ? primary_diagnosis_code + ", " + secondary_diagnosis_code : (primary_diagnosis_code || secondary_diagnosis_code || "")',
+            'computation' => 'primary_diagnosis_code && secondary_diagnosis_code ? primary_diagnosis_code + ", " + secondary_diagnosis_code : (primary_diagnosis_code || secondary_diagnosis_code || diagnosis_code || "")',
             'required' => false,
             'type' => 'string'
         ],
         'total_wound_size' => [
-            'source' => 'total_wound_size',
+            'source' => 'computed',
+            'computation' => 'wound_size_total || calculated_wound_area || total_wound_size || ""',
             'required' => false,
             'type' => 'string'
         ],
         'medical_history' => [
-            'source' => 'medical_history',
+            'source' => 'medical_history || clinical_notes || ""',
             'required' => false,
             'type' => 'string'
         ],

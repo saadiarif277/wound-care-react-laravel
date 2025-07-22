@@ -6,8 +6,15 @@ import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
 import Select from '@/Components/ui/Select';
 import api from '@/lib/api';
+import axios from 'axios';
 import { themes } from '@/theme/glass-theme';
 
+
+// Define response interfaces
+interface ClinicalDocResponse {
+  success: boolean;
+  structured_data: Record<string, any>;
+}
 
 interface Step2Props {
   formData: any;
@@ -46,6 +53,11 @@ function Step2PatientInsurance({
   const [autoFillSuccess, setAutoFillSuccess] = useState(false);
   const [showCaregiver, setShowCaregiver] = useState(!formData.patient_is_subscriber);
   const [showSecondaryCaregiver, setShowSecondaryCaregiver] = useState(!formData.secondary_patient_is_subscriber);
+
+  // New state for clinical documents
+  const [clinicalDocPreview, setClinicalDocPreview] = useState<string | null>(null);
+  const [isProcessingClinicalDoc, setIsProcessingClinicalDoc] = useState(false);
+  const [clinicalDocSuccess, setClinicalDocSuccess] = useState(false);
 
 
   const states = [
@@ -130,21 +142,20 @@ function Step2PatientInsurance({
           },
         });
 
-        const data = response.data;
-        
-        if (data.success) {
+        if (response.data.success) {
           const updates: any = {};
+          const { data } = response.data;
 
           // Patient information
-          if (data.data.patient_first_name) updates.patient_first_name = data.data.patient_first_name;
-          if (data.data.patient_last_name) updates.patient_last_name = data.data.patient_last_name;
-          if (data.data.patient_dob) updates.patient_dob = data.data.patient_dob;
-          if (data.data.patient_member_id) updates.patient_member_id = data.data.patient_member_id;
+          if (data.patient_first_name) updates.patient_first_name = data.patient_first_name;
+          if (data.patient_last_name) updates.patient_last_name = data.patient_last_name;
+          if (data.patient_dob) updates.patient_dob = data.patient_dob;
+          if (data.patient_member_id) updates.patient_member_id = data.patient_member_id;
 
           // Insurance information
-          if (data.data.payer_name) updates.primary_insurance_name = data.data.payer_name;
-          if (data.data.payer_id) updates.primary_member_id = data.data.payer_id;
-          if (data.data.insurance_type) updates.primary_plan_type = data.data.insurance_type;
+          if (data.payer_name) updates.primary_insurance_name = data.payer_name;
+          if (data.payer_id) updates.primary_member_id = data.payer_id;
+          if (data.insurance_type) updates.primary_plan_type = data.insurance_type;
 
           updates.insurance_card_auto_filled = true;
 
@@ -155,13 +166,134 @@ function Step2PatientInsurance({
             setAutoFillSuccess(false);
           }, 5000);
         }
-      } catch (error) {
-        console.error('Error processing insurance card:', error);
+      } catch (error: any) {
+        if (axios.isAxiosError(error)) {
+            console.error('Error processing insurance card:', error.response?.data || error.message);
+        } else {
+            console.error('Error processing insurance card:', error);
+        }
       } finally {
         setIsProcessingCard(false);
       }
     }
   };
+
+  const handleClinicalDocumentUpload = async (file: File) => {
+    // Create preview
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setClinicalDocPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    } else if (file.type === 'application/pdf') {
+        setClinicalDocPreview('pdf');
+    }
+
+    // Store file in form data
+    updateFormData({ clinical_document: file });
+
+    setIsProcessingClinicalDoc(true);
+    setClinicalDocSuccess(false);
+
+    try {
+        const apiFormData = new FormData();
+        apiFormData.append('document', file);
+        apiFormData.append('document_type', 'clinical_note'); // Or detect dynamically
+
+        const response = await api.post<ClinicalDocResponse>('/api/document/analyze', apiFormData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (response.data.success) {
+            const updates: any = { ...response.data.structured_data };
+            
+            // Map clinical document fields to form fields for ACZ & Associates
+            const mappedUpdates: any = {};
+            
+            // Patient information
+            if (updates.patient_name) {
+                const nameParts = updates.patient_name.split(' ');
+                if (nameParts.length >= 2) {
+                    mappedUpdates.patient_first_name = nameParts[0];
+                    mappedUpdates.patient_last_name = nameParts.slice(1).join(' ');
+                }
+                mappedUpdates.patient_name = updates.patient_name;
+            }
+            if (updates.patient_dob || updates.date_of_birth) {
+                mappedUpdates.patient_dob = updates.patient_dob || updates.date_of_birth;
+            }
+            if (updates.patient_address) {
+                mappedUpdates.patient_address_line1 = updates.patient_address;
+            }
+            if (updates.patient_phone || updates.phone) {
+                mappedUpdates.patient_phone = updates.patient_phone || updates.phone;
+            }
+            
+            // Clinical information
+            if (updates.diagnosis || updates.primary_diagnosis) {
+                mappedUpdates.primary_diagnosis_code = updates.diagnosis || updates.primary_diagnosis;
+            }
+            if (updates.icd_10_codes || updates.diagnosis_codes) {
+                mappedUpdates.icd_10_codes = updates.icd_10_codes || updates.diagnosis_codes;
+            }
+            if (updates.wound_location) {
+                mappedUpdates.wound_location = updates.wound_location;
+            }
+            if (updates.wound_size || updates.wound_measurements) {
+                mappedUpdates.total_wound_size = updates.wound_size || updates.wound_measurements;
+            }
+            if (updates.medical_history) {
+                mappedUpdates.medical_history = updates.medical_history;
+            }
+            if (updates.medications) {
+                mappedUpdates.current_medications = updates.medications;
+            }
+            if (updates.wound_type) {
+                mappedUpdates.wound_type = updates.wound_type;
+            }
+            
+            // Provider information
+            if (updates.provider_name || updates.physician_name) {
+                mappedUpdates.provider_name = updates.provider_name || updates.physician_name;
+            }
+            if (updates.provider_npi || updates.physician_npi) {
+                mappedUpdates.provider_npi = updates.provider_npi || updates.physician_npi;
+            }
+            
+            // Facility information
+            if (updates.facility_name) {
+                mappedUpdates.facility_name = updates.facility_name;
+            }
+            if (updates.facility_npi) {
+                mappedUpdates.facility_npi = updates.facility_npi;
+            }
+            
+            // Merge original updates with mapped updates
+            const finalUpdates = { ...updates, ...mappedUpdates };
+            
+            // Log for debugging
+            console.log('Clinical document OCR results:', {
+                original: updates,
+                mapped: mappedUpdates,
+                final: finalUpdates
+            });
+
+            updateFormData(finalUpdates);
+            setClinicalDocSuccess(true);
+            setTimeout(() => setClinicalDocSuccess(false), 5000);
+        }
+    } catch (error: any) {
+        if (axios.isAxiosError(error)) {
+            console.error('Error processing clinical document:', error.response?.data || error.message);
+        } else {
+            console.error('Error processing clinical document:', error);
+        }
+    } finally {
+        setIsProcessingClinicalDoc(false);
+    }
+  };
+
 
   const handleAddressSelect = (place: any, parsedAddress?: ParsedAddressComponents) => {
     if (!parsedAddress) return;
@@ -169,7 +301,7 @@ function Step2PatientInsurance({
     // Create FHIR-compliant address structure
     const fhirAddress = {
       text: place.formatted_address || '',
-      line: [],
+      line: [] as string[],
       city: parsedAddress.city || '',
       state: parsedAddress.stateAbbreviation || '',
       postalCode: parsedAddress.zipCode || '',
@@ -246,6 +378,49 @@ function Step2PatientInsurance({
             {errors.facility_id && (
               <p className="mt-1 text-sm text-red-500">{errors.facility_id}</p>
             )}
+          </div>
+        </div>
+      </div>
+
+
+      {/* Document Upload Section */}
+      <div className="bg-gray-50 dark:bg-gray-900/20 p-3 rounded-lg">
+        <h3 className="font-medium text-gray-900 dark:text-gray-300 mb-2">Document Upload (Optional)</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Upload insurance cards or clinical documents to auto-fill patient and insurance information.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Insurance Card Upload */}
+          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
+            <h4 className="font-medium mb-2">Insurance Card</h4>
+            <div className="grid grid-cols-2 gap-2">
+              <FileUpload
+                  label="Front"
+                  onFileUpload={(file) => handleInsuranceCardUpload(file, 'front')}
+                  isProcessing={isProcessingCard}
+                  isSuccess={autoFillSuccess}
+                  preview={cardFrontPreview}
+              />
+              <FileUpload
+                  label="Back"
+                  onFileUpload={(file) => handleInsuranceCardUpload(file, 'back')}
+                  isProcessing={isProcessingCard}
+                  isSuccess={autoFillSuccess}
+                  preview={cardBackPreview}
+              />
+            </div>
+          </div>
+          
+          {/* Clinical Document Upload */}
+          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
+            <h4 className="font-medium mb-2">Clinical Notes / Demographics</h4>
+            <FileUpload
+                label="Upload Document"
+                onFileUpload={handleClinicalDocumentUpload}
+                isProcessing={isProcessingClinicalDoc}
+                isSuccess={clinicalDocSuccess}
+                preview={clinicalDocPreview}
+            />
           </div>
         </div>
       </div>
@@ -858,5 +1033,49 @@ function Step2PatientInsurance({
     </div>
   );
 }
+
+// Simple File Upload Component
+interface FileUploadProps {
+  label: string;
+  onFileUpload: (file: File) => void;
+  isProcessing: boolean;
+  isSuccess: boolean;
+  preview: string | null;
+}
+
+const FileUpload: React.FC<FileUploadProps> = ({ label, onFileUpload, isProcessing, isSuccess, preview }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      onFileUpload(e.target.files[0]);
+    }
+  };
+
+  return (
+    <div
+      className="flex flex-col items-center justify-center p-2 bg-white dark:bg-gray-800 rounded-md cursor-pointer h-full"
+      onClick={() => inputRef.current?.click()}
+    >
+      <input type="file" ref={inputRef} onChange={handleFileChange} className="hidden" accept="image/*,application/pdf" />
+      {preview ? (
+        preview === 'pdf' ? (
+          <div className="text-center">
+            <FiCheck className="mx-auto h-6 w-6 text-green-500" />
+            <p className="text-xs mt-1">PDF Uploaded</p>
+          </div>
+        ) : (
+          <img src={preview} alt="preview" className="h-16 w-full object-contain rounded-md" />
+        )
+      ) : (
+        <FiUpload className="h-6 w-6 text-gray-400" />
+      )}
+      <span className="text-xs mt-2 text-center">{label}</span>
+      {isProcessing && <FiRefreshCw className="h-4 w-4 text-blue-500 animate-spin absolute" />}
+      {isSuccess && <FiCheck className="h-4 w-4 text-green-500 absolute" />}
+    </div>
+  );
+};
+
 
 export default Step2PatientInsurance;

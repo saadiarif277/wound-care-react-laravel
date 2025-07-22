@@ -3,7 +3,7 @@ import { FiSearch, FiRefreshCw, FiAlertCircle } from 'react-icons/fi';
 import { Facility } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import GoogleAddressAutocomplete from '@/Components/GoogleAddressAutocomplete';
+import GoogleAddressAutocompleteWithFallback from '@/Components/GoogleAddressAutocompleteWithFallback';
 
 // Define PatientApiInput locally, matching Create.tsx, if not easily importable
 // This should ideally be shared from Create.tsx or a common types file.
@@ -219,22 +219,24 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
               <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                 Patient Address
               </label>
-              <GoogleAddressAutocomplete
-                value={{
-                  line1: formData.patient_api_input.address_line1 || '',
-                  line2: formData.patient_api_input.address_line2 || '',
-                  city: formData.patient_api_input.city || '',
-                  state: formData.patient_api_input.state || '',
-                  zip: formData.patient_api_input.zip || ''
-                }}
+              <GoogleAddressAutocompleteWithFallback
+                value={formData.patient_api_input.address_line1 || ''}
                 onChange={(address) => {
+                  // Handle manual typing - just update address line 1
                   handlePatientDemographicsChange({
-                    address_line1: address.line1,
-                    address_line2: address.line2,
-                    city: address.city,
-                    state: address.state,
-                    zip: address.zip
+                    address_line1: address
                   });
+                }}
+                onPlaceSelect={(place, parsed) => {
+                  // Handle Google Places selection - populate all address fields
+                  if (parsed) {
+                    handlePatientDemographicsChange({
+                      address_line1: parsed.streetAddress || '',
+                      city: parsed.city || '',
+                      state: parsed.stateAbbreviation || '',
+                      zip: parsed.zipCode || ''
+                    });
+                  }
                 }}
                 placeholder="Start typing street address..."
               />

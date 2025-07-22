@@ -17,6 +17,7 @@ use App\Services\QuickRequest\Handlers\NotificationHandler;
 use App\Logging\PhiSafeLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Services\AI\FormFillingOptimizer;
 
 /**
  * QuickRequestOrchestratorV2 - A clean coordinator for Quick Request workflow
@@ -31,6 +32,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class QuickRequestOrchestrator
 {
+    protected array $context = [];
+
     public function __construct(
         protected PatientHandler $patientHandler,
         protected ProviderHandler $providerHandler,
@@ -42,7 +45,8 @@ class QuickRequestOrchestrator
         protected DocusealService $docusealService,
         protected DataExtractionService $dataExtractionService,
         protected DataExtractor $dataExtractor,
-        protected PhiSafeLogger $logger
+        protected PhiSafeLogger $logger,
+        protected FormFillingOptimizer $formOptimizer
     ) {}
 
     /**
@@ -126,12 +130,15 @@ class QuickRequestOrchestrator
             // Extract raw data from the episode
             $rawData = $this->extractEpisodeData($episode, $additionalData);
 
+            // Enhance data with AI assistance
+            $enhancedData = $this->formOptimizer->enhanceFormData($rawData, 'docuseal_prefill');
+
             // Delegate ALL field mapping to UnifiedFieldMappingService
             $mappingResult = $this->fieldMappingService->mapEpisodeToDocuSeal(
                 $episode->id,
                 $manufacturer->name,
                 $manufacturer->docuseal_template_id ?? '',
-                $rawData,
+                $enhancedData,
                 Auth::user()?->email,
                 true // Use dynamic mapping if available
             );
@@ -172,16 +179,19 @@ class QuickRequestOrchestrator
                 ]
             );
 
+            // Enhance data with AI assistance
+            $enhancedData = $this->formOptimizer->enhanceFormData($rawData, 'docuseal_prefill');
+
             // Use DataExtractionService for non-episode data
-            if (!empty($rawData['provider_id']) || !empty($rawData['facility_id'])) {
+            if (!empty($enhancedData['provider_id']) || !empty($enhancedData['facility_id'])) {
                 $context = [
-                    'provider_id' => $rawData['provider_id'] ?? null,
-                    'facility_id' => $rawData['facility_id'] ?? null,
+                    'provider_id' => $enhancedData['provider_id'] ?? null,
+                    'facility_id' => $enhancedData['facility_id'] ?? null,
                     'episode_id' => $episode->id,
                 ];
 
                 $extractedData = $this->dataExtractionService->extractData($context);
-                $rawData = array_merge($rawData, $extractedData);
+                $rawData = array_merge($enhancedData, $extractedData);
             }
 
             return $rawData;
@@ -192,8 +202,11 @@ class QuickRequestOrchestrator
         try {
             $extractedData = $this->dataExtractor->extractEpisodeData($episode->id);
 
+            // Enhance data with AI assistance
+            $enhancedData = $this->formOptimizer->enhanceFormData($extractedData, 'docuseal_prefill');
+
             // Merge with additional data
-            return array_merge($extractedData, $additionalData);
+            return array_merge($enhancedData, $additionalData);
 
         } catch (\Exception $e) {
             $this->logger->warning('Failed to extract episode data with DataExtractor, falling back', [

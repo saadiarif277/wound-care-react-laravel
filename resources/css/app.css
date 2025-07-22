@@ -376,3 +376,162 @@ html, :host {
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
 }
+
+/* DocuSeal Shadow DOM and Radio Button Styling Fixes */
+
+/* Help with DocuSeal form styling inside Shadow DOM */
+docuseal-form, 
+[data-docuseal-form] {
+  /* Ensure proper display and containment */
+  display: block !important;
+  contain: layout style paint !important;
+  
+  /* Improve radio button visibility */
+  --radio-size: 16px;
+  --radio-border: 2px solid #d1d5db;
+  --radio-checked: #3b82f6;
+  --radio-focus: #3b82f6;
+}
+
+/* Force radio button styling to override Shadow DOM issues */
+docuseal-form input[type="radio"],
+[data-docuseal-form] input[type="radio"],
+.docuseal-form input[type="radio"] {
+  /* Override any conflicting Shadow DOM styles */
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  
+  /* Explicit radio button styling */
+  width: var(--radio-size) !important;
+  height: var(--radio-size) !important;
+  border: var(--radio-border) !important;
+  border-radius: 50% !important;
+  background: white !important;
+  position: relative !important;
+  cursor: pointer !important;
+  
+  /* Ensure it's visible */
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline-block !important;
+  
+  /* Box model fixes */
+  margin: 4px !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  
+  /* Focus styles */
+  outline: none !important;
+}
+
+/* Radio button checked state */
+docuseal-form input[type="radio"]:checked,
+[data-docuseal-form] input[type="radio"]:checked,
+.docuseal-form input[type="radio"]:checked {
+  border-color: var(--radio-checked) !important;
+  background: var(--radio-checked) !important;
+}
+
+/* Radio button inner dot */
+docuseal-form input[type="radio"]:checked::before,
+[data-docuseal-form] input[type="radio"]:checked::before,
+.docuseal-form input[type="radio"]:checked::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: white !important;
+  transform: translate(-50%, -50%) !important;
+  display: block !important;
+}
+
+/* Focus states */
+docuseal-form input[type="radio"]:focus,
+[data-docuseal-form] input[type="radio"]:focus,
+.docuseal-form input[type="radio"]:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+  border-color: var(--radio-focus) !important;
+}
+
+/* Hover states */
+docuseal-form input[type="radio"]:hover,
+[data-docuseal-form] input[type="radio"]:hover,
+.docuseal-form input[type="radio"]:hover {
+  border-color: var(--radio-focus) !important;
+}
+
+/* Fix other form elements that might be affected by Shadow DOM */
+docuseal-form input, docuseal-form select, docuseal-form textarea,
+[data-docuseal-form] input, [data-docuseal-form] select, [data-docuseal-form] textarea,
+.docuseal-form input, .docuseal-form select, .docuseal-form textarea {
+  /* Ensure form elements are properly styled */
+  font-family: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+
+/* Fix checkbox styling as well */
+docuseal-form input[type="checkbox"],
+[data-docuseal-form] input[type="checkbox"],
+.docuseal-form input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  
+  width: 16px !important;
+  height: 16px !important;
+  border: 2px solid #d1d5db !important;
+  border-radius: 4px !important;
+  background: white !important;
+  position: relative !important;
+  cursor: pointer !important;
+  
+  /* Ensure visibility */
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline-block !important;
+  
+  margin: 4px !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+docuseal-form input[type="checkbox"]:checked,
+[data-docuseal-form] input[type="checkbox"]:checked,
+.docuseal-form input[type="checkbox"]:checked {
+  background: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+}
+
+docuseal-form input[type="checkbox"]:checked::before,
+[data-docuseal-form] input[type="checkbox"]:checked::before,
+.docuseal-form input[type="checkbox"]:checked::before {
+  content: '✓' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  color: white !important;
+  font-size: 12px !important;
+  font-weight: bold !important;
+  line-height: 1 !important;
+}
+
+/* Improve Shadow DOM container styling */
+docuseal-form::part(form),
+[data-docuseal-form]::part(form) {
+  /* Help with Shadow DOM CSS cascade issues */
+  color-scheme: light !important;
+  font-family: inherit !important;
+}
+
+/* Additional Shadow DOM debugging (remove in production) */
+docuseal-form {
+  /* Help identify Shadow DOM boundary issues */
+  border: 1px solid transparent !important;
+  isolation: isolate !important;
+}

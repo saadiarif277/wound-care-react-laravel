@@ -291,6 +291,131 @@ class PatientHandler extends BaseHandler
     }
 
     /**
+     * Extract patient data for DocuSeal pre-filling
+     * This method formats patient data specifically for DocuSeal forms
+     */
+    public function extractPatientDataForDocuseal(array $patientData): array
+    {
+        $docusealData = [];
+
+        // Basic patient information
+        $docusealData['patient_name'] = trim(($patientData['first_name'] ?? '') . ' ' . ($patientData['last_name'] ?? ''));
+        $docusealData['patient_first_name'] = $patientData['first_name'] ?? '';
+        $docusealData['patient_last_name'] = $patientData['last_name'] ?? '';
+        $docusealData['patient_dob'] = $this->formatDateForDocuseal($patientData['dob'] ?? '');
+        $docusealData['patient_gender'] = ucfirst($patientData['gender'] ?? 'unknown');
+        
+        // Contact information
+        $docusealData['patient_phone'] = $this->formatPhoneNumber($patientData['phone'] ?? '');
+        $docusealData['patient_email'] = $patientData['email'] ?? '';
+        
+        // Address handling - support both FHIR and legacy formats
+        if (isset($patientData['address']) && is_array($patientData['address'])) {
+            // FHIR-compliant address
+            $address = $patientData['address'];
+            $docusealData['patient_address'] = $address['line'][0] ?? '';
+            $docusealData['patient_address_line1'] = $address['line'][0] ?? '';
+            $docusealData['patient_address_line2'] = $address['line'][1] ?? '';
+            $docusealData['patient_city'] = $address['city'] ?? '';
+            $docusealData['patient_state'] = $address['state'] ?? '';
+            $docusealData['patient_zip'] = $address['postalCode'] ?? '';
+            
+            // Combined address field for forms that expect it
+            $docusealData['patient_city_state_zip'] = trim(
+                ($address['city'] ?? '') . ', ' . 
+                ($address['state'] ?? '') . ' ' . 
+                ($address['postalCode'] ?? '')
+            );
+        } else {
+            // Legacy address format
+            $docusealData['patient_address'] = $patientData['address_line1'] ?? '';
+            $docusealData['patient_address_line1'] = $patientData['address_line1'] ?? '';
+            $docusealData['patient_address_line2'] = $patientData['address_line2'] ?? '';
+            $docusealData['patient_city'] = $patientData['city'] ?? '';
+            $docusealData['patient_state'] = $patientData['state'] ?? '';
+            $docusealData['patient_zip'] = $patientData['zip'] ?? '';
+            
+            // Combined address field
+            if (!empty($patientData['city']) && !empty($patientData['state']) && !empty($patientData['zip'])) {
+                $docusealData['patient_city_state_zip'] = 
+                    $patientData['city'] . ', ' . 
+                    $patientData['state'] . ' ' . 
+                    $patientData['zip'];
+            }
+        }
+        
+        // Caregiver information if patient is not the subscriber
+        if (isset($patientData['caregiver_name']) && !empty($patientData['caregiver_name'])) {
+            $caregiverInfo = $patientData['caregiver_name'];
+            if (!empty($patientData['caregiver_relationship'])) {
+                $caregiverInfo .= ' - ' . $patientData['caregiver_relationship'];
+            }
+            if (!empty($patientData['caregiver_phone'])) {
+                $caregiverInfo .= ' - ' . $this->formatPhoneNumber($patientData['caregiver_phone']);
+            }
+            $docusealData['patient_caregiver_info'] = $caregiverInfo;
+        }
+        
+        // Additional clinical information if available
+        if (!empty($patientData['medical_history'])) {
+            $docusealData['medical_history'] = $patientData['medical_history'];
+        }
+        
+        // Member ID if available
+        if (!empty($patientData['member_id'])) {
+            $docusealData['patient_member_id'] = $patientData['member_id'];
+        }
+        
+        return $docusealData;
+    }
+
+    /**
+     * Format date for DocuSeal (MM/DD/YYYY format)
+     */
+    private function formatDateForDocuseal(string $date): string
+    {
+        if (empty($date)) {
+            return '';
+        }
+        
+        try {
+            $dateObj = new \DateTime($date);
+            return $dateObj->format('m/d/Y');
+        } catch (\Exception $e) {
+            return $date; // Return as-is if parsing fails
+        }
+    }
+
+    /**
+     * Format phone number for display
+     */
+    protected function formatPhoneNumber(string $phone): string
+    {
+        // Remove all non-numeric characters
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        
+        // Format as (XXX) XXX-XXXX if 10 digits
+        if (strlen($phone) === 10) {
+            return sprintf('(%s) %s-%s', 
+                substr($phone, 0, 3),
+                substr($phone, 3, 3),
+                substr($phone, 6, 4)
+            );
+        }
+        
+        // Format as 1-XXX-XXX-XXXX if 11 digits starting with 1
+        if (strlen($phone) === 11 && $phone[0] === '1') {
+            return sprintf('1-%s-%s-%s',
+                substr($phone, 1, 3),
+                substr($phone, 4, 3),
+                substr($phone, 7, 4)
+            );
+        }
+        
+        return $phone; // Return as-is if not standard format
+    }
+
+    /**
      * Generate patient identifier (e.g., JOSM473)
      */
     private function generatePatientIdentifier(array $patientData): string

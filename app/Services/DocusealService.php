@@ -1211,7 +1211,21 @@ class DocusealService
             'submitter_name' => $submitterName,
             'episode_id' => $episodeId,
             'prefill_data_keys' => array_keys($prefillData),
-            'prefill_data_count' => count($prefillData)
+            'prefill_data_count' => count($prefillData),
+            'patient_fields' => array_filter($prefillData, function($key) {
+                return strpos($key, 'patient') !== false;
+            }, ARRAY_FILTER_USE_KEY),
+            'provider_fields' => array_filter($prefillData, function($key) {
+                return strpos($key, 'provider') !== false || strpos($key, 'physician') !== false;
+            }, ARRAY_FILTER_USE_KEY),
+            'facility_fields' => array_filter($prefillData, function($key) {
+                return strpos($key, 'facility') !== false;
+            }, ARRAY_FILTER_USE_KEY),
+            'insurance_fields' => array_filter($prefillData, function($key) {
+                return strpos($key, 'insurance') !== false || strpos($key, 'payer') !== false;
+            }, ARRAY_FILTER_USE_KEY),
+            'place_of_service' => $prefillData['place_of_service'] ?? 'not set',
+            'all_data' => $prefillData // Log all data for debugging
         ]);
         
         // Check if data is already mapped (from QuickRequestOrchestrator)

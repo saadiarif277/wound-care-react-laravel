@@ -1,11 +1,8 @@
-import { useState } from 'react';
 import { FiAlertCircle } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import DiagnosisCodeSelector from '@/Components/DiagnosisCode/DiagnosisCodeSelector';
 import Select from '@/Components/ui/Select';
-import DocumentUploadCard from '@/Components/DocumentUploadCard';
-import api from '@/lib/api';
 
 interface FormData {
   // Clinical Information
@@ -77,63 +74,6 @@ export default function Step4ClinicalBilling({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
-
-  // State for document upload functionality
-  const [autoFillSuccess, setAutoFillSuccess] = useState(false);
-
-  // Insurance card upload handler
-  const handleInsuranceCardUpload = async (file: File, side: 'front' | 'back') => {
-    // Store file in form data
-    updateFormData({ [`insurance_card_${side}`]: file });
-
-    // Try to process with Azure Document Intelligence
-    const frontCard = side === 'front' ? file : formData.insurance_card_front;
-    const backCard = side === 'back' ? file : formData.insurance_card_back;
-
-    if (frontCard) {
-      try {
-        const apiFormData = new FormData();
-        apiFormData.append('insurance_card_front', frontCard);
-        if (backCard) {
-          apiFormData.append('insurance_card_back', backCard);
-        }
-
-        // Use the enhanced fetch function with automatic CSRF token handling
-        const response = await api.post('/api/insurance-card/analyze', apiFormData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-
-        const data = response.data;
-        
-        if (data.success && data.data) {
-          const updates: any = {};
-
-          // Patient information
-          if (data.data.patient_first_name) updates.patient_first_name = data.data.patient_first_name;
-          if (data.data.patient_last_name) updates.patient_last_name = data.data.patient_last_name;
-          if (data.data.patient_dob) updates.patient_dob = data.data.patient_dob;
-          if (data.data.patient_member_id) updates.patient_member_id = data.data.patient_member_id;
-
-          // Insurance information
-          if (data.data.payer_name) updates.primary_insurance_name = data.data.payer_name;
-          if (data.data.payer_id) updates.primary_member_id = data.data.payer_id;
-          if (data.data.insurance_type) updates.primary_plan_type = data.data.insurance_type;
-
-          updates.insurance_card_auto_filled = true;
-          updateFormData(updates);
-          setAutoFillSuccess(true);
-
-          setTimeout(() => {
-            setAutoFillSuccess(false);
-          }, 5000);
-        }
-      } catch (error) {
-        console.error('Error processing insurance card:', error);
-      }
-    }
-  };
 
   // Wound location options
   const woundLocations = [
@@ -854,62 +794,6 @@ export default function Step4ClinicalBilling({
           </div>
         </div>
       </div>
-
-      {/* Document Upload Section */}
-      <DocumentUploadCard
-        title="Document Upload"
-        description="Upload insurance cards, clinical notes, demographics, and other supporting documents"
-        onDocumentsChange={async (documents) => {
-          // Handle document uploads
-          const updates: any = {};
-          
-          for (const doc of documents) {
-            if (doc.type === 'insurance_card') {
-              // Process insurance cards with OCR
-              if (doc.files.primary?.file) {
-                await handleInsuranceCardUpload(doc.files.primary.file, 'front');
-              }
-              if (doc.files.secondary?.file) {
-                await handleInsuranceCardUpload(doc.files.secondary.file, 'back');
-              }
-            } else if (doc.type === 'demographics') {
-              updates.face_sheet = doc.files.primary?.file;
-            } else if (doc.type === 'clinical_notes') {
-              updates.clinical_notes = doc.files.primary?.file;
-            } else if (doc.type === 'other') {
-              updates.wound_photo = doc.files.primary?.file;
-            }
-          }
-          
-          updateFormData(updates);
-        }}
-        onInsuranceDataExtracted={(data) => {
-          // Handle extracted insurance data
-          if (data) {
-            const updates: any = {};
-            
-            // Patient information
-            if (data.patient_first_name) updates.patient_first_name = data.patient_first_name;
-            if (data.patient_last_name) updates.patient_last_name = data.patient_last_name;
-            if (data.patient_dob) updates.patient_dob = data.patient_dob;
-            if (data.patient_member_id) updates.patient_member_id = data.patient_member_id;
-            
-            // Insurance information
-            if (data.payer_name) updates.primary_insurance_name = data.payer_name;
-            if (data.payer_id) updates.primary_member_id = data.payer_id;
-            if (data.insurance_type) updates.primary_plan_type = data.insurance_type;
-            
-            updates.insurance_card_auto_filled = true;
-            updateFormData(updates);
-            setAutoFillSuccess(true);
-            
-            setTimeout(() => {
-              setAutoFillSuccess(false);
-            }, 5000);
-          }
-        }}
-        className="mt-6"
-      />
     </div>
   );
 }
