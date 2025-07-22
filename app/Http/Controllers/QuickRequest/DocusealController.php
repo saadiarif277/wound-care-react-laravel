@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * DocusealController - Handles DocuSeal integration for Quick Request workflow
- * 
- * This controller is responsible for all DocuSeal operations within the 
+ *
+ * This controller is responsible for all DocuSeal operations within the
  * Quick Request flow, using the new clean architecture with:
  * - Manufacturer configs as single source of truth
  * - EntityDataService for role-based data extraction
@@ -45,7 +45,7 @@ class DocusealController extends Controller
                 'episode_id_value' => $request->input('episode_id', 'not_present'),
                 'full_request' => $request->all()
             ]);
-            
+
             $validationRules = [
                 'user_email' => 'required|email',
                 'integration_email' => 'nullable|email',
@@ -56,10 +56,10 @@ class DocusealController extends Controller
                 'documentType' => 'nullable|string|in:IVR,OrderForm',
                 'episode_id' => 'nullable|integer',
             ];
-            
+
             // Validate the request
             $validated = $request->validate($validationRules);
-            
+
             // Create data array with all fields, using null for missing nullable fields
             $data = [
                 'user_email' => $validated['user_email'],
@@ -94,7 +94,7 @@ class DocusealController extends Controller
                 ]);
                 throw $e;
             }
-            
+
             // DEBUG: Log extracted data
             Log::warning('DEBUG - DocuSeal extraction results', [
                 'manufacturer' => $manufacturer->name,
@@ -232,7 +232,7 @@ class DocusealController extends Controller
             $metadata = $episode->metadata ?? [];
             $metadata['docuseal_submission_id'] = $validated['submission_id'];
             $metadata['docuseal_completed_at'] = now()->toISOString();
-            
+
             if (!empty($validated['completion_data'])) {
                 $metadata['docuseal_completion_data'] = $validated['completion_data'];
             }
@@ -275,8 +275,8 @@ class DocusealController extends Controller
     /**
      * Create DocuSeal submission for Quick Request workflow
      * POST /api/v1/quick-request/docuseal/test-mapping
-     * 
-     * This endpoint creates actual DocuSeal submissions for the new 
+     *
+     * This endpoint creates actual DocuSeal submissions for the new
      * DocusealEmbed component, following clean architecture principles
      */
     public function testFieldMapping(Request $request): JsonResponse
@@ -291,11 +291,11 @@ class DocusealController extends Controller
                 'formData' => 'required|array',
                 'episode_id' => 'nullable|integer'
             ]);
-            
+
             // Extract data
             $manufacturer = Manufacturer::find($validated['manufacturerId']);
             $episodeId = $validated['episode_id'] ?? null;
-            
+
             // Determine template ID
             $templateId = $validated['templateId'] ?? $manufacturer->docuseal_template_id;
             if (!$templateId) {
@@ -304,7 +304,7 @@ class DocusealController extends Controller
                     'error' => 'No DocuSeal template configured for this manufacturer'
                 ], 422);
             }
-            
+
             // Prepare data for DocuSeal submission
             $submissionData = [
                 'user_email' => $validated['formData']['patient_email'] ?? 'noreply@mscwoundcare.com',
@@ -316,10 +316,10 @@ class DocusealController extends Controller
                 'documentType' => $validated['documentType'],
                 'episode_id' => $episodeId
             ];
-            
+
             // Extract and transform data using clean services
             $extractedData = $this->extractDataForDocuseal($submissionData, $manufacturer);
-            
+
             // Log extracted data for debugging
             Log::info('DocuSeal field extraction complete', [
                 'manufacturer' => $manufacturer->name,
@@ -327,7 +327,7 @@ class DocusealController extends Controller
                 'extracted_field_count' => count($extractedData),
                 'extracted_fields' => array_keys($extractedData),
             ]);
-            
+
             // Create DocuSeal submission using the service
             $result = $this->docusealService->createSubmissionForQuickRequest(
                 $templateId,
@@ -337,7 +337,7 @@ class DocusealController extends Controller
                 $extractedData,
                 $episodeId
             );
-            
+
             // Calculate field coverage analytics
             if (isset($result['data']['field_analytics'])) {
                 $analytics = $result['data']['field_analytics'];
@@ -350,7 +350,7 @@ class DocusealController extends Controller
                     'missing_fields' => $analytics['missing_fields'] ?? []
                 ]);
             }
-            
+
             if (!$result['success']) {
                 return response()->json([
                     'success' => false,
@@ -358,9 +358,9 @@ class DocusealController extends Controller
                     'message' => $result['message'] ?? null
                 ], 422);
             }
-            
+
             $submission = $result['data'];
-            
+
             // Log successful submission
             Log::info('DocuSeal submission created via Quick Request', [
                 'submission_id' => $submission['submission_id'] ?? null,
@@ -369,7 +369,7 @@ class DocusealController extends Controller
                 'document_type' => $validated['documentType'],
                 'episode_id' => $episodeId
             ]);
-            
+
             // Return response matching what DocusealEmbed expects
             return response()->json([
                 'success' => true,
@@ -382,7 +382,7 @@ class DocusealController extends Controller
                 'ai_confidence' => $result['ai_confidence'] ?? 0.0,
                 'mapping_method' => $result['mapping_method'] ?? 'config_based'
             ]);
-            
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -395,11 +395,33 @@ class DocusealController extends Controller
                 'trace' => $e->getTraceAsString(),
                 'request_data' => $request->except(['formData'])
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to create submission',
                 'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Debug template fields for troubleshooting
+     */
+    public function debugTemplateFields(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'templateId' => 'required|string'
+            ]);
+
+            $result = $this->docusealService->debugTemplateFields($validated['templateId']);
+
+            return response()->json($result);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -418,29 +440,29 @@ class DocusealController extends Controller
 
         // Otherwise, get from manufacturer config using UnifiedFieldMappingService
         $documentType = $data['documentType'] ?? 'IVR';
-        
+
         try {
             $mappingService = app(\App\Services\UnifiedFieldMappingService::class);
             $manufacturerConfig = $mappingService->getManufacturerConfig($manufacturer->name, $documentType);
-            
+
             if ($manufacturerConfig && isset($manufacturerConfig['docuseal_template_id'])) {
                 return (string) $manufacturerConfig['docuseal_template_id'];
             }
-            
+
             Log::warning('No template ID found in manufacturer config', [
                 'manufacturer' => $manufacturer->name,
                 'document_type' => $documentType
             ]);
-            
+
             return null;
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to get template ID from config', [
-                'manufacturer' => $manufacturer->name, 
+                'manufacturer' => $manufacturer->name,
                 'document_type' => $documentType,
                 'error' => $e->getMessage()
             ]);
-            
+
             return null;
         }
     }
@@ -458,7 +480,7 @@ class DocusealController extends Controller
             ]);
             unset($data['prefill_data']['manufacturer_fields']);
         }
-        
+
         // Log incoming data for debugging
         Log::info('DocuSeal data extraction starting', [
             'has_episode_id' => isset($data['episode_id']) && !empty($data['episode_id']),
@@ -480,29 +502,29 @@ class DocusealController extends Controller
 
             // Use DataExtractor for episode-based extraction
             $extractedData = $this->dataExtractor->extractEpisodeData($episode->id);
-            
+
             Log::info('Used targeted extraction for episode', [
                 'episode_id' => $episode->id,
                 'extracted_fields' => count($extractedData),
             ]);
-            
+
             return $extractedData;
         } else {
             // No episode - extract data from IDs
             // Pass manufacturer_id in the prefill_data so the orchestrator can filter properly
             $dataWithManufacturer = $data['prefill_data'];
             $dataWithManufacturer['manufacturer_id'] = $manufacturer->id;
-            
+
             // Use DataExtractionService for ID-based extraction
             $context = [
                 'provider_id' => $dataWithManufacturer['provider_id'] ?? null,
                 'facility_id' => $dataWithManufacturer['facility_id'] ?? null,
                 'manufacturer_id' => $manufacturer->id,
             ];
-            
+
             // Add all form data to context for direct field extraction
             $context = array_merge($context, $dataWithManufacturer);
-            
+
             // Ensure patient data is properly extracted from both flat and nested structures
             if (isset($dataWithManufacturer['patient']) && is_array($dataWithManufacturer['patient'])) {
                 // Extract nested patient data and flatten it
@@ -511,16 +533,16 @@ class DocusealController extends Controller
                     $context['patient_' . $key] = $value;
                 }
             }
-            
+
             // Ensure patient_name is computed if we have first and last names
-            if (!isset($context['patient_name']) && 
+            if (!isset($context['patient_name']) &&
                 (isset($context['patient_first_name']) || isset($context['patient_last_name']))) {
                 $context['patient_name'] = trim(
-                    ($context['patient_first_name'] ?? '') . ' ' . 
+                    ($context['patient_first_name'] ?? '') . ' ' .
                     ($context['patient_last_name'] ?? '')
                 );
             }
-            
+
             // Handle place_of_service field specially
             if (isset($context['place_of_service'])) {
                 // If it's an array, find the selected value
@@ -538,7 +560,7 @@ class DocusealController extends Controller
                     }
                 }
             }
-            
+
             Log::info('Extracting data for DocuSeal with context', [
                 'provider_id' => $context['provider_id'],
                 'facility_id' => $context['facility_id'],
@@ -546,9 +568,9 @@ class DocusealController extends Controller
                 'has_episode' => false,
                 'form_data_keys' => array_keys($dataWithManufacturer)
             ]);
-            
+
             $extractedData = $this->dataExtractionService->extractData($context);
-            
+
             // Log extraction results
             Log::info('Data extraction completed', [
                 'extracted_fields_count' => count($extractedData),
@@ -557,14 +579,14 @@ class DocusealController extends Controller
                 'has_provider_data' => isset($extractedData['provider_name']),
                 'provider_name' => $extractedData['provider_name'] ?? 'not extracted'
             ]);
-            
+
             Log::info('Used ID-based extraction (no episode)', [
                 'manufacturer_id' => $manufacturer->id,
                 'manufacturer_name' => $manufacturer->name,
                 'extracted_fields' => count($extractedData),
                 'sample_fields' => array_slice(array_keys($extractedData), 0, 10)
             ]);
-            
+
             return $extractedData;
         }
     }

@@ -461,26 +461,73 @@ class DocusealService
                 'template_keys' => array_keys($template ?? [])
             ]);
 
-            // Extract fields from template documents
-            if (isset($template['documents']) && is_array($template['documents'])) {
-                foreach ($template['documents'] as $document) {
-                    if (isset($document['fields']) && is_array($document['fields'])) {
-                        foreach ($document['fields'] as $field) {
-                            $fieldName = $field['name'] ?? '';
-                            if (!empty($fieldName)) {
-                                $fields[$fieldName] = [
-                                    'id' => $field['uuid'] ?? $fieldName,
-                                    'type' => $field['type'] ?? 'text',
-                                    'label' => $field['title'] ?? $fieldName,
-                                    'required' => $field['required'] ?? false,
-                                    'options' => $field['options'] ?? [],
-                                    'submitter' => $field['submitter_uuid'] ?? null,
-                                    'areas' => $field['areas'] ?? []
-                                ];
+            // Try different possible field locations in the template response
+            $fieldSources = [
+                'documents' => $template['documents'] ?? [],
+                'fields' => $template['fields'] ?? [],
+                'schema' => $template['schema'] ?? [],
+                'form' => $template['form'] ?? [],
+                'data' => $template['data'] ?? []
+            ];
+
+            foreach ($fieldSources as $sourceName => $sourceData) {
+                if (!empty($sourceData)) {
+                    Log::info("Processing fields from source: {$sourceName}", [
+                        'template_id' => $templateId,
+                        'source_type' => gettype($sourceData),
+                        'source_count' => is_array($sourceData) ? count($sourceData) : 'not_array'
+                    ]);
+
+                    // Handle different field structures
+                    if (is_array($sourceData)) {
+                        foreach ($sourceData as $item) {
+                            if (is_array($item)) {
+                                // Extract fields from document structure
+                                if (isset($item['fields']) && is_array($item['fields'])) {
+                                    foreach ($item['fields'] as $field) {
+                                        $fieldName = $field['name'] ?? $field['title'] ?? $field['label'] ?? '';
+                                        if (!empty($fieldName)) {
+                                            $fields[$fieldName] = [
+                                                'id' => $field['uuid'] ?? $field['id'] ?? $fieldName,
+                                                'type' => $field['type'] ?? 'text',
+                                                'label' => $field['title'] ?? $field['label'] ?? $fieldName,
+                                                'required' => $field['required'] ?? false,
+                                                'options' => $field['options'] ?? [],
+                                                'submitter' => $field['submitter_uuid'] ?? null,
+                                                'areas' => $field['areas'] ?? []
+                                            ];
+                                        }
+                                    }
+                                } elseif (isset($item['name']) || isset($item['title']) || isset($item['label'])) {
+                                    // Direct field object
+                                    $fieldName = $item['name'] ?? $item['title'] ?? $item['label'] ?? '';
+                                    if (!empty($fieldName)) {
+                                        $fields[$fieldName] = [
+                                            'id' => $item['uuid'] ?? $item['id'] ?? $fieldName,
+                                            'type' => $item['type'] ?? 'text',
+                                            'label' => $item['title'] ?? $item['label'] ?? $fieldName,
+                                            'required' => $item['required'] ?? false,
+                                            'options' => $item['options'] ?? [],
+                                            'submitter' => $item['submitter_uuid'] ?? null,
+                                            'areas' => $item['areas'] ?? []
+                                        ];
+                                    }
+                                }
                             }
                         }
                     }
                 }
+            }
+
+            // If we still don't have fields, try a different approach
+            if (empty($fields)) {
+                Log::warning('No fields found in template, trying alternative approach', [
+                    'template_id' => $templateId,
+                    'template_structure' => array_keys($template ?? [])
+                ]);
+
+                // Try to extract fields from the entire template structure
+                $this->extractFieldsRecursively($template, $fields);
             }
 
             // Cache the fields for future use
@@ -497,9 +544,42 @@ class DocusealService
         } catch (\Exception $e) {
             Log::error('Error getting template fields from Docuseal', [
                 'template_id' => $templateId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             return [];
+        }
+    }
+
+    /**
+     * Recursively extract fields from template structure
+     */
+    private function extractFieldsRecursively($data, &$fields, $path = '') {
+        if (is_array($data)) {
+            foreach ($data as $key => $value) {
+                $currentPath = $path ? "{$path}.{$key}" : $key;
+
+                if ($key === 'fields' && is_array($value)) {
+                    foreach ($value as $field) {
+                        if (is_array($field) && (isset($field['name']) || isset($field['title']) || isset($field['label']))) {
+                            $fieldName = $field['name'] ?? $field['title'] ?? $field['label'] ?? '';
+                            if (!empty($fieldName)) {
+                                $fields[$fieldName] = [
+                                    'id' => $field['uuid'] ?? $field['id'] ?? $fieldName,
+                                    'type' => $field['type'] ?? 'text',
+                                    'label' => $field['title'] ?? $field['label'] ?? $fieldName,
+                                    'required' => $field['required'] ?? false,
+                                    'options' => $field['options'] ?? [],
+                                    'submitter' => $field['submitter_uuid'] ?? null,
+                                    'areas' => $field['areas'] ?? []
+                                ];
+                            }
+                        }
+                    }
+                } else {
+                    $this->extractFieldsRecursively($value, $fields, $currentPath);
+                }
+            }
         }
     }
 
@@ -745,11 +825,11 @@ class DocusealService
                 'name' => $key,
                 'value' => $value
             ];
-            
+
             if (!empty($templateFields[$key]['id'])) {
                 $fieldEntry['uuid'] = $templateFields[$key]['id'];
             }
-            
+
             $DocusealFields[] = $fieldEntry;
 
             Log::debug('Prepared Docuseal field', [
@@ -1227,7 +1307,7 @@ class DocusealService
             'place_of_service' => $prefillData['place_of_service'] ?? 'not set',
             'all_data' => $prefillData // Log all data for debugging
         ]);
-        
+
         // Check if data is already mapped (from QuickRequestOrchestrator)
         // Mapped fields have proper DocuSeal field names with spaces and proper capitalization
         $isAlreadyMapped = false;
@@ -1235,14 +1315,14 @@ class DocusealService
         foreach ($sampleKeys as $key) {
             // DocuSeal field names have spaces and proper capitalization
             // Raw database fields use underscores and lowercase
-            if (str_contains($key, ' ') || 
+            if (str_contains($key, ' ') ||
                 preg_match('/[A-Z]/', $key) || // Has uppercase letters (DocuSeal fields)
                 in_array($key, ['Name', 'Email', 'Phone'])) { // Common DocuSeal fields
                 $isAlreadyMapped = true;
                 break;
             }
         }
-        
+
         // Additional check: raw database fields that should NOT be considered as mapped
         $rawDatabaseFields = ['provider_id', 'facility_id', 'patient_id', 'organization_id', 'manufacturer_id'];
         foreach ($rawDatabaseFields as $rawField) {
@@ -1251,7 +1331,7 @@ class DocusealService
                 break;
             }
         }
-        
+
         Log::warning('=== DocusealService FIELD MAPPING ANALYSIS ===', [
             'template_id' => $templateId,
             'is_already_mapped' => $isAlreadyMapped,
@@ -1271,22 +1351,22 @@ class DocusealService
                     'field_count' => count($prefillData),
                     'sample_fields' => array_slice(array_keys($prefillData), 0, 10)
                 ]);
-                
+
                 // Find manufacturer for metadata
                 $manufacturerName = $this->findManufacturerByTemplateId($templateId);
-                
+
                 // Filter out empty values and format for DocuSeal
                 $docusealFields = array_filter($prefillData, function($value) {
                     return $value !== null && $value !== '';
                 });
-                
+
                 // Convert boolean values to lowercase "true"/"false" strings for DocuSeal checkboxes
                 foreach ($docusealFields as $key => $value) {
                     if (is_bool($value)) {
                         $docusealFields[$key] = $value ? 'true' : 'false';
                     }
                 }
-                
+
                 Log::warning('=== ALREADY MAPPED DATA - Sending to DocuSeal ===', [
                     'template_id' => $templateId,
                     'manufacturer' => $manufacturerName ?? 'Unknown',
@@ -1294,21 +1374,21 @@ class DocusealService
                     'field_names' => array_keys($docusealFields),
                     'sample_fields' => array_slice($docusealFields, 0, 10, true)
                 ]);
-                
+
                 return $this->createDocusealSubmission(
-                    $templateId, 
-                    $docusealFields, 
-                    $integrationEmail, 
-                    $submitterEmail, 
-                    $submitterName, 
-                    $episodeId, 
-                    $manufacturerName ?? 'Unknown', 
-                    false, 
-                    1.0, 
+                    $templateId,
+                    $docusealFields,
+                    $integrationEmail,
+                    $submitterEmail,
+                    $submitterName,
+                    $episodeId,
+                    $manufacturerName ?? 'Unknown',
+                    false,
+                    1.0,
                     'orchestrator_mapped'
                 );
             }
-            
+
             // Find manufacturer by template ID
             $manufacturerName = $this->findManufacturerByTemplateId($templateId);
 
@@ -1410,8 +1490,124 @@ class DocusealService
         float $aiConfidence,
         string $mappingMethod
     ): array {
+        // Final safety check: if no valid fields, return error
+        if (empty($docusealFields)) {
+            Log::warning('No valid fields to send to DocuSeal', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName
+            ]);
+
+            // Try to create a submission without any fields
+            Log::info('Attempting to create DocuSeal submission without field mapping', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName
+            ]);
+
+            // Create submission with empty fields array
+            $emptyFieldsArray = [];
+
+            $submissionData = [
+                'template_id' => $templateId,
+                'send_email' => false,
+                'metadata' => [
+                    'source' => 'quick_request',
+                    'episode_id' => $episodeId,
+                    'created_at' => now()->toIso8601String(),
+                    'submitter_email' => $submitterEmail,
+                    'integration_email' => $integrationEmail,
+                    'manufacturer' => $manufacturerName,
+                    'mapping_method' => 'no_fields_available',
+                    'ai_mapping_used' => false,
+                    'ai_confidence' => 0.0,
+                ],
+                'submitters' => [
+                    [
+                        'name' => $submitterName,
+                        'email' => $submitterEmail,
+                        'role' => 'First Party',
+                        'fields' => $emptyFieldsArray
+                    ]
+                ]
+            ];
+
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post("{$this->apiUrl}/submissions", $submissionData);
+
+            if (!$response->successful()) {
+                $errorBody = $response->json();
+                $errorMessage = 'Failed to create DocuSeal submission without fields';
+
+                if (isset($errorBody['error'])) {
+                    $errorMessage .= ': ' . $errorBody['error'];
+                }
+
+                Log::error('Failed to create DocuSeal submission without fields', [
+                    'template_id' => $templateId,
+                    'status' => $response->status(),
+                    'error' => $errorBody
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => $errorMessage,
+                    'message' => 'Template field validation failed and fallback submission also failed'
+                ];
+            }
+
+            $result = $response->json();
+            $submissionData = $result[0] ?? $result;
+            $submissionId = $submissionData['submission_id'] ?? null;
+            $slug = $submissionData['slug'] ?? null;
+
+            if (!$slug) {
+                return [
+                    'success' => false,
+                    'error' => 'No submission slug returned',
+                    'message' => 'DocuSeal submission created but no slug available'
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => [
+                    'submission_id' => $submissionId,
+                    'slug' => $slug,
+                    'template_id' => $templateId
+                ],
+                'ai_mapping_used' => false,
+                'ai_confidence' => 0.0,
+                'mapping_method' => 'no_fields_available'
+            ];
+        }
+
         // Convert fields to DocuSeal fields array format (NOT values object)
         $docusealFieldsArray = $this->convertToDocusealFieldsArray($docusealFields);
+
+        // Additional validation: ensure no empty field names
+        $validFieldsArray = [];
+        foreach ($docusealFieldsArray as $field) {
+            if (!empty($field['name']) && trim($field['name']) !== '') {
+                $validFieldsArray[] = $field;
+            } else {
+                Log::warning('Skipping field with empty name', [
+                    'field' => $field,
+                    'template_id' => $templateId
+                ]);
+            }
+        }
+
+        // If we have no valid fields, try to proceed with empty fields rather than failing
+        if (empty($validFieldsArray)) {
+            Log::warning('No valid fields after name validation, proceeding with empty fields', [
+                'template_id' => $templateId,
+                'original_count' => count($docusealFieldsArray)
+            ]);
+            $validFieldsArray = []; // Use empty array instead of failing
+        }
+
+        $docusealFieldsArray = $validFieldsArray;
 
         Log::info('Preparing DocuSeal submission data', [
             'template_id' => $templateId,
@@ -1469,22 +1665,33 @@ class DocusealService
             $errorBody = $response->json();
             $errorMessage = 'Failed to create DocuSeal submission';
 
+            // Enhanced error message extraction
             if (isset($errorBody['error'])) {
                 $errorMessage .= ': ' . $errorBody['error'];
             } elseif (isset($errorBody['message'])) {
                 $errorMessage .= ': ' . $errorBody['message'];
+            } elseif (isset($errorBody['errors'])) {
+                // Handle validation errors
+                $validationErrors = [];
+                foreach ($errorBody['errors'] as $field => $errors) {
+                    $validationErrors[] = "$field: " . implode(', ', $errors);
+                }
+                $errorMessage .= ': ' . implode('; ', $validationErrors);
             } else {
                 $errorMessage .= ': HTTP ' . $response->status();
             }
 
+            // Log detailed error information
             Log::error('DocuSeal API error', [
                 'template_id' => $templateId,
                 'manufacturer' => $manufacturerName,
                 'status' => $response->status(),
-                'error' => $errorBody,
+                'error_body' => $errorBody,
                 'fields_count' => count($docusealFields),
+                'field_names' => array_keys($docusealFields),
                 'mapping_method' => $mappingMethod,
-                'sample_values' => array_slice($this->convertFieldsToDocusealValues($docusealFields), 0, 5) // Log sample converted values
+                'sample_fields' => array_slice($docusealFields, 0, 5, true),
+                'converted_fields' => array_slice($docusealFieldsArray, 0, 5)
             ]);
 
             throw new \Exception($errorMessage);
@@ -1596,7 +1803,7 @@ class DocusealService
                     'available_mappings' => count($fieldMappings),
                     'mapping_fields' => array_keys($fieldMappings)
                 ]);
-                
+
                 // DEBUG: Log input data keys to see what we're working with
                 Log::warning('DEBUG - transformQuickRequestData input analysis', [
                     'manufacturer' => $manufacturerName,
@@ -1605,10 +1812,10 @@ class DocusealService
                     'sample_input_data' => array_slice($prefillData, 0, 10, true)
                 ]);
 
-                // Apply manufacturer-specific field mappings
+                                // Apply manufacturer-specific field mappings
                 $matchedFields = [];
                 $missedFields = [];
-                
+
                 foreach ($fieldMappings as $canonicalField => $docusealField) {
                     if (isset($prefillData[$canonicalField]) && $prefillData[$canonicalField] !== null && $prefillData[$canonicalField] !== '') {
                         $value = $prefillData[$canonicalField];
@@ -1618,13 +1825,31 @@ class DocusealService
                             $value = $value ? 'true' : 'false';
                         }
 
+                        // Debug: Log each field mapping
+                        Log::debug('Mapping field', [
+                            'canonical_field' => $canonicalField,
+                            'docuseal_field' => $docusealField,
+                            'value' => $value
+                        ]);
+
+                        // Skip fields that don't exist in template (if we have template fields)
+                        if (!empty($templateFields) && !isset($templateFields[$docusealField])) {
+                            $missedFields[] = $docusealField;
+                            Log::debug('Skipping field not found in template (manufacturer mapping)', [
+                                'field_name' => $docusealField,
+                                'template_id' => $templateId,
+                                'available_fields' => array_keys($templateFields)
+                            ]);
+                            continue; // Skip this field and continue with next
+                        }
+
                         $docusealFields[$docusealField] = $value;
                         $matchedFields[$canonicalField] = $docusealField;
                     } else {
                         $missedFields[] = $canonicalField;
                     }
                 }
-                
+
                 // DEBUG: Log field matching results
                 Log::warning('DEBUG - Field mapping results in transformQuickRequestData', [
                     'manufacturer' => $manufacturerName,
@@ -1652,7 +1877,10 @@ class DocusealService
                     'template_id' => $templateId,
                     'input_fields' => count($prefillData),
                     'output_fields' => count($docusealFields),
-                    'mapped_fields' => array_keys($docusealFields)
+                    'mapped_fields' => array_keys($docusealFields),
+                    'skipped_fields' => $missedFields,
+                    'skipped_count' => count($missedFields),
+                    'success_rate' => count($matchedFields) > 0 ? round((count($matchedFields) / (count($matchedFields) + count($missedFields))) * 100, 1) : 0
                 ]);
 
                 return $docusealFields;
@@ -1720,7 +1948,67 @@ class DocusealService
             'hospice_status' => 'Hospice Status',
         ];
 
-        // Apply field mappings
+        // Get template fields to validate field names
+        $templateFields = [];
+        try {
+            $templateFields = $this->getTemplateFieldsFromAPI($templateId);
+            Log::info('Retrieved template fields for validation', [
+                'template_id' => $templateId,
+                'field_count' => count($templateFields),
+                'field_names' => array_keys($templateFields)
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to get template fields, proceeding without validation', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        // If we can't get template fields, skip field mapping to avoid errors
+        if (empty($templateFields)) {
+            Log::warning('No template fields available, skipping field mapping to avoid errors', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName
+            ]);
+
+            // Return minimal fields to avoid the "Unknown field" error
+            // Only include basic fields that are likely to exist in most templates
+            $minimalFields = [];
+
+            // Try to include only the most basic fields that are likely to exist
+            if (isset($prefillData['patient_name'])) {
+                $minimalFields['Patient Name'] = $prefillData['patient_name'];
+            }
+            if (isset($prefillData['provider_name'])) {
+                $minimalFields['Provider Name'] = $prefillData['provider_name'];
+            }
+            if (isset($prefillData['facility_name'])) {
+                $minimalFields['Facility Name'] = $prefillData['facility_name'];
+            }
+
+            Log::info('Using minimal field mapping due to template field retrieval failure', [
+                'template_id' => $templateId,
+                'minimal_fields_count' => count($minimalFields),
+                'minimal_fields' => array_keys($minimalFields)
+            ]);
+
+            return $minimalFields;
+        }
+
+        // Debug: Log the input data to see what we're working with
+        Log::warning('DEBUG - transformQuickRequestData input data', [
+            'template_id' => $templateId,
+            'manufacturer' => $manufacturerName,
+            'input_data_keys' => array_keys($prefillData),
+            'input_data_sample' => array_slice($prefillData, 0, 10, true),
+            'template_fields_available' => !empty($templateFields),
+            'template_field_count' => count($templateFields)
+        ]);
+
+        // Apply field mappings with validation
+        $validFields = [];
+        $invalidFields = [];
+
         foreach ($fieldMappings as $sourceKey => $targetKey) {
             if (isset($prefillData[$sourceKey]) && $prefillData[$sourceKey] !== null && $prefillData[$sourceKey] !== '') {
                 $value = $prefillData[$sourceKey];
@@ -1730,17 +2018,88 @@ class DocusealService
                     $value = $value ? 'true' : 'false';
                 }
 
+                // Skip fields that don't exist in template (if we have template fields)
+                if (!empty($templateFields) && !isset($templateFields[$targetKey])) {
+                    $invalidFields[] = $targetKey;
+                    Log::debug('Skipping field not found in template', [
+                        'field_name' => $targetKey,
+                        'template_id' => $templateId,
+                        'available_fields' => array_keys($templateFields)
+                    ]);
+                    continue; // Skip this field and continue with next
+                }
+
                 $docusealFields[$targetKey] = $value;
+                $validFields[] = $targetKey;
             }
         }
 
-        // Handle special field transformations
+        Log::info('Field mapping validation results', [
+            'template_id' => $templateId,
+            'valid_fields' => $validFields,
+            'invalid_fields' => $invalidFields,
+            'total_mapped' => count($docusealFields),
+            'skipped_count' => count($invalidFields),
+            'success_rate' => count($validFields) > 0 ? round((count($validFields) / (count($validFields) + count($invalidFields))) * 100, 1) : 0
+        ]);
+
+        // Debug: Log the final fields being sent to DocuSeal
+        Log::warning('DEBUG - Final DocuSeal fields being sent', [
+            'template_id' => $templateId,
+            'field_count' => count($docusealFields),
+            'all_field_names' => array_keys($docusealFields),
+            'field_values_sample' => array_slice($docusealFields, 0, 5, true),
+            'skipped_fields' => $invalidFields
+        ]);
+
+        // Additional safety check: if we have template fields, only send fields that exist
+        if (!empty($templateFields) && !empty($docusealFields)) {
+            $filteredFields = [];
+            $excludedFields = [];
+
+            foreach ($docusealFields as $fieldName => $fieldValue) {
+                if (isset($templateFields[$fieldName])) {
+                    $filteredFields[$fieldName] = $fieldValue;
+                } else {
+                    $excludedFields[] = $fieldName;
+                    Log::warning('Excluding field not found in template', [
+                        'field_name' => $fieldName,
+                        'template_id' => $templateId
+                    ]);
+                }
+            }
+
+            Log::info('Field filtering results', [
+                'original_count' => count($docusealFields),
+                'filtered_count' => count($filteredFields),
+                'excluded_count' => count($excludedFields),
+                'excluded_fields' => $excludedFields
+            ]);
+
+            $docusealFields = $filteredFields;
+        }
+
+        // Handle special field transformations with validation
         if (isset($prefillData['product_details_text'])) {
-            $docusealFields['Product Details'] = $prefillData['product_details_text'];
+            if (empty($templateFields) || isset($templateFields['Product Details'])) {
+                $docusealFields['Product Details'] = $prefillData['product_details_text'];
+            } else {
+                Log::debug('Skipping Product Details field not found in template', [
+                    'template_id' => $templateId,
+                    'available_fields' => array_keys($templateFields)
+                ]);
+            }
         }
 
         if (isset($prefillData['diagnosis_codes_display'])) {
-            $docusealFields['Diagnosis Codes'] = $prefillData['diagnosis_codes_display'];
+            if (empty($templateFields) || isset($templateFields['Diagnosis Codes'])) {
+                $docusealFields['Diagnosis Codes'] = $prefillData['diagnosis_codes_display'];
+            } else {
+                Log::debug('Skipping Diagnosis Codes field not found in template', [
+                    'template_id' => $templateId,
+                    'available_fields' => array_keys($templateFields)
+                ]);
+            }
         }
 
         // Skip manufacturer_fields in fallback mapping
@@ -2263,5 +2622,50 @@ class DocusealService
         }
 
         return $fieldsArray;
+    }
+
+    /**
+     * Debug method to test template field retrieval
+     */
+    public function debugTemplateFields(string $templateId): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->get("{$this->apiUrl}/templates/{$templateId}");
+
+            if (!$response->successful()) {
+                return [
+                    'success' => false,
+                    'error' => 'Failed to get template',
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ];
+            }
+
+            $template = $response->json();
+
+            // Log the entire template structure for debugging
+            Log::warning('DEBUG - Full template structure', [
+                'template_id' => $templateId,
+                'template_keys' => array_keys($template ?? []),
+                'template_structure' => $template
+            ]);
+
+            return [
+                'success' => true,
+                'template_id' => $templateId,
+                'template_keys' => array_keys($template ?? []),
+                'template_structure' => $template
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ];
+        }
     }
 }

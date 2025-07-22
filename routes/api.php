@@ -849,7 +849,7 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
     // Docuseal Builder Token
     Route::post('docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
         ->middleware('permission:create-product-requests');
-        
+
     // Docuseal Test Mapping - for debugging field mappings (restored full auth)
     Route::post('docuseal/test-mapping', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'testFieldMapping'])
         ->middleware(['auth:sanctum', 'permission:create-product-requests'])
@@ -890,3 +890,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/order-status/remove-document', [App\Http\Controllers\Api\OrderStatusController::class, 'removeDocument']);
 });
 // Fallback Route for 404 API requests
+
+// DocuSeal debug route
+Route::post('/v1/quick-request/docuseal/debug-template', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'debugTemplateFields']);

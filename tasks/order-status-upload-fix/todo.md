@@ -73,6 +73,17 @@ Fix the file upload functionality in the Status Upload modal and ensure order st
 3. **Fixed facility name display**: Ensured facility name is properly displayed even when relationship is null
 4. **Added debug logging**: Added logging to track relationship loading issues
 
+### Backend (DocusealService.php)
+1. **Fixed field validation**: Added template field validation to prevent "Unknown field" errors
+2. **Enhanced error handling**: Improved error message extraction and logging for better debugging
+3. **Added field filtering**: Only include fields that exist in the DocuSeal template
+4. **Added validation logging**: Log which fields are valid/invalid for debugging
+5. **Added safety checks**: Skip field mapping if template fields are not available
+6. **Added empty field validation**: Prevent sending fields with empty names
+7. **Added comprehensive filtering**: Double-check all fields against template before sending
+8. **Made field validation permissive**: Skip invalid fields and continue with valid ones instead of failing completely
+9. **Enhanced logging**: Added success rate calculations and detailed field skipping information
+
 ## Review
 
 The main issues were:
@@ -84,6 +95,7 @@ The main issues were:
 4. **Database Column Issue**: The code was trying to insert `facility_id` into the `patient_manufacturer_ivr_episodes` table, but this column doesn't exist.
 5. **Type Mismatch Issue**: The NotificationHandler was expecting an `Episode` model but receiving a `PatientManufacturerIVREpisode` model.
 6. **Order Details Page Issue**: The order details page was showing "Error Loading Order Details" because the frontend expected data in a different structure than what the backend was sending.
+7. **DocuSeal Field Mapping Issue**: The DocuSeal service was trying to map fields that don't exist in the template, causing "Unknown field" errors.
 
 The fixes involved:
 1. **Frontend**: Using FormData to properly handle file uploads and including both `statusDocuments` and `notificationDocuments` in the request
@@ -94,5 +106,7 @@ The fixes involved:
 6. **Type Fix**: Updated NotificationHandler to use the correct model type
 7. **Data Structure Fix**: Merged order data properly for frontend compatibility
 8. **Provider/Facility Display Fix**: Improved data extraction from clinical summary and relationships
+9. **DocuSeal Field Validation**: Added template field validation to prevent unknown field errors
+10. **Enhanced Error Handling**: Improved error messages and logging for better debugging
 
-This resolves the file upload, order form status update, database column, type mismatch, and order details page issues. 
+This resolves the file upload, order form status update, database column, type mismatch, order details page, and DocuSeal field mapping issues. 
