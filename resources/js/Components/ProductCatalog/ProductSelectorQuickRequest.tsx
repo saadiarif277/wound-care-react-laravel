@@ -324,16 +324,19 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
       if (!product) return total;
 
       const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-      let unitPrice = pricePerUnit;
 
       if (item.size) {
         const sizeValue = parseFloat(item.size);
         if (!isNaN(sizeValue)) {
-          unitPrice = pricePerUnit * sizeValue;
+          // Total Coverage = units × size in sq cm
+          const totalCoverage = sizeValue * item.quantity;
+          // Total Price = total coverage × ASP
+          return total + (totalCoverage * pricePerUnit);
         }
       }
 
-      return total + (unitPrice * item.quantity);
+      // No size selected, fallback to base calculation
+      return total + (pricePerUnit * item.quantity);
     }, 0);
   };
 
@@ -729,14 +732,20 @@ const QuickRequestProductCard: React.FC<{
       if (product.size_specific_pricing) {
         for (const [label, data] of Object.entries(product.size_specific_pricing)) {
           if (data.area_cm2 === sizeValue) {
-            return data.effective_price * quantity;
+            // Total Coverage = units × size in sq cm
+            const totalCoverage = sizeValue * quantity;
+            // Total Price = total coverage × effective price
+            return totalCoverage * data.effective_price;
           }
         }
       }
 
       // Fallback to calculated price if no size-specific data
       const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-      return pricePerUnit * sizeValue * quantity;
+      // Total Coverage = units × size in sq cm
+      const totalCoverage = sizeValue * quantity;
+      // Total Price = total coverage × ASP
+      return totalCoverage * pricePerUnit;
     }
 
     // No size selected, return base price
@@ -814,10 +823,9 @@ const QuickRequestProductCard: React.FC<{
             <option value="">Select size...</option>
             {product.size_options.map(sizeLabel => {
               const sizeData = product.size_specific_pricing?.[sizeLabel];
-              const effectivePrice = sizeData?.effective_price || 0;
               return (
                 <option key={sizeLabel} value={sizeData?.area_cm2?.toString() || '0'}>
-                  {sizeData?.display_label || sizeLabel} - {formatPrice(effectivePrice)}
+                  {sizeData?.display_label || sizeLabel}
                 </option>
               );
             })}
@@ -842,38 +850,30 @@ const QuickRequestProductCard: React.FC<{
               // Try to find size-specific pricing data first
               let sizeData = null;
               let displayLabel = `${sizeNum} cm²`;
-              let effectivePrice = 0;
 
               if (product.size_specific_pricing) {
                 for (const [label, data] of Object.entries(product.size_specific_pricing)) {
                   if (data.area_cm2 === sizeNum) {
                     sizeData = data;
                     displayLabel = data.display_label;
-                    effectivePrice = data.effective_price;
                     break;
                   }
                 }
               }
 
-              // Fallback to calculated price if no size-specific data
-              if (!sizeData) {
-                const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-                effectivePrice = pricePerUnit * sizeNum;
-
-                // Try to find a label for this size in size_pricing
-                if (product.size_pricing) {
-                  for (const [label, area] of Object.entries(product.size_pricing)) {
-                    if (area === sizeNum) {
-                      displayLabel = label;
-                      break;
-                    }
+              // Try to find a label for this size in size_pricing
+              if (product.size_pricing) {
+                for (const [label, area] of Object.entries(product.size_pricing)) {
+                  if (area === sizeNum) {
+                    displayLabel = label;
+                    break;
                   }
                 }
               }
 
               return (
                 <option key={sizeStr} value={sizeStr}>
-                  {displayLabel} - {formatPrice(effectivePrice)}
+                  {displayLabel}
                 </option>
               );
             })}
@@ -906,14 +906,14 @@ const QuickRequestProductCard: React.FC<{
         />
       </div>
 
-      {/* Total Price Display */}
-      {roleRestrictions.can_see_order_totals && (
+      {/* Total Price Display - HIDDEN */}
+      {/* {roleRestrictions.can_see_order_totals && (
         <div className={`mb-3 p-2 ${t.glass.frost} rounded text-center`}>
           <span className={`text-sm font-semibold ${t.text.primary}`}>
             Total: {formatPrice(calculatePrice())}
           </span>
         </div>
-      )}
+      )} */}
 
       <button
         onClick={handleAddProduct}

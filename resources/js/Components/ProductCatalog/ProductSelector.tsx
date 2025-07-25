@@ -366,16 +366,19 @@ const ProductSelector: React.FC<Props> = ({
       if (!product) return total;
 
       const pricePerUnit = currentRoleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-      let unitPrice = pricePerUnit;
 
       if (item.size) {
         const sizeValue = parseFloat(item.size);
         if (!isNaN(sizeValue)) {
-          unitPrice = pricePerUnit * sizeValue;
+          // Total Coverage = units × size in sq cm
+          const totalCoverage = sizeValue * item.quantity;
+          // Total Price = total coverage × ASP
+          return total + (totalCoverage * pricePerUnit);
         }
       }
 
-      return total + (unitPrice * item.quantity);
+      // No size selected, fallback to base calculation
+      return total + (pricePerUnit * item.quantity);
     }, 0);
   };
 
@@ -818,7 +821,10 @@ const ProductCard: React.FC<{
       if (isNaN(sizeValue)) {
         return pricePerUnit * quantity;
       }
-      return pricePerUnit * sizeValue * quantity;
+      // Total Coverage = units × size in sq cm
+      const totalCoverage = sizeValue * quantity;
+      // Total Price = total coverage × ASP
+      return totalCoverage * pricePerUnit;
     }
     return pricePerUnit * quantity;
   };
@@ -929,7 +935,7 @@ const ProductCard: React.FC<{
               const sizeNum = typeof size === 'string' ? parseFloat(size) : size;
               const sizeStr = size.toString();
               const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-              
+
               // Try to find a label for this size in size_pricing
               let displayLabel = `${sizeNum} cm²`;
               if (product.size_pricing) {
@@ -940,7 +946,7 @@ const ProductCard: React.FC<{
                   }
                 }
               }
-              
+
               return (
                 <option key={sizeStr} value={sizeStr}>
                   {displayLabel} - {formatPrice(pricePerUnit * sizeNum)}

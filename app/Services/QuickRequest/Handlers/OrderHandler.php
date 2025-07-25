@@ -43,7 +43,7 @@ class OrderHandler
             $facilityId = $metadata['facility_data']['id'] ?? Auth::user()->facility_id ?? 1;
             // Always use the authenticated user as the provider for security and access control
             $providerId = Auth::id();
-            
+
             $this->logger->info('Setting order provider', [
                 'auth_user_id' => Auth::id(),
                 'metadata_provider_id' => $metadata['provider_data']['id'] ?? null,
@@ -118,7 +118,7 @@ class OrderHandler
             $facilityId = $metadata['facility_data']['id'] ?? Auth::user()->facility_id ?? 1;
             // Always use the authenticated user as the provider for security and access control
             $providerId = Auth::id();
-            
+
             $this->logger->info('Setting follow-up order provider', [
                 'auth_user_id' => Auth::id(),
                 'metadata_provider_id' => $metadata['provider_data']['id'] ?? null,
@@ -423,13 +423,26 @@ class OrderHandler
         foreach ($products as $product) {
             // Handle different product array structures
             $productId = $product['id'] ?? $product['product_id'] ?? 1;
-            $size = $product['size'] ?? 'medium';
+            $size = $product['size'] ?? null;
             $quantity = $product['quantity'] ?? 1;
 
             // This would normally fetch pricing from database
             $unitPrice = $this->getProductPrice($productId, $size);
 
-            $subtotal += $unitPrice * $quantity;
+            if ($size) {
+                $sizeValue = floatval($size);
+                if (!is_nan($sizeValue)) {
+                    // Total Coverage = units × size in sq cm
+                    $totalCoverage = $sizeValue * $quantity;
+                    // Total Price = total coverage × ASP
+                    $subtotal += $totalCoverage * $unitPrice;
+                } else {
+                    $subtotal += $unitPrice * $quantity;
+                }
+            } else {
+                $subtotal += $unitPrice * $quantity;
+            }
+
             $totalQuantity += $quantity;
         }
 
@@ -449,7 +462,7 @@ class OrderHandler
     /**
      * Get product price
      */
-    private function getProductPrice(int $productId, string $size): float
+    private function getProductPrice(int $productId, ?string $size): float
     {
         // This would normally be from database
         $basePrices = [
@@ -468,6 +481,12 @@ class OrderHandler
         ];
 
         $basePrice = $basePrices[$productId] ?? 20.00;
+
+        // Handle null size case
+        if ($size === null) {
+            return $basePrice;
+        }
+
         $multiplier = $sizeMultipliers[$size] ?? 1.0;
 
         return $basePrice * $multiplier;

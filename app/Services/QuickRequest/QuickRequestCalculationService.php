@@ -16,7 +16,7 @@ class QuickRequestCalculationService
 
         foreach ($productSelection->selectedProducts as $productData) {
             $product = Product::find($productData['product_id']);
-            
+
             if (!$product) {
                 Log::warning('Product not found for calculation', [
                     'product_id' => $productData['product_id']
@@ -25,9 +25,22 @@ class QuickRequestCalculationService
             }
 
             $quantity = $productData['quantity'] ?? 1;
-            // Fix: Use the correct price field that exists on the model
+            $size = $productData['size'] ?? null;
             $unitPrice = $product->price_per_sq_cm ?? 0;
-            $itemTotal = $unitPrice * $quantity;
+
+            if ($size) {
+                $sizeValue = floatval($size);
+                if (!is_nan($sizeValue)) {
+                    // Total Coverage = units × size in sq cm
+                    $totalCoverage = $sizeValue * $quantity;
+                    // Total Price = total coverage × ASP
+                    $itemTotal = $totalCoverage * $unitPrice;
+                } else {
+                    $itemTotal = $unitPrice * $quantity;
+                }
+            } else {
+                $itemTotal = $unitPrice * $quantity;
+            }
 
             $subtotal += $itemTotal;
             $totalQuantity += $quantity;
@@ -38,7 +51,7 @@ class QuickRequestCalculationService
                 'quantity' => $quantity,
                 'unit_price' => $unitPrice,
                 'total_price' => $itemTotal,
-                'size' => $productData['size'] ?? null,
+                'size' => $size,
             ];
         }
 
@@ -71,7 +84,7 @@ class QuickRequestCalculationService
     public function calculateProductPricing(int $productId, int $quantity, ?string $size = null): array
     {
         $product = Product::find($productId);
-        
+
         if (!$product) {
             return [
                 'unit_price' => 0,
@@ -91,4 +104,4 @@ class QuickRequestCalculationService
             'quantity' => $quantity,
         ];
     }
-} 
+}
