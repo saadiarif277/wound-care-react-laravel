@@ -1,19 +1,18 @@
-import { Fragment } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
-import { FiX } from 'react-icons/fi';
-import { useTheme } from '@/contexts/ThemeContext';
-import { themes } from '@/theme/glass-theme';
-import { cn } from '@/lib/utils';
+import React, { useState } from 'react';
+import { X, AlertCircle } from 'lucide-react';
+import { Button } from '@/Components/Button';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (comment: string) => void;
   title: string;
+  message: string;
   confirmText?: string;
   cancelText?: string;
+  showComment?: boolean;
+  maxCommentLength?: number;
   isLoading?: boolean;
-  children: React.ReactNode;
 }
 
 export default function ConfirmationModal({
@@ -21,99 +20,114 @@ export default function ConfirmationModal({
   onClose,
   onConfirm,
   title,
+  message,
   confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  isLoading = false,
-  children
+  cancelText = 'Go Back',
+  showComment = true,
+  maxCommentLength = 500,
+  isLoading = false
 }: ConfirmationModalProps) {
-  const { theme = 'dark' } = useTheme();
-  const t = themes[theme];
+  const [comment, setComment] = useState('');
+  const [isConfirmed, setIsConfirmed] = useState(false);
+
+  const handleConfirm = () => {
+    if (!isConfirmed) return;
+    onConfirm(comment);
+  };
+
+  const handleClose = () => {
+    setComment('');
+    setIsConfirmed(false);
+    onClose();
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
-        </Transition.Child>
-
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4 text-center">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className={cn(
-                "w-full max-w-md transform overflow-hidden rounded-2xl p-6 text-left align-middle shadow-xl transition-all",
-                t.glass.card
-              )}>
-                <div className="flex items-center justify-between mb-4">
-                  <Dialog.Title
-                    as="h3"
-                    className={cn("text-lg font-medium leading-6", t.text.primary)}
-                  >
-                    {title}
-                  </Dialog.Title>
-                  <button
-                    onClick={onClose}
-                    className={cn(
-                      "p-2 rounded-lg transition-colors",
-                      t.glass.frost,
-                      "hover:bg-white/10"
-                    )}
-                  >
-                    <FiX className={cn("w-4 h-4", t.text.secondary)} />
-                  </button>
-                </div>
-
-                <div className="mt-4">
-                  {children}
-                </div>
-
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    className={cn(
-                      "px-4 py-2 rounded-lg font-medium transition-all",
-                      t.button.secondary.base,
-                      t.button.secondary.hover
-                    )}
-                    onClick={onClose}
-                    disabled={isLoading}
-                  >
-                    {cancelText}
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(
-                      "px-4 py-2 rounded-lg font-medium transition-all",
-                      isLoading
-                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                        : `${t.button.primary.base} ${t.button.primary.hover}`
-                    )}
-                    onClick={onConfirm}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Processing...' : confirmText}
-                  </button>
-                </div>
-              </Dialog.Panel>
-            </Transition.Child>
-          </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {title}
+          </h3>
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-      </Dialog>
-    </Transition>
+
+        {/* Message */}
+        <div className="mb-6">
+          <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
+            {message}
+          </p>
+        </div>
+
+        {/* Optional Comment Field */}
+        {showComment && (
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Optional Comment
+            </label>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Add any additional notes for Admin..."
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              rows={3}
+              maxLength={maxCommentLength}
+            />
+            <div className="flex justify-between items-center mt-1">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {comment.length}/{maxCommentLength} characters
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Checkbox */}
+        <div className="mb-6">
+          <label className="flex items-start space-x-3">
+            <input
+              type="checkbox"
+              checked={isConfirmed}
+              onChange={(e) => setIsConfirmed(e.target.checked)}
+              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              I confirm the information is accurate and complete.
+            </span>
+          </label>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 justify-end">
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            disabled={isLoading}
+          >
+            {cancelText}
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={!isConfirmed || isLoading}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {isLoading ? (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Processing...</span>
+              </div>
+            ) : (
+              confirmText
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

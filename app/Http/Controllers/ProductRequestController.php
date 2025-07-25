@@ -387,16 +387,17 @@ final class ProductRequestController extends Controller
             // Get the clinical summary data that contains all submitted information
             $clinicalSummary = $productRequest->clinical_summary ?? [];
 
-            // If no order exists, create basic order data from product request
+            // If no order exists, create comprehensive order data from product request and clinical summary
             $orderData = [
                 'id' => $productRequest->id,
                 'orderNumber' => $productRequest->request_number,
                 'createdDate' => $productRequest->created_at->format('Y-m-d'),
                 'createdBy' => ($productRequest->provider?->first_name ?? '') . ' ' . ($productRequest->provider?->last_name ?? ''),
                 'patient' => [
-                    'name' => $productRequest->formatPatientDisplay(),
+                    'name' => $clinicalSummary['patient']['full_name'] ?? $productRequest->formatPatientDisplay(),
                     'fhirId' => $productRequest->patient_fhir_id,
-                    // Use clinical summary data for detailed patient info
+                    'displayId' => $clinicalSummary['patient']['display_id'] ?? $productRequest->patient_display_id,
+                    // Use comprehensive clinical summary data for detailed patient info
                     'firstName' => $clinicalSummary['patient']['first_name'] ?? null,
                     'lastName' => $clinicalSummary['patient']['last_name'] ?? null,
                     'dob' => $clinicalSummary['patient']['date_of_birth'] ?? null,
@@ -413,52 +414,58 @@ final class ProductRequestController extends Controller
                         ])) : null,
                     'memberId' => $clinicalSummary['patient']['member_id'] ?? null,
                     'isSubscriber' => $clinicalSummary['patient']['is_subscriber'] ?? true,
-                    'insurance' => [
-                        'primary' => isset($clinicalSummary['insurance']['primary_name']) ?
-                            ($clinicalSummary['insurance']['primary_name'] ?? 'N/A') .
-                            (isset($clinicalSummary['insurance']['primary_member_id']) ? ' - ' . $clinicalSummary['insurance']['primary_member_id'] : '') : 'N/A',
-                        'secondary' => isset($clinicalSummary['insurance']['has_secondary']) && $clinicalSummary['insurance']['has_secondary'] ?
-                            ($clinicalSummary['insurance']['secondary_name'] ?? 'N/A') .
-                            (isset($clinicalSummary['insurance']['secondary_member_id']) ? ' - ' . $clinicalSummary['insurance']['secondary_member_id'] : '') : 'N/A',
-                    ],
                 ],
                 'insurance' => [
-                    'primary' => isset($clinicalSummary['insurance']['primary_name']) ?
-                        ($clinicalSummary['insurance']['primary_name'] ?? 'N/A') .
-                        (isset($clinicalSummary['insurance']['primary_member_id']) ? ' - ' . $clinicalSummary['insurance']['primary_member_id'] : '') : 'N/A',
-                    'secondary' => isset($clinicalSummary['insurance']['has_secondary']) && $clinicalSummary['insurance']['has_secondary'] ?
-                        ($clinicalSummary['insurance']['secondary_name'] ?? 'N/A') .
-                        (isset($clinicalSummary['insurance']['secondary_member_id']) ? ' - ' . $clinicalSummary['insurance']['secondary_member_id'] : '') : 'N/A',
+                    'primary' => $clinicalSummary['insurance']['primary_display'] ??
+                        (isset($clinicalSummary['insurance']['primary_name']) ?
+                            ($clinicalSummary['insurance']['primary_name'] ?? 'N/A') .
+                            (isset($clinicalSummary['insurance']['primary_member_id']) ? ' - ' . $clinicalSummary['insurance']['primary_member_id'] : '') : 'N/A'),
+                    'secondary' => $clinicalSummary['insurance']['secondary_display'] ??
+                        (isset($clinicalSummary['insurance']['has_secondary']) && $clinicalSummary['insurance']['has_secondary'] ?
+                            ($clinicalSummary['insurance']['secondary_name'] ?? 'N/A') .
+                            (isset($clinicalSummary['insurance']['secondary_member_id']) ? ' - ' . $clinicalSummary['insurance']['secondary_member_id'] : '') : 'N/A'),
                     'primaryPlanType' => $clinicalSummary['insurance']['primary_plan_type'] ?? null,
                     'secondaryPlanType' => $clinicalSummary['insurance']['secondary_plan_type'] ?? null,
+                    'hasSecondary' => $clinicalSummary['insurance']['has_secondary'] ?? false,
                 ],
                 'provider' => [
-                    'name' => $clinicalSummary['provider']['name'] ??
+                    'name' => $clinicalSummary['provider']['full_name'] ??
+                        $clinicalSummary['provider']['name'] ??
                         (($productRequest->provider?->first_name ?? '') . ' ' . ($productRequest->provider?->last_name ?? '')).trim() ?: 'N/A',
                     'npi' => $clinicalSummary['provider']['npi'] ?? $productRequest->provider?->npi_number ?? $productRequest->provider?->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
                     'email' => $clinicalSummary['provider']['email'] ?? $productRequest->provider?->email ?? null,
-                    'facility' => $clinicalSummary['facility']['name'] ?? $productRequest->facility?->name ?? null,
+                    'phone' => $clinicalSummary['provider']['phone'] ?? null,
+                    'credentials' => $clinicalSummary['provider']['credentials'] ?? null,
                 ],
                 'facility' => [
                     'name' => $clinicalSummary['facility']['name'] ?? $productRequest->facility?->name ?? 'N/A',
-                    'address' => isset($clinicalSummary['facility']['address']) ?
-                        implode(', ', array_filter([
-                            $clinicalSummary['facility']['address'] ?? '',
-                            $clinicalSummary['facility']['city'] ?? '',
-                            $clinicalSummary['facility']['state'] ?? '',
-                            $clinicalSummary['facility']['zip'] ?? ''
-                        ])) : $productRequest->facility?->full_address ?? null,
+                    'address' => $clinicalSummary['facility']['full_address'] ??
+                        (isset($clinicalSummary['facility']['address']) ?
+                            implode(', ', array_filter([
+                                $clinicalSummary['facility']['address'] ?? '',
+                                $clinicalSummary['facility']['city'] ?? '',
+                                $clinicalSummary['facility']['state'] ?? '',
+                                $clinicalSummary['facility']['zip'] ?? ''
+                            ])) : $productRequest->facility?->full_address ?? null),
                     'phone' => $clinicalSummary['facility']['phone'] ?? null,
+                    'fax' => $clinicalSummary['facility']['fax'] ?? null,
+                    'email' => $clinicalSummary['facility']['email'] ?? null,
+                    'npi' => $clinicalSummary['facility']['npi'] ?? null,
+                    'taxId' => $clinicalSummary['facility']['tax_id'] ?? null,
                 ],
                 'product' => [
-                    'name' => $productRequest->products->first()?->name ?? 'N/A',
+                    'name' => $productRequest->products->first()?->name ??
+                        (isset($clinicalSummary['product_selection']['product_names'][0]) ? $clinicalSummary['product_selection']['product_names'][0] : 'N/A'),
                     'code' => $productRequest->products->first()?->q_code ?? 'N/A',
                     'quantity' => $productRequest->products->first()?->pivot?->quantity ??
-                        ($clinicalSummary['product_selection']['selected_products'][0]['quantity'] ?? 0),
+                        ($clinicalSummary['product_selection']['total_quantity'] ??
+                        ($clinicalSummary['product_selection']['selected_products'][0]['quantity'] ?? 0)),
                     'size' => $productRequest->products->first()?->pivot?->size ?? 'N/A',
                     'category' => $productRequest->products->first()?->category ?? 'N/A',
-                    'manufacturer' => $productRequest->products->first()?->manufacturer?->name ?? 'N/A',
+                    'manufacturer' => $productRequest->products->first()?->manufacturer?->name ??
+                        ($clinicalSummary['product_selection']['manufacturer_name'] ?? 'N/A'),
                     'manufacturerId' => $clinicalSummary['product_selection']['manufacturer_id'] ?? null,
+                    'selectedProducts' => $clinicalSummary['product_selection']['selected_products'] ?? [],
                     'shippingInfo' => [
                         'speed' => $clinicalSummary['order_preferences']['shipping_speed'] ?? 'Standard',
                         'address' => $clinicalSummary['order_preferences']['delivery_instructions'] ?? $productRequest->facility->full_address ?? 'N/A',
@@ -471,24 +478,31 @@ final class ProductRequestController extends Controller
                     'consent' => $clinicalSummary['attestations']['information_accurate'] ?? false,
                     'assignmentOfBenefits' => $clinicalSummary['attestations']['maintain_documentation'] ?? false,
                     'medicalNecessity' => $clinicalSummary['attestations']['medical_necessity_established'] ?? false,
+                    'failedConservativeTreatment' => $clinicalSummary['attestations']['failed_conservative_treatment'] ?? false,
+                    'authorizePriorAuth' => $clinicalSummary['attestations']['authorize_prior_auth'] ?? false,
                 ],
                 'clinical' => [
                     'woundType' => $clinicalSummary['clinical']['wound_type'] ?? $productRequest->wound_type ?? 'N/A',
                     'woundLocation' => $clinicalSummary['clinical']['wound_location'] ?? 'N/A',
                     'location' => $clinicalSummary['clinical']['wound_location'] ?? 'N/A',
-                    'size' => isset($clinicalSummary['clinical']['wound_size_length']) && isset($clinicalSummary['clinical']['wound_size_width']) ?
-                        $clinicalSummary['clinical']['wound_size_length'] . ' x ' . $clinicalSummary['clinical']['wound_size_width'] . 'cm' : 'N/A',
+                    'size' => $clinicalSummary['clinical']['wound_dimensions'] ??
+                        (isset($clinicalSummary['clinical']['wound_size_length']) && isset($clinicalSummary['clinical']['wound_size_width']) ?
+                        $clinicalSummary['clinical']['wound_size_length'] . ' x ' . $clinicalSummary['clinical']['wound_size_width'] . 'cm' : 'N/A'),
                     'depth' => $clinicalSummary['clinical']['wound_size_depth'] ?? null,
                     'cptCodes' => isset($clinicalSummary['clinical']['application_cpt_codes']) && is_array($clinicalSummary['clinical']['application_cpt_codes']) ?
                         implode(', ', $clinicalSummary['clinical']['application_cpt_codes']) : 'N/A',
                     'diagnosisCodes' => isset($clinicalSummary['clinical']['diagnosis_codes']) && is_array($clinicalSummary['clinical']['diagnosis_codes']) ?
                         $clinicalSummary['clinical']['diagnosis_codes'] : [],
                     'primaryDiagnosis' => isset($clinicalSummary['clinical']['diagnosis_codes'][0]) ?
-                        $clinicalSummary['clinical']['diagnosis_codes'][0] : 'N/A',
+                        $clinicalSummary['clinical']['diagnosis_codes'][0] :
+                        ($clinicalSummary['clinical']['primary_diagnosis_code'] ?? 'N/A'),
+                    'secondaryDiagnosis' => $clinicalSummary['clinical']['secondary_diagnosis_code'] ?? null,
                     'clinicalNotes' => $clinicalSummary['clinical']['clinical_notes'] ?? null,
                     'serviceDate' => $clinicalSummary['order_preferences']['expected_service_date'] ?? $productRequest->expected_service_date?->format('Y-m-d'),
                     'placeOfService' => $clinicalSummary['order_preferences']['place_of_service'] ?? $productRequest->place_of_service ?? '11',
-                    'failedConservativeTreatment' => $clinicalSummary['attestations']['failed_conservative_treatment'] ?? false,
+                    'placeOfServiceDisplay' => $clinicalSummary['order_preferences']['place_of_service_display'] ?? null,
+                    'woundDurationWeeks' => $clinicalSummary['clinical']['wound_duration_weeks'] ?? null,
+                    'failedConservativeTreatment' => $clinicalSummary['clinical']['failed_conservative_treatment'] ?? false,
                 ],
                 'submission' => [
                     'status' => $productRequest->order_status,
@@ -496,17 +510,21 @@ final class ProductRequestController extends Controller
                     'informationAccurate' => $clinicalSummary['attestations']['information_accurate'] ?? false,
                     'documentationMaintained' => $clinicalSummary['attestations']['maintain_documentation'] ?? false,
                     'authorizePriorAuth' => $clinicalSummary['attestations']['authorize_prior_auth'] ?? false,
+                    'medicalNecessityEstablished' => $clinicalSummary['attestations']['medical_necessity_established'] ?? false,
                 ],
                 'orderPreferences' => [
                     'expectedServiceDate' => $clinicalSummary['order_preferences']['expected_service_date'] ?? null,
                     'shippingSpeed' => $clinicalSummary['order_preferences']['shipping_speed'] ?? 'standard',
                     'placeOfService' => $clinicalSummary['order_preferences']['place_of_service'] ?? null,
+                    'placeOfServiceDisplay' => $clinicalSummary['order_preferences']['place_of_service_display'] ?? null,
                     'deliveryInstructions' => $clinicalSummary['order_preferences']['delivery_instructions'] ?? null,
                 ],
                 'adminNote' => $clinicalSummary['admin_note'] ?? null,
                 'adminNoteAddedAt' => $clinicalSummary['admin_note_added_at'] ?? null,
-                'total_amount' => $productRequest->total_order_value ?? 0,
+                'total_amount' => $productRequest->total_order_value ??
+                    ($clinicalSummary['metadata']['total_order_value'] ?? 0),
                 'clinicalSummary' => $clinicalSummary, // Include full clinical summary for debugging
+                'metadata' => $clinicalSummary['metadata'] ?? [],
             ];
         } else {
             // Use the existing order data loading logic but also extract from clinical summary

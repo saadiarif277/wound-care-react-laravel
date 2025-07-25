@@ -29,6 +29,17 @@ use App\Http\Controllers\Api\DocumentIntelligenceController;
 use App\Http\Controllers\Api\AiChatController;
 use App\Http\Controllers\Api\ManufacturerController;
 use App\Http\Controllers\Api\V1\ReferenceDataController;
+use App\Http\Controllers\Api\FileUploadController;
+
+// File Upload Routes
+Route::prefix('v1')->group(function () {
+    Route::prefix('file-upload')->name('file_upload.')->group(function () {
+        Route::post('upload-multiple', [FileUploadController::class, 'uploadMultipleFiles'])->name('upload_multiple');
+        Route::delete('remove-file', [FileUploadController::class, 'removeFile'])->name('remove_file');
+        Route::get('get-files', [FileUploadController::class, 'getUploadedFiles'])->name('get_files');
+        Route::post('validate-file', [FileUploadController::class, 'validateFile'])->name('validate_file');
+    });
+});
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->group(function () {

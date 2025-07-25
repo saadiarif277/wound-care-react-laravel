@@ -460,9 +460,41 @@ class ProductRequest extends Model
      */
     public function isIvrRequired(): bool
     {
-        // Since ivr_required column doesn't exist, assume IVR is required for all requests
-        // ivr_bypass_reason would be stored in clinical_summary if needed
+        // Check if IVR is explicitly marked as not required in clinical_summary
+        if (isset($this->clinical_summary['ivr_required']) && $this->clinical_summary['ivr_required'] === false) {
+            return false;
+        }
+
+        // Check if IVR was bypassed with a reason
+        if (isset($this->clinical_summary['ivr_bypass_reason'])) {
+            return false;
+        }
+
+        // Default: IVR is required for all requests
         return true;
+    }
+
+    /**
+     * Check if IVR was bypassed and get the reason
+     */
+    public function getIvrBypassReason(): ?string
+    {
+        return $this->clinical_summary['ivr_bypass_reason'] ?? null;
+    }
+
+    /**
+     * Set IVR as not required with optional reason
+     */
+    public function setIvrNotRequired(?string $reason = null): void
+    {
+        $clinicalSummary = $this->clinical_summary ?? [];
+        $clinicalSummary['ivr_required'] = false;
+
+        if ($reason) {
+            $clinicalSummary['ivr_bypass_reason'] = $reason;
+        }
+
+        $this->update(['clinical_summary' => $clinicalSummary]);
     }
 
     /**
@@ -505,6 +537,47 @@ class ProductRequest extends Model
 
         // Must have manufacturer approval
         return $ivrComplete && $this->isManufacturerApproved();
+    }
+
+    /**
+     * Check if IVR is verified (for Scenario 1)
+     */
+    public function isIvrVerified(): bool
+    {
+        if (!$this->isIvrRequired()) {
+            return true; // If IVR not required, consider it "verified"
+        }
+
+        // Check if IVR has been verified by manufacturer
+        return in_array($this->order_status, ['ivr_confirmed', 'approved', 'submitted_to_manufacturer', 'shipped', 'delivered']);
+    }
+
+    /**
+     * Check if order form can be completed (for Scenario 1)
+     */
+    public function canCompleteOrderForm(): bool
+    {
+        // If IVR not required, order form can always be completed
+        if (!$this->isIvrRequired()) {
+            return true;
+        }
+
+        // If IVR required, order form can be completed but not submitted until IVR verified
+        return true;
+    }
+
+    /**
+     * Check if order form can be submitted (for Scenario 1)
+     */
+    public function canSubmitOrderForm(): bool
+    {
+        // If IVR not required, order form can be submitted immediately
+        if (!$this->isIvrRequired()) {
+            return true;
+        }
+
+        // If IVR required, order form can only be submitted after IVR verification
+        return $this->isIvrVerified();
     }
 
     /**

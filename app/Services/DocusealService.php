@@ -1790,7 +1790,51 @@ class DocusealService
     {
         $docusealFields = [];
 
-        // If we have a manufacturer name, use manufacturer-specific field mappings
+        // STEP 1: Get the actual template fields from DocuSeal
+        $templateFields = [];
+        try {
+            $templateFields = $this->getTemplateFieldsFromAPI($templateId);
+            Log::info('Retrieved template fields for validation', [
+                'template_id' => $templateId,
+                'field_count' => count($templateFields),
+                'field_names' => array_keys($templateFields)
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to get template fields, proceeding without validation', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        // STEP 2: If we can't get template fields, use minimal approach
+        if (empty($templateFields)) {
+            Log::warning('No template fields available, using minimal field mapping', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName
+            ]);
+
+            // Return only the most basic fields that are likely to exist
+            $minimalFields = [];
+            if (isset($prefillData['patient_name'])) {
+                $minimalFields['Patient Name'] = $prefillData['patient_name'];
+            }
+            if (isset($prefillData['provider_name'])) {
+                $minimalFields['Provider Name'] = $prefillData['provider_name'];
+            }
+            if (isset($prefillData['facility_name'])) {
+                $minimalFields['Facility Name'] = $prefillData['facility_name'];
+            }
+
+            Log::info('Using minimal field mapping due to template field retrieval failure', [
+                'template_id' => $templateId,
+                'minimal_fields_count' => count($minimalFields),
+                'minimal_fields' => array_keys($minimalFields)
+            ]);
+
+            return $minimalFields;
+        }
+
+        // STEP 3: We have template fields - use manufacturer config if available
         if ($manufacturerName) {
             $manufacturerConfig = $this->fieldMappingService->getManufacturerConfig($manufacturerName);
 
@@ -1804,15 +1848,7 @@ class DocusealService
                     'mapping_fields' => array_keys($fieldMappings)
                 ]);
 
-                // DEBUG: Log input data keys to see what we're working with
-                Log::warning('DEBUG - transformQuickRequestData input analysis', [
-                    'manufacturer' => $manufacturerName,
-                    'input_data_keys' => array_keys($prefillData),
-                    'expected_keys_in_config' => array_keys($fieldMappings),
-                    'sample_input_data' => array_slice($prefillData, 0, 10, true)
-                ]);
-
-                                // Apply manufacturer-specific field mappings
+                // Apply manufacturer-specific field mappings - ONLY for fields that exist in template
                 $matchedFields = [];
                 $missedFields = [];
 
@@ -1825,49 +1861,17 @@ class DocusealService
                             $value = $value ? 'true' : 'false';
                         }
 
-                        // Debug: Log each field mapping
-                        Log::debug('Mapping field', [
-                            'canonical_field' => $canonicalField,
-                            'docuseal_field' => $docusealField,
-                            'value' => $value
-                        ]);
-
-                        // Skip fields that don't exist in template (if we have template fields)
-                        if (!empty($templateFields) && !isset($templateFields[$docusealField])) {
+                        // ONLY include fields that exist in the template
+                        if (isset($templateFields[$docusealField])) {
+                            $docusealFields[$docusealField] = $value;
+                            $matchedFields[$canonicalField] = $docusealField;
+                        } else {
                             $missedFields[] = $docusealField;
                             Log::debug('Skipping field not found in template (manufacturer mapping)', [
                                 'field_name' => $docusealField,
                                 'template_id' => $templateId,
-                                'available_fields' => array_keys($templateFields)
+                                'available_template_fields' => array_keys($templateFields)
                             ]);
-                            continue; // Skip this field and continue with next
-                        }
-
-                        $docusealFields[$docusealField] = $value;
-                        $matchedFields[$canonicalField] = $docusealField;
-                    } else {
-                        $missedFields[] = $canonicalField;
-                    }
-                }
-
-                // DEBUG: Log field matching results
-                Log::warning('DEBUG - Field mapping results in transformQuickRequestData', [
-                    'manufacturer' => $manufacturerName,
-                    'matched_fields' => $matchedFields,
-                    'matched_count' => count($matchedFields),
-                    'missed_fields' => $missedFields,
-                    'missed_count' => count($missedFields),
-                    'total_mappings' => count($fieldMappings)
-                ]);
-
-                // Handle special computed fields based on manufacturer config
-                if (isset($manufacturerConfig['fields'])) {
-                    foreach ($manufacturerConfig['fields'] as $fieldName => $fieldConfig) {
-                        if (isset($fieldConfig['source']) && $fieldConfig['source'] === 'computed') {
-                            $computedValue = $this->computeFieldValue($fieldConfig, $prefillData);
-                            if ($computedValue !== null && isset($fieldMappings[$fieldName])) {
-                                $docusealFields[$fieldMappings[$fieldName]] = $computedValue;
-                            }
                         }
                     }
                 }
@@ -1887,7 +1891,7 @@ class DocusealService
             }
         }
 
-        // Fallback to generic field mappings if no manufacturer config found
+        // STEP 4: Fallback to generic field mappings - ONLY for fields that exist in template
         Log::warning('Using fallback field mappings - manufacturer config not found', [
             'manufacturer' => $manufacturerName,
             'template_id' => $templateId
@@ -1948,64 +1952,7 @@ class DocusealService
             'hospice_status' => 'Hospice Status',
         ];
 
-        // Get template fields to validate field names
-        $templateFields = [];
-        try {
-            $templateFields = $this->getTemplateFieldsFromAPI($templateId);
-            Log::info('Retrieved template fields for validation', [
-                'template_id' => $templateId,
-                'field_count' => count($templateFields),
-                'field_names' => array_keys($templateFields)
-            ]);
-        } catch (\Exception $e) {
-            Log::warning('Failed to get template fields, proceeding without validation', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage()
-            ]);
-        }
-
-        // If we can't get template fields, skip field mapping to avoid errors
-        if (empty($templateFields)) {
-            Log::warning('No template fields available, skipping field mapping to avoid errors', [
-                'template_id' => $templateId,
-                'manufacturer' => $manufacturerName
-            ]);
-
-            // Return minimal fields to avoid the "Unknown field" error
-            // Only include basic fields that are likely to exist in most templates
-            $minimalFields = [];
-
-            // Try to include only the most basic fields that are likely to exist
-            if (isset($prefillData['patient_name'])) {
-                $minimalFields['Patient Name'] = $prefillData['patient_name'];
-            }
-            if (isset($prefillData['provider_name'])) {
-                $minimalFields['Provider Name'] = $prefillData['provider_name'];
-            }
-            if (isset($prefillData['facility_name'])) {
-                $minimalFields['Facility Name'] = $prefillData['facility_name'];
-            }
-
-            Log::info('Using minimal field mapping due to template field retrieval failure', [
-                'template_id' => $templateId,
-                'minimal_fields_count' => count($minimalFields),
-                'minimal_fields' => array_keys($minimalFields)
-            ]);
-
-            return $minimalFields;
-        }
-
-        // Debug: Log the input data to see what we're working with
-        Log::warning('DEBUG - transformQuickRequestData input data', [
-            'template_id' => $templateId,
-            'manufacturer' => $manufacturerName,
-            'input_data_keys' => array_keys($prefillData),
-            'input_data_sample' => array_slice($prefillData, 0, 10, true),
-            'template_fields_available' => !empty($templateFields),
-            'template_field_count' => count($templateFields)
-        ]);
-
-        // Apply field mappings with validation
+        // Apply field mappings - ONLY for fields that exist in template
         $validFields = [];
         $invalidFields = [];
 
@@ -2018,19 +1965,18 @@ class DocusealService
                     $value = $value ? 'true' : 'false';
                 }
 
-                // Skip fields that don't exist in template (if we have template fields)
-                if (!empty($templateFields) && !isset($templateFields[$targetKey])) {
+                // ONLY include fields that exist in the template
+                if (isset($templateFields[$targetKey])) {
+                    $docusealFields[$targetKey] = $value;
+                    $validFields[] = $targetKey;
+                } else {
                     $invalidFields[] = $targetKey;
                     Log::debug('Skipping field not found in template', [
                         'field_name' => $targetKey,
                         'template_id' => $templateId,
                         'available_fields' => array_keys($templateFields)
                     ]);
-                    continue; // Skip this field and continue with next
                 }
-
-                $docusealFields[$targetKey] = $value;
-                $validFields[] = $targetKey;
             }
         }
 
@@ -2043,63 +1989,13 @@ class DocusealService
             'success_rate' => count($validFields) > 0 ? round((count($validFields) / (count($validFields) + count($invalidFields))) * 100, 1) : 0
         ]);
 
-        // Debug: Log the final fields being sent to DocuSeal
-        Log::warning('DEBUG - Final DocuSeal fields being sent', [
-            'template_id' => $templateId,
-            'field_count' => count($docusealFields),
-            'all_field_names' => array_keys($docusealFields),
-            'field_values_sample' => array_slice($docusealFields, 0, 5, true),
-            'skipped_fields' => $invalidFields
-        ]);
-
-        // Additional safety check: if we have template fields, only send fields that exist
-        if (!empty($templateFields) && !empty($docusealFields)) {
-            $filteredFields = [];
-            $excludedFields = [];
-
-            foreach ($docusealFields as $fieldName => $fieldValue) {
-                if (isset($templateFields[$fieldName])) {
-                    $filteredFields[$fieldName] = $fieldValue;
-                } else {
-                    $excludedFields[] = $fieldName;
-                    Log::warning('Excluding field not found in template', [
-                        'field_name' => $fieldName,
-                        'template_id' => $templateId
-                    ]);
-                }
-            }
-
-            Log::info('Field filtering results', [
-                'original_count' => count($docusealFields),
-                'filtered_count' => count($filteredFields),
-                'excluded_count' => count($excludedFields),
-                'excluded_fields' => $excludedFields
-            ]);
-
-            $docusealFields = $filteredFields;
+        // Handle special field transformations - ONLY if they exist in template
+        if (isset($prefillData['product_details_text']) && isset($templateFields['Product Details'])) {
+            $docusealFields['Product Details'] = $prefillData['product_details_text'];
         }
 
-        // Handle special field transformations with validation
-        if (isset($prefillData['product_details_text'])) {
-            if (empty($templateFields) || isset($templateFields['Product Details'])) {
-                $docusealFields['Product Details'] = $prefillData['product_details_text'];
-            } else {
-                Log::debug('Skipping Product Details field not found in template', [
-                    'template_id' => $templateId,
-                    'available_fields' => array_keys($templateFields)
-                ]);
-            }
-        }
-
-        if (isset($prefillData['diagnosis_codes_display'])) {
-            if (empty($templateFields) || isset($templateFields['Diagnosis Codes'])) {
-                $docusealFields['Diagnosis Codes'] = $prefillData['diagnosis_codes_display'];
-            } else {
-                Log::debug('Skipping Diagnosis Codes field not found in template', [
-                    'template_id' => $templateId,
-                    'available_fields' => array_keys($templateFields)
-                ]);
-            }
+        if (isset($prefillData['diagnosis_codes_display']) && isset($templateFields['Diagnosis Codes'])) {
+            $docusealFields['Diagnosis Codes'] = $prefillData['diagnosis_codes_display'];
         }
 
         // Skip manufacturer_fields in fallback mapping

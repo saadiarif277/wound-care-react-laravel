@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '../ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
 import { Textarea } from '@/Components/ui/textarea';
+import ConfirmationModal from '@/Components/ConfirmationModal';
 
 interface OrderModalsProps {
   showSubmitModal: boolean;
@@ -37,38 +38,23 @@ export const OrderModals: React.FC<OrderModalsProps> = ({
 }) => (
   <>
     {/* Submit Confirmation Modal */}
-    <Dialog open={showSubmitModal} onOpenChange={onSubmitModalChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Confirm Order Submission</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            By submitting this order, I consent to having the IVR form and Order form submitted to the
-            manufacturer for review and approval. I understand that the order will not be placed with
-            the manufacturer until IVR verification is completed and the order is fully approved.
-          </p>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="confirmation"
-              checked={confirmationChecked}
-              onCheckedChange={(checked) => onConfirmationChange(!!checked)}
-            />
-            <label htmlFor="confirmation" className="text-sm">
-              I confirm the information is accurate and complete.
-            </label>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="secondary" onClick={() => onSubmitModalChange(false)}>
-            Go Back
-          </Button>
-          <Button onClick={onConfirmSubmission} disabled={!confirmationChecked}>
-            Place Order
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmationModal
+      isOpen={showSubmitModal}
+      onClose={() => onSubmitModalChange(false)}
+      onConfirm={(comment) => {
+        // Handle the comment and then call the original confirmation
+        if (comment) {
+          onAdminNoteChange(comment);
+        }
+        onConfirmSubmission();
+      }}
+      title="Confirm Order Submission"
+      message="By submitting this order, I consent to having the Order submitted to Admin for review and approval. I understand that the order will not be placed with the manufacturer until IVR verification (if required) is completed and the order is fully approved."
+      confirmText="Confirm"
+      cancelText="Go Back"
+      showComment={true}
+      maxCommentLength={500}
+    />
 
     {/* Success Modal */}
     <Dialog open={showSuccessModal} onOpenChange={onSuccessModalChange}>

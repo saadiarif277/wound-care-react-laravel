@@ -16,6 +16,8 @@ use App\Services\QuickRequest\QuickRequestCalculationService;
 use App\Services\QuickRequest\QuickRequestFileService;
 use App\Services\QuickRequest\QuickRequestOrchestrator;
 use App\Services\QuickRequestService;
+use App\Mail\OrderSubmissionNotification;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -173,10 +175,16 @@ class QuickRequestController extends Controller
             $documentMetadata = $this->fileService->handleFileUploads($request, $productRequest, $episode);
             $this->fileService->updateProductRequestWithDocuments($productRequest, $documentMetadata);
 
+            // Handle IVR scenarios
+            $this->handleIvrScenarios($productRequest, $validated['formData']);
+
             // Clear session data
             $request->session()->forget(['quick_request_form_data', 'validated_episode_data']);
 
             DB::commit();
+
+            // Send admin notifications
+            $this->sendAdminNotifications($productRequest, $validated['adminNote'] ?? null);
 
             // Dispatch event for background processing
             event(new QuickRequestSubmitted($episode, $productRequest, $quickRequestData, $calculation));
@@ -252,10 +260,10 @@ class QuickRequestController extends Controller
             $manufacturerName = $manufacturer?->name ?? 'Unknown Manufacturer';
         }
 
-        // Create comprehensive clinical summary with timestamps
+        // Create comprehensive clinical summary with all data for admin order details
         $clinicalSummary = $data->toArray();
 
-        // Add additional metadata
+        // Add additional metadata and ensure all data is properly structured
         $clinicalSummary['metadata'] = [
             'created_at' => now()->toISOString(),
             'created_by' => Auth::id(),
@@ -263,6 +271,11 @@ class QuickRequestController extends Controller
             'calculation' => $calculation,
             'manufacturer_id' => $manufacturerId,
             'manufacturer_name' => $manufacturerName,
+            'total_order_value' => $calculation['total'],
+            'item_breakdown' => $calculation['item_breakdown'] ?? [],
+            'submission_method' => 'quick_request',
+            'episode_status' => $episode->status,
+            'episode_ivr_status' => $episode->ivr_status,
         ];
 
         // Ensure docuseal_submission_id is included
@@ -270,12 +283,98 @@ class QuickRequestController extends Controller
             $clinicalSummary['docuseal_submission_id'] = $data->docusealSubmissionId;
         }
 
-        // Log the clinical summary creation
-        Log::info('QuickRequest createProductRequest - Creating clinical summary', [
+        // Add IVR document URL if available
+        if ($data->ivrDocumentUrl) {
+            $clinicalSummary['ivr_document_url'] = $data->ivrDocumentUrl;
+        }
+
+        // Add comprehensive patient information for admin display
+        if (isset($clinicalSummary['patient'])) {
+            $clinicalSummary['patient']['full_name'] = trim(
+                ($clinicalSummary['patient']['first_name'] ?? '') . ' ' .
+                ($clinicalSummary['patient']['last_name'] ?? '')
+            );
+            $clinicalSummary['patient']['display_id'] = $episode->patient_display_id;
+            $clinicalSummary['patient']['fhir_id'] = $episode->patient_fhir_id;
+        }
+
+        // Add comprehensive provider information for admin display
+        if (isset($clinicalSummary['provider'])) {
+            $clinicalSummary['provider']['full_name'] = $clinicalSummary['provider']['name'] ?? 'N/A';
+            $clinicalSummary['provider']['credentials'] = $clinicalSummary['provider']['specialty'] ?? null;
+        }
+
+        // Add comprehensive facility information for admin display
+        if (isset($clinicalSummary['facility'])) {
+            $clinicalSummary['facility']['full_address'] = implode(', ', array_filter([
+                $clinicalSummary['facility']['address_line1'] ?? '',
+                $clinicalSummary['facility']['address_line2'] ?? '',
+                $clinicalSummary['facility']['city'] ?? '',
+                $clinicalSummary['facility']['state'] ?? '',
+                $clinicalSummary['facility']['zip'] ?? ''
+            ]));
+        }
+
+        // Add comprehensive clinical information for admin display
+        if (isset($clinicalSummary['clinical'])) {
+            $clinicalSummary['clinical']['wound_dimensions'] = null;
+            if (isset($clinicalSummary['clinical']['wound_size_length']) && isset($clinicalSummary['clinical']['wound_size_width'])) {
+                $clinicalSummary['clinical']['wound_dimensions'] =
+                    $clinicalSummary['clinical']['wound_size_length'] . ' x ' .
+                    $clinicalSummary['clinical']['wound_size_width'] . 'cm';
+            }
+
+            // Add wound depth if available
+            if (isset($clinicalSummary['clinical']['wound_size_depth'])) {
+                $clinicalSummary['clinical']['wound_dimensions'] .= ' x ' .
+                    $clinicalSummary['clinical']['wound_size_depth'] . 'cm';
+            }
+        }
+
+        // Add comprehensive insurance information for admin display
+        if (isset($clinicalSummary['insurance'])) {
+            $clinicalSummary['insurance']['primary_display'] =
+                ($clinicalSummary['insurance']['primary_name'] ?? 'N/A') .
+                (isset($clinicalSummary['insurance']['primary_member_id']) ? ' - ' . $clinicalSummary['insurance']['primary_member_id'] : '');
+
+            if (isset($clinicalSummary['insurance']['has_secondary']) && $clinicalSummary['insurance']['has_secondary']) {
+                $clinicalSummary['insurance']['secondary_display'] =
+                    ($clinicalSummary['insurance']['secondary_name'] ?? 'N/A') .
+                    (isset($clinicalSummary['insurance']['secondary_member_id']) ? ' - ' . $clinicalSummary['insurance']['secondary_member_id'] : '');
+            }
+        }
+
+        // Add comprehensive product information for admin display
+        if (isset($clinicalSummary['product_selection'])) {
+            $clinicalSummary['product_selection']['total_quantity'] = 0;
+            $clinicalSummary['product_selection']['product_names'] = [];
+
+            if (isset($clinicalSummary['product_selection']['selected_products']) && is_array($clinicalSummary['product_selection']['selected_products'])) {
+                foreach ($clinicalSummary['product_selection']['selected_products'] as $product) {
+                    $clinicalSummary['product_selection']['total_quantity'] += $product['quantity'] ?? 0;
+                    $clinicalSummary['product_selection']['product_names'][] = $product['name'] ?? 'Unknown Product';
+                }
+            }
+        }
+
+        // Add comprehensive order preferences for admin display
+        if (isset($clinicalSummary['order_preferences'])) {
+            $clinicalSummary['order_preferences']['place_of_service_display'] =
+                $this->getPlaceOfServiceDisplay($clinicalSummary['order_preferences']['place_of_service'] ?? '');
+        }
+
+        // Log the comprehensive clinical summary creation
+        Log::info('QuickRequest createProductRequest - Creating comprehensive clinical summary', [
             'has_docusealSubmissionId' => !empty($data->docusealSubmissionId),
             'docusealSubmissionId' => $data->docusealSubmissionId,
             'clinical_summary_keys' => array_keys($clinicalSummary),
             'clinical_summary_size' => strlen(json_encode($clinicalSummary)),
+            'patient_info_complete' => isset($clinicalSummary['patient']['full_name']),
+            'provider_info_complete' => isset($clinicalSummary['provider']['full_name']),
+            'facility_info_complete' => isset($clinicalSummary['facility']['full_address']),
+            'clinical_info_complete' => isset($clinicalSummary['clinical']['wound_type']),
+            'insurance_info_complete' => isset($clinicalSummary['insurance']['primary_name']),
+            'product_info_complete' => isset($clinicalSummary['product_selection']['selected_products']),
         ]);
 
         $productRequest = ProductRequest::create([
@@ -1013,5 +1112,139 @@ class QuickRequestController extends Controller
         }
 
         return $totalFields > 0 ? round(($completedFields / $totalFields) * 100) : 0;
+    }
+
+    /**
+     * Get display text for place of service code
+     */
+    private function getPlaceOfServiceDisplay(?string $placeOfService): string
+    {
+        if (empty($placeOfService)) {
+            return 'Not specified';
+        }
+
+        $placeOfServiceOptions = [
+            '11' => 'Office',
+            '12' => 'Home',
+            '32' => 'Nursing Home',
+            '31' => 'Skilled Nursing',
+        ];
+
+        return $placeOfServiceOptions[$placeOfService] ?? "Code: $placeOfService";
+    }
+
+    /**
+     * Handle IVR scenarios based on PRD requirements
+     */
+    private function handleIvrScenarios(ProductRequest $productRequest, array $formData): void
+    {
+        // Determine if IVR is required based on product/manufacturer configuration
+        $isIvrRequired = $this->determineIvrRequirement($formData);
+        $bypassReason = $formData['ivr_bypass_reason'] ?? null;
+
+        if (!$isIvrRequired) {
+            // Scenario 2: IVR not required
+            $productRequest->setIvrNotRequired($bypassReason);
+
+            // Set order status to allow immediate order form completion
+            $productRequest->update([
+                'order_status' => 'pending',
+                'ivr_status' => 'n/a'
+            ]);
+
+            Log::info('IVR not required for order', [
+                'order_id' => $productRequest->id,
+                'bypass_reason' => $bypassReason
+            ]);
+        } else {
+            // Scenario 1: IVR required
+            $productRequest->update([
+                'order_status' => 'pending_ivr',
+                'ivr_status' => 'pending'
+            ]);
+
+            Log::info('IVR required for order', [
+                'order_id' => $productRequest->id
+            ]);
+        }
+    }
+
+    /**
+     * Determine if IVR is required based on product/manufacturer configuration
+     */
+    private function determineIvrRequirement(array $formData): bool
+    {
+        // Check if IVR was explicitly bypassed
+        if (isset($formData['ivr_bypass_reason']) && !empty($formData['ivr_bypass_reason'])) {
+            return false;
+        }
+
+        // Check if IVR was explicitly marked as not required
+        if (isset($formData['ivr_required']) && $formData['ivr_required'] === false) {
+            return false;
+        }
+
+        // Check if selected products require IVR based on manufacturer configuration
+        if (isset($formData['selected_products']) && is_array($formData['selected_products'])) {
+            foreach ($formData['selected_products'] as $productData) {
+                $productId = $productData['product_id'] ?? null;
+                if ($productId) {
+                    $product = \App\Models\Order\Product::with('manufacturer')->find($productId);
+                    if ($product && $product->manufacturer && is_object($product->manufacturer)) {
+                        // Check manufacturer configuration for IVR requirement
+                        $manufacturerSlug = $product->manufacturer->slug ?? null;
+                        if ($manufacturerSlug) {
+                            $manufacturerConfig = config("manufacturers.{$manufacturerSlug}");
+                            if ($manufacturerConfig && isset($manufacturerConfig['ivr_required'])) {
+                                return $manufacturerConfig['ivr_required'];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check if DocuSeal submission indicates IVR was completed
+        if (isset($formData['docuseal_submission_id']) && $formData['docuseal_submission_id'] === 'NO_IVR_REQUIRED') {
+            return false;
+        }
+
+        // Default: IVR is required for all orders
+        return true;
+    }
+
+    /**
+     * Send admin notifications for new order submissions
+     */
+    private function sendAdminNotifications(ProductRequest $productRequest, ?string $adminNote): void
+    {
+        try {
+            // Get all admin users
+            $adminUsers = User::whereHas('roles', function($query) {
+                $query->where('slug', 'msc-admin');
+            })->get();
+
+            $submitter = Auth::user();
+
+            foreach ($adminUsers as $admin) {
+                Mail::to($admin->email)->queue(new OrderSubmissionNotification(
+                    $productRequest,
+                    $submitter,
+                    $adminNote
+                ));
+            }
+
+            Log::info('Admin notifications sent for order submission', [
+                'order_id' => $productRequest->id,
+                'admin_count' => $adminUsers->count(),
+                'has_admin_note' => !empty($adminNote)
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to send admin notifications', [
+                'order_id' => $productRequest->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }

@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * DataExtractionService - Single source of truth for data extraction
- * 
+ *
  * Consolidates EntityDataService and DataExtractor into one clean service.
- * 
+ *
  * Responsibilities:
  * - Extract data from database models
  * - Handle role-based access control
@@ -36,52 +36,52 @@ class DataExtractionService
     public function extractData(array $context, array $requiredFields = []): array
     {
         $extractedData = [];
-        
+
         // Extract based on what IDs are provided
         if (!empty($context['episode_id'])) {
             $episodeData = $this->extractEpisodeData($context['episode_id'], $requiredFields);
             $extractedData = array_merge($extractedData, $episodeData);
         }
-        
+
         if (!empty($context['patient_id'])) {
             $patientData = $this->extractPatientData($context['patient_id'], $requiredFields);
             $extractedData = array_merge($extractedData, $patientData);
         }
-        
+
         if (!empty($context['provider_id'])) {
             $providerData = $this->extractProviderData($context['provider_id'], $requiredFields);
             $extractedData = array_merge($extractedData, $providerData);
         }
-        
+
         if (!empty($context['facility_id'])) {
                 $this->logger->info('Calling extractFacilityData', ['facility_id' => $context['facility_id']]);
             $facilityData = $this->extractFacilityData($context['facility_id'], $requiredFields);
             $this->logger->info('Facility data extracted', ['field_count' => count($facilityData), 'fields' => array_keys($facilityData)]);
             $extractedData = array_merge($extractedData, $facilityData);
         }
-        
+
         // Add current user data if requested
         if ($this->shouldIncludeField('current_user', $requiredFields)) {
             $extractedData = array_merge($extractedData, $this->extractCurrentUserData());
         }
-        
+
         // Add sales rep data if available
         if (!empty($context['sales_rep_id'])) {
             $salesRepData = $this->extractSalesRepData($context['sales_rep_id'], $requiredFields);
             $extractedData = array_merge($extractedData, $salesRepData);
         }
-        
+
         // Add any additional context data that was passed directly (e.g., from frontend forms)
         // This includes clinical data, insurance data, etc. that isn't tied to a specific entity
         $directFields = $this->extractDirectContextData($context, $requiredFields);
         $extractedData = array_merge($extractedData, $directFields);
-        
+
         $this->logger->info('Data extraction completed', [
             'context_keys' => array_keys($context),
             'required_fields' => count($requiredFields),
             'extracted_fields' => count($extractedData)
         ]);
-        
+
         return $extractedData;
     }
 
@@ -91,20 +91,20 @@ class DataExtractionService
     protected function extractEpisodeData(int $episodeId, array $requiredFields): array
     {
         $cacheKey = "episode_data_{$episodeId}";
-        
+
         return Cache::remember($cacheKey, 300, function() use ($episodeId, $requiredFields) {
             $episode = PatientManufacturerIVREpisode::with([
                 'patient',
                 'manufacturer',
                 'orders.orderItems.product'
             ])->find($episodeId);
-            
+
             if (!$episode) {
                 return [];
             }
-            
+
             $data = [];
-            
+
             // Episode fields
             if ($this->shouldIncludeField('episode', $requiredFields)) {
                 $data['episode_id'] = $episode->id;
@@ -112,13 +112,13 @@ class DataExtractionService
                 $data['manufacturer_id'] = $episode->manufacturer_id;
                 $data['manufacturer_name'] = $episode->manufacturer?->name;
             }
-            
+
             // Extract nested data if the episode has it
             if ($episode->patient_id && $this->shouldIncludeField('patient', $requiredFields)) {
                 $patientData = $this->extractPatientData($episode->patient_id, $requiredFields);
                 $data = array_merge($data, $patientData);
             }
-            
+
             // Extract metadata fields
             $metadata = $episode->metadata ?? [];
             if (!empty($metadata)) {
@@ -135,7 +135,7 @@ class DataExtractionService
                     $data['wound_duration_weeks'] = $clinical['wound_duration_weeks'] ?? null;
                     $data['wound_duration_days'] = $clinical['wound_duration_days'] ?? null;
                 }
-                
+
                 // Insurance data
                 if (isset($metadata['insurance_data']) && $this->shouldIncludeField('insurance', $requiredFields)) {
                     $insurance = $metadata['insurance_data'];
@@ -173,7 +173,7 @@ class DataExtractionService
                     }
                 }
             }
-            
+
             return $data;
         });
     }
@@ -187,10 +187,10 @@ class DataExtractionService
         if (!$patient) {
             return [];
         }
-        
+
         $data = [];
         $prefix = 'patient_';
-        
+
         // Only include fields that are requested
         $fieldMap = [
             'patient_id' => $patient->id,
@@ -223,22 +223,22 @@ class DataExtractionService
             'caregiver_relationship' => $patient->caregiver_relationship,
             'caregiver_phone' => $patient->caregiver_phone,
         ];
-        
+
         // Add computed city/state/zip field
         if ($this->shouldIncludeField('patient_city_state_zip', $requiredFields)) {
             $fieldMap['patient_city_state_zip'] = trim(
-                ($patient->city ?? '') . ', ' . 
-                ($patient->state ?? '') . ' ' . 
+                ($patient->city ?? '') . ', ' .
+                ($patient->state ?? '') . ' ' .
                 ($patient->postal_code ?? '')
             );
         }
-        
+
         foreach ($fieldMap as $field => $value) {
             if ($this->shouldIncludeField($field, $requiredFields)) {
                 $data[$field] = $value;
             }
         }
-        
+
         return $data;
     }
 
@@ -251,10 +251,10 @@ class DataExtractionService
         if (!$provider) {
             return [];
         }
-        
+
         $data = [];
         $profile = $provider->profile;
-        
+
         // Basic provider info
         $fieldMap = [
             'provider_id' => $provider->id,
@@ -266,7 +266,7 @@ class DataExtractionService
             'physician_name' => trim($provider->first_name . ' ' . $provider->last_name),
             'physician_phone' => $profile?->phone ?? $provider->phone,
         ];
-        
+
         // Profile fields
         if ($profile) {
             $profileFields = [
@@ -283,10 +283,10 @@ class DataExtractionService
                 'provider_medicaid' => $profile->medicaid_number,
                 'physician_medicaid_number' => $profile->medicaid_number,
             ];
-            
+
             $fieldMap = array_merge($fieldMap, $profileFields);
         }
-        
+
         // Credentials - process the collection properly
         if ($provider->providerCredentials && $provider->providerCredentials->count() > 0) {
             $credentials = [];
@@ -294,7 +294,7 @@ class DataExtractionService
                 if ($credential->credential_number) {
                     $credentials[] = $credential->credential_number;
                 }
-                
+
                 // Map specific credential types
                 switch ($credential->credential_type) {
                     case 'npi_number':
@@ -305,19 +305,19 @@ class DataExtractionService
                         break;
                 }
             }
-            
+
             if (!empty($credentials)) {
                 $fieldMap['provider_credentials'] = implode(', ', $credentials);
             }
         }
-        
+
         // Only include requested fields
         foreach ($fieldMap as $field => $value) {
             if ($this->shouldIncludeField($field, $requiredFields)) {
                 $data[$field] = $value;
             }
         }
-        
+
         return $data;
     }
 
@@ -332,12 +332,12 @@ class DataExtractionService
             $this->logger->warning('Facility not found', ['facility_id' => $facilityId]);
             return [];
         }
-        
+
         // Check permissions (same pattern as provider)
         // TODO: Re-implement proper permission check when facility relationships are fixed
         $currentUser = Auth::user();
         if ($currentUser) {
-            // For now, we'll bypass the permission check since the seeder-created relationships 
+            // For now, we'll bypass the permission check since the seeder-created relationships
             // aren't working properly in the current environment. In production, this should validate:
             // - User has manage-facilities permission OR
             // - User is associated with this facility
@@ -347,10 +347,10 @@ class DataExtractionService
                 'facility_name' => $facility->name
             ]);
         }
-        
+
         $data = [];
         $organization = $facility->organization;
-        
+
         // Basic facility fields (same pattern as provider basic fields)
         $fieldMap = [
             'facility_id' => $facility->id,
@@ -358,7 +358,7 @@ class DataExtractionService
             'facility_type' => $facility->facility_type,
             'facility_status' => $facility->status,
             'facility_active' => $facility->active,
-            
+
             // Address information
             'facility_address' => $facility->address,
             'facility_address_line1' => $facility->address_line1 ?: $facility->address,
@@ -367,18 +367,18 @@ class DataExtractionService
             'facility_state' => $facility->state,
             'facility_zip' => $facility->zip_code,
             'facility_zip_code' => $facility->zip_code, // Alias
-            
+
             // Contact information
             'facility_phone' => $facility->phone,
             'facility_fax' => $facility->fax,
             'facility_email' => $facility->email,
-            
+
             // Contact person details
             'facility_contact_name' => $facility->contact_name,
             'facility_contact_phone' => $facility->contact_phone,
             'facility_contact_email' => $facility->contact_email,
             'facility_contact_fax' => $facility->contact_fax,
-            
+
             // Practice/Business identifiers
             'facility_npi' => $facility->npi,
             'facility_group_npi' => $facility->group_npi,
@@ -390,19 +390,19 @@ class DataExtractionService
             'facility_medicare_admin_contractor' => $facility->medicare_admin_contractor,
             'medicare_admin_contractor' => $facility->medicare_admin_contractor, // Alias
             'mac' => $facility->medicare_admin_contractor, // Short alias
-            
+
             // Place of service
             'facility_default_place_of_service' => $facility->default_place_of_service,
             'place_of_service' => $facility->default_place_of_service, // Alias
-            
+
             // Business operations
             'facility_business_hours' => $facility->business_hours,
             'facility_npi_verified_at' => $facility->npi_verified_at,
-            
+
             // FHIR integration
             'fhir_organization_id' => $facility->fhir_organization_id,
         ];
-        
+
         // Organization fields (same pattern as provider profile fields)
         if ($organization) {
             $organizationFields = [
@@ -427,36 +427,36 @@ class DataExtractionService
                 'accounts_payable_contact' => $organization->ap_contact_name, // Alias
                 'facility_organization' => $organization->name, // Alias
             ];
-            
+
             $fieldMap = array_merge($fieldMap, $organizationFields);
         }
-        
+
         // Add computed fields
         $fieldMap['facility_city_state_zip'] = trim(
-            ($facility->city ?? '') . ', ' . 
-            ($facility->state ?? '') . ' ' . 
+            ($facility->city ?? '') . ', ' .
+            ($facility->state ?? '') . ' ' .
             ($facility->zip_code ?? '')
         );
-        
+
         $contactInfo = [];
         if ($facility->contact_phone) $contactInfo[] = $facility->contact_phone;
         if ($facility->contact_email) $contactInfo[] = $facility->contact_email;
         $fieldMap['facility_contact_info'] = implode(' / ', $contactInfo);
-        
+
         // Only include requested fields (same pattern as provider)
         foreach ($fieldMap as $field => $value) {
             if ($this->shouldIncludeField($field, $requiredFields)) {
                 $data[$field] = $value;
             }
         }
-        
+
         $this->logger->info('Facility data extracted successfully', [
             'facility_id' => $facilityId,
             'facility_name' => $facility->name,
             'extracted_fields' => count($data),
             'has_organization' => !!$organization
         ]);
-        
+
         return $data;
     }
 
@@ -469,7 +469,7 @@ class DataExtractionService
         if (!$user) {
             return [];
         }
-        
+
         return [
             'current_user' => [
                 'id' => $user->id,
@@ -478,7 +478,7 @@ class DataExtractionService
                 'phone' => $user->phone,
                 'role' => $user->roles->first()?->name,
             ],
-            'name' => trim($user->first_name . ' ' . $user->last_name),
+            'name' => trim($user->first_name . ' ' . $user->last_name) ?? '',
             'email' => $user->email,
             'phone' => $user->phone,
         ];
@@ -493,16 +493,16 @@ class DataExtractionService
         if (!$salesRep) {
             return [];
         }
-        
+
         $data = [];
-        
+
         if ($this->shouldIncludeField('sales_rep', $requiredFields)) {
             $data['sales_rep'] = trim($salesRep->first_name . ' ' . $salesRep->last_name);
             $data['sales_rep_name'] = $data['sales_rep'];
             $data['sales_rep_email'] = $salesRep->email;
             $data['sales_rep_phone'] = $salesRep->phone;
         }
-        
+
         return $data;
     }
 
@@ -512,7 +512,7 @@ class DataExtractionService
     protected function extractDirectContextData(array $context, array $requiredFields): array
     {
         $data = [];
-        
+
         // Fields that should be extracted directly from context if present
         $directFields = [
             // Clinical fields
@@ -544,7 +544,7 @@ class DataExtractionService
             'primary_policy_number',
             'primary_payer_phone',
             'primary_plan_type',
-            'secondary_insurance_name', 
+            'secondary_insurance_name',
             'secondary_member_id',
             'secondary_policy_number',
             'secondary_payer_phone',
@@ -616,13 +616,13 @@ class DataExtractionService
             'patient_zip',
             'patient_caregiver_info',
         ];
-        
+
         foreach ($directFields as $field) {
             if (isset($context[$field]) && $this->shouldIncludeField($field, $requiredFields)) {
                 $data[$field] = $context[$field];
             }
         }
-        
+
         // Handle special cases for Q-code products
         if (isset($context['selected_products']) && is_array($context['selected_products'])) {
             foreach ($context['selected_products'] as $product) {
@@ -634,7 +634,7 @@ class DataExtractionService
                 }
             }
         }
-        
+
         return $data;
     }
 
@@ -647,19 +647,19 @@ class DataExtractionService
         if (empty($requiredFields)) {
             return true;
         }
-        
+
         // Check exact match
         if (in_array($field, $requiredFields)) {
             return true;
         }
-        
+
         // Check prefix match (e.g., "patient_" includes all patient fields)
         foreach ($requiredFields as $required) {
             if (str_starts_with($field, $required)) {
                 return true;
             }
         }
-        
+
         return false;
     }
-} 
+}

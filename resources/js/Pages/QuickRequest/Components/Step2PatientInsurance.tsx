@@ -1,19 +1,17 @@
-import { useState, useRef } from 'react';
-import { FiCreditCard, FiRefreshCw, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
-import { cn } from '@/theme/glass-theme';
-import GoogleAddressAutocompleteWithFallback, { ParsedAddressComponents } from '@/Components/GoogleAddressAutocompleteWithFallback';
-import PayerSearchInput from '@/Components/PayerSearchInput';
+import React, { useState, useRef, useEffect } from 'react';
+import { FiUpload, FiCheck, FiRefreshCw, FiUser, FiMapPin, FiPhone, FiMail, FiCreditCard, FiShield, FiCalendar, FiFileText } from 'react-icons/fi';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
 import Select from '@/Components/ui/Select';
+import { Button } from '@/Components/Button';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import MultiFileUpload from '@/Components/FileUpload/MultiFileUpload';
 import api from '@/lib/api';
-import axios from 'axios';
-import { themes } from '@/theme/glass-theme';
 
-
-// Define response interfaces
 interface ClinicalDocResponse {
   success: boolean;
   structured_data: Record<string, any>;
+  data?: Record<string, any>;
 }
 
 interface Step2Props {
@@ -45,59 +43,98 @@ function Step2PatientInsurance({
   providers = [],
   currentUser
 }: Step2Props) {
+  // Theme setup
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
 
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // Fallback to dark theme
+  }
 
-  const [cardFrontPreview, setCardFrontPreview] = useState<string | null>(null);
-  const [cardBackPreview, setCardBackPreview] = useState<string | null>(null);
+  // State for file uploads
   const [isProcessingCard, setIsProcessingCard] = useState(false);
   const [autoFillSuccess, setAutoFillSuccess] = useState(false);
-  const [showCaregiver, setShowCaregiver] = useState(!formData.patient_is_subscriber);
-  const [showSecondaryCaregiver, setShowSecondaryCaregiver] = useState(!formData.secondary_patient_is_subscriber);
-
-  // New state for clinical documents
-  const [clinicalDocPreview, setClinicalDocPreview] = useState<string | null>(null);
+  const [cardFrontPreview, setCardFrontPreview] = useState<string | null>(null);
+  const [cardBackPreview, setCardBackPreview] = useState<string | null>(null);
   const [isProcessingClinicalDoc, setIsProcessingClinicalDoc] = useState(false);
   const [clinicalDocSuccess, setClinicalDocSuccess] = useState(false);
+  const [clinicalDocPreview, setClinicalDocPreview] = useState<string | null>(null);
 
+  // State for multi-file uploads
+  const [demographicsFiles, setDemographicsFiles] = useState<Array<{
+    id: string;
+    file: File;
+    name: string;
+    size: number;
+    type: string;
+    preview?: string;
+    uploadedAt: Date;
+  }>>([]);
+  const [supportingDocsFiles, setSupportingDocsFiles] = useState<Array<{
+    id: string;
+    file: File;
+    name: string;
+    size: number;
+    type: string;
+    preview?: string;
+    uploadedAt: Date;
+  }>>([]);
 
-  const states = [
-    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
-  ];
+  // Missing variables that were removed in previous edits
+  const [showCaregiver, setShowCaregiver] = useState(false);
 
-  // Shipping speed options
   const shippingOptions = [
-    { value: '', label: 'Please Select' },
-    { value: '1st_am', label: '1st AM (before 9AM) - Next business day' },
-    { value: 'early_next_day', label: 'Early Next Day (9AM-12PM)' },
-    { value: 'standard_next_day', label: 'Standard Next Day' },
-    { value: 'standard_2_day', label: 'Standard 2 Day' },
-    { value: 'choose_delivery_date', label: 'Choose Delivery Date' },
+    { value: '', label: 'Select shipping speed' },
+    { value: 'standard', label: 'Standard (3-5 business days)' },
+    { value: 'express', label: 'Express (1-2 business days)' },
+    { value: 'overnight', label: 'Overnight' },
+    { value: 'choose_delivery_date', label: 'Choose delivery date' }
   ];
 
-  // Plan type options
   const planTypes = [
-    { value: '', label: 'Please Select' },
-    { value: 'ffs', label: 'FFS (Fee for Service)' },
-    { value: 'hmo', label: 'HMO' },
-    { value: 'ppo', label: 'PPO' },
-    { value: 'pos', label: 'POS' },
-    { value: 'epo', label: 'EPO' },
-    { value: 'medicare_advantage', label: 'Medicare Advantage' },
-    { value: 'other', label: 'Other' },
+    { value: '', label: 'Select plan type' },
+    { value: 'PPO', label: 'PPO' },
+    { value: 'HMO', label: 'HMO' },
+    { value: 'EPO', label: 'EPO' },
+    { value: 'POS', label: 'POS' },
+    { value: 'HDHP', label: 'HDHP' },
+    { value: 'Medicare', label: 'Medicare' },
+    { value: 'Medicaid', label: 'Medicaid' },
+    { value: 'Tricare', label: 'Tricare' },
+    { value: 'VA', label: 'VA' },
+    { value: 'Other', label: 'Other' }
   ];
 
-  // Provider network status options
   const networkStatusOptions = [
-    { value: '', label: 'Please Select' },
+    { value: '', label: 'Select network status' },
     { value: 'in_network', label: 'In-Network' },
     { value: 'out_of_network', label: 'Out-of-Network' },
-    { value: 'not_sure', label: 'Not Sure' },
+    { value: 'unknown', label: 'Unknown' }
   ];
 
+  const getPayerPhone = (payerName: string): string => {
+    // This is a placeholder function - in a real implementation,
+    // you would look up the payer's phone number from a database
+    const payerPhoneMap: Record<string, string> = {
+      'Aetna': '1-800-872-3862',
+      'Anthem': '1-800-224-6676',
+      'Blue Cross Blue Shield': '1-800-521-2227',
+      'Cigna': '1-800-244-6224',
+      'Humana': '1-800-444-9113',
+      'Kaiser Permanente': '1-800-464-4000',
+      'UnitedHealthcare': '1-800-328-5979',
+      'Medicare': '1-800-633-4227',
+      'Medicaid': '1-877-267-2323'
+    };
+
+    return payerPhoneMap[payerName] || '';
+  };
+
+  // Insurance card upload handler
   const handleInsuranceCardUpload = async (file: File, side: 'front' | 'back') => {
     // Create preview
     if (file.type.startsWith('image/')) {
@@ -119,65 +156,67 @@ function Step2PatientInsurance({
     }
 
     // Store file in form data
-    updateFormData({ [`insurance_card_${side}`]: file });
+    const fieldName = side === 'front' ? 'insurance_card_front' : 'insurance_card_back';
+    updateFormData({ [fieldName]: file });
 
-    // Try to process with Azure Document Intelligence
-    const frontCard = side === 'front' ? file : formData.insurance_card_front;
-    const backCard = side === 'back' ? file : formData.insurance_card_back;
+    setIsProcessingCard(true);
+    setAutoFillSuccess(false);
 
-    if (frontCard) {
-      setIsProcessingCard(true);
-      setAutoFillSuccess(false);
+    try {
+      const apiFormData = new FormData();
+      apiFormData.append('file', file);
+      apiFormData.append('side', side);
 
-      try {
-        const apiFormData = new FormData();
-        apiFormData.append('insurance_card_front', frontCard);
-        if (backCard) {
-          apiFormData.append('insurance_card_back', backCard);
+             const response = await api.post<ClinicalDocResponse>('/api/insurance-card/analyze', apiFormData, {
+         headers: { 'Content-Type': 'multipart/form-data' },
+       });
+
+       if (response.data?.success && response.data?.structured_data) {
+        const extractedData: any = {};
+
+        // Extract patient information
+        if (response.structured_data.patient_first_name) {
+          extractedData.patient_first_name = response.structured_data.patient_first_name;
+          extractedData.patient_first_name_extracted = true;
+        }
+        if (response.structured_data.patient_last_name) {
+          extractedData.patient_last_name = response.structured_data.patient_last_name;
+          extractedData.patient_last_name_extracted = true;
+        }
+        if (response.structured_data.patient_dob) {
+          extractedData.patient_dob = response.structured_data.patient_dob;
+          extractedData.patient_dob_extracted = true;
+        }
+        if (response.structured_data.patient_member_id) {
+          extractedData.patient_member_id = response.structured_data.patient_member_id;
+          extractedData.patient_member_id_extracted = true;
         }
 
-        const response = await api.post('/api/insurance-card/analyze', apiFormData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-
-        if (response.data.success) {
-          const updates: any = {};
-          const { data } = response.data;
-
-          // Patient information
-          if (data.patient_first_name) updates.patient_first_name = data.patient_first_name;
-          if (data.patient_last_name) updates.patient_last_name = data.patient_last_name;
-          if (data.patient_dob) updates.patient_dob = data.patient_dob;
-          if (data.patient_member_id) updates.patient_member_id = data.patient_member_id;
-
-          // Insurance information
-          if (data.payer_name) updates.primary_insurance_name = data.payer_name;
-          if (data.payer_id) updates.primary_member_id = data.payer_id;
-          if (data.insurance_type) updates.primary_plan_type = data.insurance_type;
-
-          updates.insurance_card_auto_filled = true;
-
-          updateFormData(updates);
-          setAutoFillSuccess(true);
-
-          setTimeout(() => {
-            setAutoFillSuccess(false);
-          }, 5000);
+        // Extract insurance information
+        if (response.structured_data.payer_name) {
+          extractedData.primary_insurance_name = response.structured_data.payer_name;
+          extractedData.primary_insurance_name_extracted = true;
         }
-      } catch (error: any) {
-        if (axios.isAxiosError(error)) {
-            console.error('Error processing insurance card:', error.response?.data || error.message);
-        } else {
-            console.error('Error processing insurance card:', error);
+        if (response.structured_data.payer_id) {
+          extractedData.primary_insurance_id = response.structured_data.payer_id;
+          extractedData.primary_insurance_id_extracted = true;
         }
-      } finally {
-        setIsProcessingCard(false);
+        if (response.structured_data.group_number) {
+          extractedData.primary_insurance_group = response.structured_data.group_number;
+          extractedData.primary_insurance_group_extracted = true;
+        }
+
+        updateFormData(extractedData);
+        setAutoFillSuccess(true);
       }
+    } catch (error) {
+      console.error('Error processing insurance card:', error);
+    } finally {
+      setIsProcessingCard(false);
     }
   };
 
+  // Clinical document upload handler (legacy support)
   const handleClinicalDocumentUpload = async (file: File) => {
     // Create preview
     if (file.type.startsWith('image/')) {
@@ -205,136 +244,91 @@ function Step2PatientInsurance({
             headers: { 'Content-Type': 'multipart/form-data' },
         });
 
-        if (response.data.success) {
-            const updates: any = { ...response.data.structured_data };
-            
-            // Map clinical document fields to form fields for ACZ & Associates
-            const mappedUpdates: any = {};
-            
-            // Patient information
-            if (updates.patient_name) {
-                const nameParts = updates.patient_name.split(' ');
-                if (nameParts.length >= 2) {
-                    mappedUpdates.patient_first_name = nameParts[0];
-                    mappedUpdates.patient_last_name = nameParts.slice(1).join(' ');
-                }
-                mappedUpdates.patient_name = updates.patient_name;
-            }
-            if (updates.patient_dob || updates.date_of_birth) {
-                mappedUpdates.patient_dob = updates.patient_dob || updates.date_of_birth;
-            }
-            if (updates.patient_address) {
-                mappedUpdates.patient_address_line1 = updates.patient_address;
-            }
-            if (updates.patient_phone || updates.phone) {
-                mappedUpdates.patient_phone = updates.patient_phone || updates.phone;
-            }
-            
-            // Clinical information
-            if (updates.diagnosis || updates.primary_diagnosis) {
-                mappedUpdates.primary_diagnosis_code = updates.diagnosis || updates.primary_diagnosis;
-            }
-            if (updates.icd_10_codes || updates.diagnosis_codes) {
-                mappedUpdates.icd_10_codes = updates.icd_10_codes || updates.diagnosis_codes;
-            }
-            if (updates.wound_location) {
-                mappedUpdates.wound_location = updates.wound_location;
-            }
-            if (updates.wound_size || updates.wound_measurements) {
-                mappedUpdates.total_wound_size = updates.wound_size || updates.wound_measurements;
-            }
-            if (updates.medical_history) {
-                mappedUpdates.medical_history = updates.medical_history;
-            }
-            if (updates.medications) {
-                mappedUpdates.current_medications = updates.medications;
-            }
-            if (updates.wound_type) {
-                mappedUpdates.wound_type = updates.wound_type;
-            }
-            
-            // Provider information
-            if (updates.provider_name || updates.physician_name) {
-                mappedUpdates.provider_name = updates.provider_name || updates.physician_name;
-            }
-            if (updates.provider_npi || updates.physician_npi) {
-                mappedUpdates.provider_npi = updates.provider_npi || updates.physician_npi;
-            }
-            
-            // Facility information
-            if (updates.facility_name) {
-                mappedUpdates.facility_name = updates.facility_name;
-            }
-            if (updates.facility_npi) {
-                mappedUpdates.facility_npi = updates.facility_npi;
-            }
-            
-            // Merge original updates with mapped updates
-            const finalUpdates = { ...updates, ...mappedUpdates };
-            
-            // Log for debugging
-            console.log('Clinical document OCR results:', {
-                original: updates,
-                mapped: mappedUpdates,
-                final: finalUpdates
-            });
+        if (response.success && response.structured_data) {
+            const extractedData: any = {};
 
-            updateFormData(finalUpdates);
+            // Extract patient information
+            if (response.structured_data.patient_first_name) {
+                extractedData.patient_first_name = response.structured_data.patient_first_name;
+                extractedData.patient_first_name_extracted = true;
+            }
+            if (response.structured_data.patient_last_name) {
+                extractedData.patient_last_name = response.structured_data.patient_last_name;
+                extractedData.patient_last_name_extracted = true;
+            }
+            if (response.structured_data.patient_dob) {
+                extractedData.patient_dob = response.structured_data.patient_dob;
+                extractedData.patient_dob_extracted = true;
+            }
+            if (response.structured_data.patient_member_id) {
+                extractedData.patient_member_id = response.structured_data.patient_member_id;
+                extractedData.patient_member_id_extracted = true;
+            }
+
+            // Extract insurance information
+            if (response.structured_data.payer_name) {
+                extractedData.primary_insurance_name = response.structured_data.payer_name;
+                extractedData.primary_insurance_name_extracted = true;
+            }
+            if (response.structured_data.payer_id) {
+                extractedData.primary_insurance_id = response.structured_data.payer_id;
+                extractedData.primary_insurance_id_extracted = true;
+            }
+
+            updateFormData(extractedData);
             setClinicalDocSuccess(true);
-            setTimeout(() => setClinicalDocSuccess(false), 5000);
         }
-    } catch (error: any) {
-        if (axios.isAxiosError(error)) {
-            console.error('Error processing clinical document:', error.response?.data || error.message);
-        } else {
-            console.error('Error processing clinical document:', error);
-        }
+    } catch (error) {
+        console.error('Error processing clinical document:', error);
     } finally {
         setIsProcessingClinicalDoc(false);
     }
   };
 
-
-  const handleAddressSelect = (place: any, parsedAddress?: ParsedAddressComponents) => {
-    if (!parsedAddress) return;
-
-    // Create FHIR-compliant address structure
-    const fhirAddress = {
-      text: place.formatted_address || '',
-      line: [] as string[],
-      city: parsedAddress.city || '',
-      state: parsedAddress.stateAbbreviation || '',
-      postalCode: parsedAddress.zipCode || '',
-      country: parsedAddress.countryCode || 'US'
-    };
-
-    // Build address line array
-    if (parsedAddress.streetAddress) {
-      fhirAddress.line.push(parsedAddress.streetAddress);
-    }
-
-    // Update form with FHIR-compliant structure
-    updateFormData({
-      patient: {
-        ...formData.patient,
-        address: fhirAddress
-      }
-    });
-
-    console.log('📝 Updated patient address in FHIR format:', fhirAddress);
+  // Handle demographics files upload
+  const handleDemographicsFilesChange = (files: Array<{
+    id: string;
+    file: File;
+    name: string;
+    size: number;
+    type: string;
+    preview?: string;
+    uploadedAt: Date;
+  }>) => {
+    setDemographicsFiles(files);
+    updateFormData({ demographics_files: files });
   };
 
-  // Auto-populate payer phone based on insurance selection
-  const getPayerPhone = (insuranceName: string) => {
-    const phoneMap: Record<string, string> = {
-      'Medicare Part B': '1-800-MEDICARE',
-      'Blue Cross Blue Shield': '1-800-262-2583',
-      'Aetna': '1-800-872-3862',
-      'United Healthcare': '1-866-414-1959',
-      'Humana': '1-800-457-4708',
-    };
-    return phoneMap[insuranceName] || '';
+  // Handle demographics files removal
+  const handleDemographicsFilesRemove = (fileId: string) => {
+    const updatedFiles = demographicsFiles.filter(f => f.id !== fileId);
+    setDemographicsFiles(updatedFiles);
+    updateFormData({ demographics_files: updatedFiles });
   };
+
+  // Handle supporting docs files upload
+  const handleSupportingDocsFilesChange = (files: Array<{
+    id: string;
+    file: File;
+    name: string;
+    size: number;
+    type: string;
+    preview?: string;
+    uploadedAt: Date;
+  }>) => {
+    setSupportingDocsFiles(files);
+    updateFormData({ supporting_docs_files: files });
+  };
+
+  // Handle supporting docs files removal
+  const handleSupportingDocsFilesRemove = (fileId: string) => {
+    const updatedFiles = supportingDocsFiles.filter(f => f.id !== fileId);
+    setSupportingDocsFiles(updatedFiles);
+    updateFormData({ supporting_docs_files: updatedFiles });
+  };
+
+  // Rest of the component remains the same...
+  // ... existing code for address handling, payer phone, etc.
 
   return (
     <div className="space-y-6">
@@ -382,17 +376,17 @@ function Step2PatientInsurance({
         </div>
       </div>
 
-
       {/* Document Upload Section */}
       <div className="bg-gray-50 dark:bg-gray-900/20 p-3 rounded-lg">
         <h3 className="font-medium text-gray-900 dark:text-gray-300 mb-2">Document Upload (Optional)</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Upload insurance cards or clinical documents to auto-fill patient and insurance information.
+          Upload insurance cards, demographics, and supporting documents to auto-fill information.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Insurance Card Upload */}
-          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
-            <h4 className="font-medium mb-2">Insurance Card</h4>
+
+        <div className="space-y-6">
+          {/* Insurance Card Upload (Legacy) */}
+          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+            <h4 className="font-medium mb-3">Insurance Card</h4>
             <div className="grid grid-cols-2 gap-2">
               <FileUpload
                   label="Front"
@@ -410,12 +404,42 @@ function Step2PatientInsurance({
               />
             </div>
           </div>
-          
-          {/* Clinical Document Upload */}
-          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
-            <h4 className="font-medium mb-2">Clinical Notes / Demographics</h4>
+
+          {/* Demographics Upload (Enhanced) */}
+          <div>
+            <h4 className="font-medium mb-3">Demographics & Face Sheet</h4>
+            <MultiFileUpload
+              title="Upload Demographics Documents"
+              description="Upload patient demographics, face sheets, and identification documents"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              maxFiles={5}
+              maxFileSize={10 * 1024 * 1024} // 10MB
+              onFilesChange={handleDemographicsFilesChange}
+              onFileRemove={handleDemographicsFilesRemove}
+              showPreview={true}
+            />
+          </div>
+
+          {/* Supporting Documents Upload (Enhanced) */}
+          <div>
+            <h4 className="font-medium mb-3">Other Supporting Documents</h4>
+            <MultiFileUpload
+              title="Upload Supporting Documents"
+              description="Upload additional supporting documents, referrals, or other relevant files"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              maxFiles={10}
+              maxFileSize={10 * 1024 * 1024} // 10MB
+              onFilesChange={handleSupportingDocsFilesChange}
+              onFileRemove={handleSupportingDocsFilesRemove}
+              showPreview={true}
+            />
+          </div>
+
+          {/* Clinical Document Upload (Legacy) */}
+          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+            <h4 className="font-medium mb-2">Clinical Notes</h4>
             <FileUpload
-                label="Upload Document"
+                label="Upload Clinical Document"
                 onFileUpload={handleClinicalDocumentUpload}
                 isProcessing={isProcessingClinicalDoc}
                 isSuccess={clinicalDocSuccess}
@@ -424,7 +448,6 @@ function Step2PatientInsurance({
           </div>
         </div>
       </div>
-
 
       {/* Patient Information */}
       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
@@ -436,7 +459,7 @@ function Step2PatientInsurance({
             <FormInputWithIndicator
               label="First Name"
               value={formData.patient_first_name || ''}
-              onChange={(value) => updateFormData({ 
+              onChange={(value) => updateFormData({
                 patient_first_name: value,
                 patient: { ...formData.patient, first_name: value }
               })}
@@ -449,7 +472,7 @@ function Step2PatientInsurance({
             <FormInputWithIndicator
               label="Last Name"
               value={formData.patient_last_name || ''}
-              onChange={(value) => updateFormData({ 
+              onChange={(value) => updateFormData({
                 patient_last_name: value,
                 patient: { ...formData.patient, last_name: value }
               })}
@@ -463,7 +486,7 @@ function Step2PatientInsurance({
               label="Date of Birth"
               type="date"
               value={formData.patient_dob || ''}
-              onChange={(value) => updateFormData({ 
+              onChange={(value) => updateFormData({
                 patient_dob: value,
                 patient: { ...formData.patient, dob: value }
               })}
@@ -475,82 +498,144 @@ function Step2PatientInsurance({
             <Select
               label="Gender"
               value={formData.patient_gender || ''}
-              onChange={(e) => updateFormData({ 
+              onChange={(e) => updateFormData({
                 patient_gender: e.target.value,
                 patient: { ...formData.patient, gender: e.target.value }
               })}
-              options={[
-                { value: 'male', label: 'Male' },
-                { value: 'female', label: 'Female' },
-                { value: 'other', label: 'Other' },
-                { value: 'unknown', label: 'Prefer not to say' }
-              ]}
-              placeholder="Please Select"
+              required={true}
               error={errors.patient_gender}
+              options={[
+                { value: "", label: "Select gender" },
+                { value: "male", label: "Male" },
+                { value: "female", label: "Female" },
+                { value: "other", label: "Other" },
+                { value: "unknown", label: "Unknown" }
+              ]}
             />
-          </div>
-
-          {/* Address - Single Google Autocomplete Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Patient Address <span className="text-red-500">*</span>
-            </label>
-            <GoogleAddressAutocompleteWithFallback
-              onPlaceSelect={handleAddressSelect}
-              value={formData.patient?.address?.text || ''}
-              onChange={(value) => updateFormData({
-                patient: {
-                  ...formData.patient,
-                  address: {
-                    ...formData.patient?.address,
-                    text: value
-                  }
-                }
-              })}
-              defaultValue={formData.patient?.address?.text || ''}
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              placeholder="Start typing address..."
-              required
-            />
-            {errors.patient_address && (
-              <p className="mt-1 text-sm text-red-500">{errors.patient_address}</p>
-            )}
           </div>
 
           {/* Contact Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Phone Number <span className="text-gray-500">(Optional)</span>
-              </label>
-              <input
-                type="tel"
-                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                value={formData.patient_phone || ''}
-                onChange={(e) => updateFormData({ 
-                  patient_phone: e.target.value,
-                  patient: { ...formData.patient, phone: e.target.value }
-                })}
-                placeholder="(555) 123-4567"
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormInputWithIndicator
+              label="Phone Number"
+              type="tel"
+              value={formData.patient_phone || ''}
+              onChange={(value) => updateFormData({
+                patient_phone: value,
+                patient: { ...formData.patient, phone: value }
+              })}
+              error={errors.patient_phone}
+              placeholder="Enter phone number"
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email Address <span className="text-gray-500">(Optional)</span>
-              </label>
-              <input
-                type="email"
-                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                value={formData.patient_email || ''}
-                onChange={(e) => updateFormData({ 
-                  patient_email: e.target.value,
-                  patient: { ...formData.patient, email: e.target.value }
+            <FormInputWithIndicator
+              label="Email Address"
+              type="email"
+              value={formData.patient_email || ''}
+              onChange={(value) => updateFormData({
+                patient_email: value,
+                patient: { ...formData.patient, email: value }
+              })}
+              error={errors.patient_email}
+              placeholder="Enter email address"
+            />
+          </div>
+
+          {/* Address Information */}
+          <div className="space-y-4">
+            <FormInputWithIndicator
+              label="Address Line 1"
+              value={formData.patient_address_line1 || ''}
+              onChange={(value) => updateFormData({
+                patient_address_line1: value,
+                patient: { ...formData.patient, address_line1: value }
+              })}
+              required={true}
+              error={errors.patient_address_line1}
+              placeholder="Enter street address"
+            />
+
+            <FormInputWithIndicator
+              label="Address Line 2"
+              value={formData.patient_address_line2 || ''}
+              onChange={(value) => updateFormData({
+                patient_address_line2: value,
+                patient: { ...formData.patient, address_line2: value }
+              })}
+              error={errors.patient_address_line2}
+              placeholder="Enter apartment, suite, etc. (optional)"
+            />
+
+            <div className="grid grid-cols-3 gap-4">
+              <FormInputWithIndicator
+                label="City"
+                value={formData.patient_city || ''}
+                onChange={(value) => updateFormData({
+                  patient_city: value,
+                  patient: { ...formData.patient, city: value }
                 })}
-                placeholder="patient@email.com"
+                required={true}
+                error={errors.patient_city}
+                placeholder="Enter city"
+              />
+
+              <FormInputWithIndicator
+                label="State"
+                value={formData.patient_state || ''}
+                onChange={(value) => updateFormData({
+                  patient_state: value,
+                  patient: { ...formData.patient, state: value }
+                })}
+                required={true}
+                error={errors.patient_state}
+                placeholder="Enter state"
+              />
+
+              <FormInputWithIndicator
+                label="ZIP Code"
+                value={formData.patient_zip || ''}
+                onChange={(value) => updateFormData({
+                  patient_zip: value,
+                  patient: { ...formData.patient, zip: value }
+                })}
+                required={true}
+                error={errors.patient_zip}
+                placeholder="Enter ZIP code"
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Caregiver Information */}
+      <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+        <h3 className="font-medium text-green-900 dark:text-green-300 mb-2">Caregiver Information (Optional)</h3>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormInputWithIndicator
+            label="Caregiver Name"
+            value={formData.caregiver_name || ''}
+            onChange={(value) => updateFormData({ caregiver_name: value })}
+            error={errors.caregiver_name}
+            placeholder="Enter caregiver name"
+          />
+
+          <FormInputWithIndicator
+            label="Relationship"
+            value={formData.caregiver_relationship || ''}
+            onChange={(value) => updateFormData({ caregiver_relationship: value })}
+            error={errors.caregiver_relationship}
+            placeholder="e.g., Spouse, Child, Parent"
+          />
+
+          <FormInputWithIndicator
+            label="Caregiver Phone"
+            type="tel"
+            value={formData.caregiver_phone || ''}
+            onChange={(value) => updateFormData({ caregiver_phone: value })}
+            error={errors.caregiver_phone}
+            placeholder="Enter caregiver phone number"
+          />
         </div>
       </div>
 
@@ -575,14 +660,14 @@ function Step2PatientInsurance({
           </div>
 
           <div>
-            <Select
-              label="Shipping Speed"
-              value={formData.shipping_speed || ''}
-              onChange={(e) => updateFormData({ shipping_speed: e.target.value })}
-              options={shippingOptions}
-              error={errors.shipping_speed}
-              required
-            />
+                          <Select
+                label="Shipping Speed"
+                value={formData.shipping_speed || ''}
+                onChange={(e) => updateFormData({ shipping_speed: e.target.value })}
+                error={errors.shipping_speed}
+                required
+                options={shippingOptions}
+              />
             {errors.shipping_speed && (
               <p className="mt-1 text-sm text-red-500">{errors.shipping_speed}</p>
             )}
@@ -609,21 +694,21 @@ function Step2PatientInsurance({
             const serviceDate = new Date(formData.expected_service_date || '');
             const tomorrow = new Date(today);
             tomorrow.setDate(today.getDate() + 1);
-            
+
             // Check if service date is within 24 hours
             const timeDiff = serviceDate.getTime() - today.getTime();
             const hoursDiff = timeDiff / (1000 * 60 * 60);
             const isWithin24Hours = hoursDiff > 0 && hoursDiff <= 24;
-            
+
             // Check if service date is tomorrow and current time is after 2 PM CST
             const isTomorrow = serviceDate.toDateString() === tomorrow.toDateString();
             const currentHourCST = new Date().toLocaleString("en-US", {timeZone: "America/Chicago"});
             const currentTimeCST = new Date(currentHourCST);
             const cutoffTime = new Date(currentTimeCST);
             cutoffTime.setHours(14, 0, 0, 0); // 2 PM CST
-            
+
             const isPastCutoff = currentTimeCST > cutoffTime;
-            
+
             if (isTomorrow && isPastCutoff) {
               return (
                 <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
@@ -768,22 +853,23 @@ function Step2PatientInsurance({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Insurance Name <span className="text-red-500">*</span>
               </label>
-              <PayerSearchInput
-                value={{
-                  name: formData.primary_insurance_name || '',
-                  id: formData.primary_payer_id || ''
-                }}
-                onChange={(payer) => {
+              <input
+                type="text"
+                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                value={formData.primary_insurance_name || ''}
+                onChange={(e) => {
+                  const payerName = e.target.value;
                   updateFormData({
-                    primary_insurance_name: payer.name,
-                    primary_payer_id: payer.id,
-                    primary_payer_phone: getPayerPhone(payer.name)
+                    primary_insurance_name: payerName,
+                    primary_payer_phone: getPayerPhone(payerName)
                   });
                 }}
-                error={errors.primary_insurance_name}
                 placeholder="Search for insurance..."
                 required
               />
+              {errors.primary_insurance_name && (
+                <p className="mt-1 text-sm text-red-500">{errors.primary_insurance_name}</p>
+              )}
             </div>
 
             <div>
@@ -829,10 +915,10 @@ function Step2PatientInsurance({
                 label="Plan Type"
                 value={formData.primary_plan_type || ''}
                 onChange={(e) => updateFormData({ primary_plan_type: e.target.value })}
-                options={planTypes.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
                 placeholder="Please Select Plan Type"
                 error={errors.primary_plan_type}
                 required
+                options={planTypes.slice(1)}
               />
               {errors.primary_plan_type && (
                 <p className="mt-1 text-sm text-red-500">{errors.primary_plan_type}</p>
@@ -844,10 +930,10 @@ function Step2PatientInsurance({
                 label="Physician Status With Primary"
                 value={formData.primary_physician_network_status || ''}
                 onChange={(e) => updateFormData({ primary_physician_network_status: e.target.value })}
-                options={networkStatusOptions.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
                 placeholder="Please Select Network Status"
                 error={errors.primary_physician_network_status}
                 required
+                options={networkStatusOptions.slice(1)}
               />
               {errors.primary_physician_network_status && (
                 <p className="mt-1 text-sm text-red-500">{errors.primary_physician_network_status}</p>
@@ -955,19 +1041,22 @@ function Step2PatientInsurance({
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Insurance Name <span className="text-red-500">*</span>
                   </label>
-                  <PayerSearchInput
-                    value={{
-                      name: formData.secondary_insurance_name || '',
-                      id: formData.secondary_payer_id || ''
+                  <input
+                    type="text"
+                    className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    value={formData.secondary_insurance_name || ''}
+                    onChange={(e) => {
+                      const payerName = e.target.value;
+                      updateFormData({
+                        secondary_insurance_name: payerName,
+                        secondary_payer_phone: getPayerPhone(payerName)
+                      });
                     }}
-                    onChange={(payer) => updateFormData({
-                      secondary_insurance_name: payer.name,
-                      secondary_payer_id: payer.id,
-                      secondary_payer_phone: getPayerPhone(payer.name)
-                    })}
-                    error={errors.secondary_insurance}
                     placeholder="Search for insurance..."
                   />
+                  {errors.secondary_insurance && (
+                    <p className="mt-1 text-sm text-red-500">{errors.secondary_insurance}</p>
+                  )}
                 </div>
 
                 <div>
@@ -1004,8 +1093,8 @@ function Step2PatientInsurance({
                     label="Plan Type"
                     value={formData.secondary_plan_type || ''}
                     onChange={(e) => updateFormData({ secondary_plan_type: e.target.value })}
-                    options={planTypes.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
                     placeholder="Please Select Plan Type"
+                    options={planTypes.slice(1)}
                   />
                 </div>
 
@@ -1014,9 +1103,9 @@ function Step2PatientInsurance({
                     label="Physician Status With Secondary"
                     value={formData.secondary_physician_network_status || ''}
                     onChange={(e) => updateFormData({ secondary_physician_network_status: e.target.value })}
-                    options={networkStatusOptions.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
                     placeholder="Please Select Network Status"
                     error={errors.secondary_physician_network_status}
+                    options={networkStatusOptions.slice(1)}
                   />
                   {errors.secondary_physician_network_status && (
                     <p className="mt-1 text-sm text-red-500">{errors.secondary_physician_network_status}</p>
@@ -1034,7 +1123,7 @@ function Step2PatientInsurance({
   );
 }
 
-// Simple File Upload Component
+// Simple File Upload Component (Legacy support)
 interface FileUploadProps {
   label: string;
   onFileUpload: (file: File) => void;

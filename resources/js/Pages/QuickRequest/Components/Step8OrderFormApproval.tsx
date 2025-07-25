@@ -161,12 +161,15 @@ export default function Step8OrderFormApproval({
   };
 
   const selectedProduct = getSelectedProduct();
-  const manufacturerConfig = selectedProduct?.manufacturer 
+  const manufacturerConfig = selectedProduct?.manufacturer
     ? getManufacturerByName(selectedProduct.manufacturer)
     : null;
 
   // Check if order form is available for this manufacturer
   const hasOrderForm = manufacturerConfig?.has_order_form === true || manufacturerConfig?.order_form_template_id;
+
+  // Check if IVR is required for this order
+  const isIvrRequired = formData.ivr_required !== false && !formData.ivr_bypass_reason;
 
   // Debug logging
   console.log('Step 8 - Selected Product:', {
@@ -197,12 +200,12 @@ export default function Step8OrderFormApproval({
   };
 
   const handleSkip = () => {
-    updateFormData({ 
+    updateFormData({
       order_form_skipped: true,
       order_form_skipped_at: new Date().toISOString()
     });
     setIsSkipped(true);
-    
+
     // Auto-proceed to next step after a brief delay
     setTimeout(() => {
       onNext();
@@ -211,18 +214,18 @@ export default function Step8OrderFormApproval({
 
   const handleOrderFormComplete = async (submissionData: any) => {
     setIsProcessing(true);
-    
+
     try {
       console.log('🎉 Order form completed:', submissionData);
-      
+
       const submissionId = submissionData.submission_id || submissionData.id || 'unknown';
-      
+
       // Update form data immediately
-      updateFormData({ 
+      updateFormData({
         order_form_submission_id: submissionId,
-        order_form_completed_at: new Date().toISOString() 
+        order_form_completed_at: new Date().toISOString()
       });
-      
+
       // Optional: Call backend to process order form completion
       try {
         const response = await axios.post('/api/v1/order-form/process-completion', {
@@ -232,7 +235,7 @@ export default function Step8OrderFormApproval({
           form_data: formData,
           completion_data: submissionData
         });
-        
+
         if (response.data.success) {
           setOrderFormSubmission(response.data);
         }
@@ -240,14 +243,14 @@ export default function Step8OrderFormApproval({
         console.warn('Order form processing API call failed (non-critical):', apiError);
         // Continue anyway as this is optional processing
       }
-      
+
       setIsCompleted(true);
-      
+
       // Auto-proceed to next step after brief delay
       setTimeout(() => {
         onNext();
       }, 2000);
-      
+
     } catch (error) {
       console.error('Error processing order form completion:', error);
       setSubmissionError('Form completed but there was an error processing the submission.');
@@ -255,7 +258,7 @@ export default function Step8OrderFormApproval({
       setIsProcessing(false);
     }
   };
-  
+
   const handleOrderFormError = (error: string) => {
     setSubmissionError(error);
     setIsProcessing(false);
@@ -321,9 +324,9 @@ export default function Step8OrderFormApproval({
         <p className={cn("text-sm", t.text.secondary)}>
           The order form has been reviewed and submitted.
         </p>
-        
+
         {orderFormSubmission && (
-          <div className={cn("mt-4 p-3 rounded-lg", 
+          <div className={cn("mt-4 p-3 rounded-lg",
             theme === 'dark' ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'
           )}>
             <div className="text-sm space-y-1">
@@ -333,17 +336,17 @@ export default function Step8OrderFormApproval({
             </div>
           </div>
         )}
-        
+
         <p className={cn("text-sm mt-3", t.text.secondary)}>
           Proceeding to final review...
         </p>
-        
+
         <button
           onClick={handleManualNext}
           className={cn(
             "mt-4 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-            theme === 'dark' 
-              ? 'bg-blue-700 hover:bg-blue-600 text-white' 
+            theme === 'dark'
+              ? 'bg-blue-700 hover:bg-blue-600 text-white'
               : 'bg-blue-600 hover:bg-blue-700 text-white'
           )}
         >
@@ -372,27 +375,27 @@ export default function Step8OrderFormApproval({
           <p className={cn("text-sm mb-4", t.text.secondary)}>
             You can review the manufacturer's order form or skip this optional step.
           </p>
-          
+
           <div className="flex gap-3">
             <button
               onClick={handleShowOrderForm}
               className={cn(
                 "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                theme === 'dark' 
-                  ? 'bg-blue-700 hover:bg-blue-600 text-white' 
+                theme === 'dark'
+                  ? 'bg-blue-700 hover:bg-blue-600 text-white'
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               )}
             >
               <FiFileText className="mr-2 h-4 w-4" />
               Review Order Form
             </button>
-            
+
             <button
               onClick={handleSkip}
               className={cn(
                 "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                theme === 'dark' 
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                theme === 'dark'
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                   : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
               )}
             >
@@ -417,7 +420,7 @@ export default function Step8OrderFormApproval({
                 </div>
               </div>
             )}
-            
+
             <DocusealEmbed
               manufacturerId={selectedProduct?.manufacturer_id?.toString() || '1'}
               productCode={selectedProduct?.code || ''}
@@ -426,7 +429,8 @@ export default function Step8OrderFormApproval({
               episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
               onComplete={handleOrderFormComplete}
               onError={handleOrderFormError}
-              className="w-full h-full min-h-[600px]" submissionUrl={''} builderToken={''} builderProps={null}            />
+              className="w-full h-full min-h-[600px]"
+            />
           </div>
         </div>
       )}
