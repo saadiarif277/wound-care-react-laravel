@@ -391,43 +391,25 @@ function Step2PatientInsurance({
           Upload insurance cards or clinical documents to auto-fill patient and insurance information.
         </p>
 
-        {/* Insurance Card Upload - One Row */}
+        {/* Insurance Card Upload - One Button */}
         <div className="mb-16">
           <h4 className="font-medium mb-4">Insurance Card</h4>
-          <div className="grid grid-cols-2 gap-6">
-            <MultiFileUpload
-              title="Front"
-              description="Upload insurance card front (multiple files allowed)"
-              accept="image/*,application/pdf"
-              maxFiles={5}
-              onFilesChange={(files) => {
-                // Handle multiple front insurance card files
-                console.log('Front insurance cards uploaded:', files);
-              }}
-              onFileRemove={(fileId) => {
-                // Handle file removal
-                console.log('Front insurance card removed:', fileId);
-              }}
-              className="h-48"
-              showPreview={true}
-            />
-            <MultiFileUpload
-              title="Back"
-              description="Upload insurance card back (multiple files allowed)"
-              accept="image/*,application/pdf"
-              maxFiles={5}
-              onFilesChange={(files) => {
-                // Handle multiple back insurance card files
-                console.log('Back insurance cards uploaded:', files);
-              }}
-              onFileRemove={(fileId) => {
-                // Handle file removal
-                console.log('Back insurance card removed:', fileId);
-              }}
-              className="h-48"
-              showPreview={true}
-            />
-          </div>
+          <MultiFileUpload
+            title="Upload Insurance Cards"
+            description="Upload insurance card front and back images (multiple files allowed)"
+            accept="image/*,application/pdf"
+            maxFiles={10}
+            onFilesChange={(files) => {
+              // Handle multiple insurance card files (front and back)
+              console.log('Insurance cards uploaded:', files);
+            }}
+            onFileRemove={(fileId) => {
+              // Handle file removal
+              console.log('Insurance card removed:', fileId);
+            }}
+            className="h-48"
+            showPreview={true}
+          />
         </div>
 
       </div>

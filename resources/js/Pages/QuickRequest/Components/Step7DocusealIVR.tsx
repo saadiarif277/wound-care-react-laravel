@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CheckCircle, ArrowRight, AlertCircle, FileText, Upload, X, Eye } from 'lucide-react';
 import { Button } from '@/Components/Button';
 import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import { useManufacturers } from '@/Hooks/useManufacturers';
+import MultiFileUpload from '@/Components/FileUpload/MultiFileUpload';
 import api from '@/lib/api';
 
 interface FormData {
@@ -18,16 +19,33 @@ interface FormData {
     product_id: number;
     product?: any;
   }>;
-  
+
   // IVR completion tracking
   docuseal_submission_id?: string;
   episode_id?: string;
-  
-  // Document uploads
+
+  // Document uploads - Updated to support multiple files
   insurance_card_front?: File;
   insurance_card_back?: File;
-  clinical_document?: File;
-  
+  clinical_documents?: Array<{
+    id: string;
+    file: File;
+    name: string;
+    size: number;
+    type: string;
+    preview?: string;
+    uploadedAt: Date;
+  }>;
+  demographics_documents?: Array<{
+    id: string;
+    file: File;
+    name: string;
+    size: number;
+    type: string;
+    preview?: string;
+    uploadedAt: Date;
+  }>;
+
   [key: string]: any;
 }
 
@@ -49,12 +67,29 @@ interface Step7Props {
 interface DocumentUpload {
   insurance_card_front?: File;
   insurance_card_back?: File;
-  clinical_document?: File;
+  clinical_documents?: Array<{
+    id: string;
+    file: File;
+    name: string;
+    size: number;
+    type: string;
+    preview?: string;
+    uploadedAt: Date;
+  }>;
+  demographics_documents?: Array<{
+    id: string;
+    file: File;
+    name: string;
+    size: number;
+    type: string;
+    preview?: string;
+    uploadedAt: Date;
+  }>;
 }
 
 /**
  * Modern Step 7 DocuSeal IVR Component - 2025 Edition
- * 
+ *
  * Clean, focused implementation for IVR form generation with:
  * - Simple state management
  * - Modern React patterns
@@ -69,28 +104,95 @@ export default function Step7DocusealIVR({
   errors,
   onNext
 }: Step7Props) {
-  // Simple state management
-  const [uploadedDocs, setUploadedDocs] = useState<DocumentUpload>({});
+  const { manufacturers } = useManufacturers();
   const [showDocUpload, setShowDocUpload] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
   const [ivrError, setIvrError] = useState<string | null>(null);
+  const [uploadedDocs, setUploadedDocs] = useState<DocumentUpload>({});
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
+  const docusealFormRef = useRef<any>(null);
 
-  const { manufacturers, loading: manufacturersLoading, getManufacturerByName } = useManufacturers();
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 Step7DocuSealIVR Debug:', {
+      formData: formData,
+      products: products,
+      manufacturers: manufacturers,
+      isIvrRequired: formData.ivr_required,
+      ivr_bypass_reason: formData.ivr_bypass_reason,
+      uploadedDocs: uploadedDocs
+    });
+  }, [formData, products, manufacturers, uploadedDocs]);
 
   // Get selected product and manufacturer config
   const selectedProduct = useMemo(() => {
     if (!formData.selected_products?.length) return null;
     const firstProduct = formData.selected_products[0];
-    return products.find(p => p.id === firstProduct.product_id) || firstProduct.product;
+    if (!firstProduct) return null;
+    return firstProduct.product || products.find(p => p.id === firstProduct.product_id);
   }, [formData.selected_products, products]);
 
   const manufacturerConfig = useMemo(() => {
-    if (manufacturersLoading || !selectedProduct?.manufacturer) return null;
-    return getManufacturerByName(selectedProduct.manufacturer);
-  }, [manufacturersLoading, selectedProduct?.manufacturer, getManufacturerByName]);
+    if (!selectedProduct?.manufacturer_id) return null;
+    return manufacturers.find(m => m.id === selectedProduct.manufacturer_id);
+  }, [selectedProduct, manufacturers]);
 
-  const templateId = manufacturerConfig?.docuseal_template_id;
+  const templateId = useMemo(() => {
+    const manufacturerTemplateId = manufacturerConfig?.docuseal_template_id;
+    const productTemplateId = selectedProduct?.ivr_template_id;
+    const finalTemplateId = manufacturerTemplateId || productTemplateId;
 
-  // Handle document uploads
+    console.log('🔍 Template ID Debug:', {
+      manufacturerConfig: manufacturerConfig,
+      selectedProduct: selectedProduct,
+      manufacturerTemplateId: manufacturerTemplateId,
+      productTemplateId: productTemplateId,
+      finalTemplateId: finalTemplateId
+    });
+
+    return finalTemplateId;
+  }, [manufacturerConfig, selectedProduct]);
+
+  // Check if IVR is required for this order
+  const isIvrRequired = useMemo(() => {
+    // Check if IVR is explicitly marked as not required
+    if (formData.ivr_required === false) {
+      return false;
+    }
+
+    // Check if IVR was bypassed with a reason
+    if (formData.ivr_bypass_reason) {
+      return false;
+    }
+
+    // Default: IVR is required
+    return true;
+  }, [formData.ivr_required, formData.ivr_bypass_reason]);
+
+  // Handle clinical documents upload
+  const handleClinicalDocumentsChange = (files: Array<{
+    id: string;
+    file: File;
+    name: string;
+    size: number;
+    type: string;
+    preview?: string;
+    uploadedAt: Date;
+  }>) => {
+    setUploadedDocs(prev => ({ ...prev, clinical_documents: files }));
+    updateFormData({ clinical_documents: files });
+  };
+
+  // Handle clinical documents removal
+  const handleClinicalDocumentsRemove = (fileId: string) => {
+    const updatedFiles = uploadedDocs.clinical_documents?.filter(f => f.id !== fileId) || [];
+    setUploadedDocs(prev => ({ ...prev, clinical_documents: updatedFiles }));
+    updateFormData({ clinical_documents: updatedFiles });
+  };
+
+  // Handle document uploads (legacy support for insurance cards)
   const handleDocumentUpload = async (file: File, type: keyof DocumentUpload) => {
     setUploadedDocs(prev => ({ ...prev, [type]: file }));
     updateFormData({ [type]: file });
@@ -112,7 +214,7 @@ export default function Step7DocusealIVR({
           if (response.data.patient_dob) extractedData.patient_dob = response.data.patient_dob;
           if (response.data.patient_member_id) extractedData.patient_member_id = response.data.patient_member_id;
           if (response.data.payer_name) extractedData.primary_insurance_name = response.data.payer_name;
-          
+
           updateFormData(extractedData);
         }
       } catch (error) {
@@ -124,9 +226,9 @@ export default function Step7DocusealIVR({
   // Handle IVR form completion
   const handleIvrComplete = (data: any) => {
     console.log('✅ IVR form completed:', data);
-    
+
     const submissionId = data.slug || data.submission_id || data.id;
-    
+
     updateFormData({
       docuseal_submission_id: submissionId,
       ivr_completed: true,
@@ -143,55 +245,179 @@ export default function Step7DocusealIVR({
     setIvrError(error);
   };
 
-  // Set NO_IVR_REQUIRED when manufacturer doesn't require signature
-  useEffect(() => {
-    if (manufacturerConfig && !manufacturerConfig.signature_required && !formData.docuseal_submission_id) {
-      updateFormData({ docuseal_submission_id: 'NO_IVR_REQUIRED' });
+  // Auto-submit IVR form if not completed
+  const handleAutoSubmit = async () => {
+    if (isCompleted || !isIvrRequired) {
+      onNext?.();
+      return;
     }
-  }, [manufacturerConfig, formData.docuseal_submission_id, updateFormData]);
+
+    try {
+      setIsAutoSubmitting(true);
+      setIvrError(null);
+
+      // Check if form is already completed
+      if (formData.docuseal_submission_id) {
+        console.log('✅ IVR form already completed, proceeding to next step');
+        setIsAutoSubmitting(false);
+        onNext?.();
+        return;
+      }
+
+      // Try to submit the form automatically
+      if (docusealFormRef.current) {
+        // Look for the DocuSeal form iframe
+        const iframe = docusealFormRef.current.querySelector('iframe');
+        if (iframe) {
+          // Try to send a message to the iframe to submit the form
+          try {
+            iframe.contentWindow?.postMessage({
+              type: 'docuseal.submit',
+              action: 'submit'
+            }, 'https://docuseal.com');
+
+            // Wait for the form to be submitted
+            setTimeout(() => {
+              setIsAutoSubmitting(false);
+              onNext?.();
+            }, 3000);
+            return;
+          } catch (iframeError) {
+            console.log('Could not submit via iframe message');
+          }
+        }
+
+        // Fallback: Try to find and click the submit button
+        const formElement = docusealFormRef.current.querySelector('form');
+        if (formElement) {
+          const submitButton = formElement.querySelector('button[type="submit"], input[type="submit"], .submit-form-button');
+          if (submitButton) {
+            submitButton.click();
+
+            // Wait a moment for submission to process
+            setTimeout(() => {
+              setIsAutoSubmitting(false);
+              onNext?.();
+            }, 2000);
+            return;
+          }
+        }
+      }
+
+      // If we can't auto-submit, proceed anyway but show a message
+      console.log('⚠️ Could not auto-submit IVR form, proceeding anyway');
+      setIsAutoSubmitting(false);
+
+      // Show a toast or alert that the form wasn't submitted
+      if (typeof window !== 'undefined' && window.toast) {
+        window.toast?.('Form not submitted automatically. Please submit manually if needed.', { type: 'warning' });
+      }
+
+      onNext?.();
+    } catch (error) {
+      console.error('❌ Auto-submit error:', error);
+      setIsAutoSubmitting(false);
+      setIvrError('Failed to auto-submit form. Please submit manually and try again.');
+    }
+  };
+
+  // Check if IVR is completed
+  useEffect(() => {
+    setIsCompleted(!!formData.docuseal_submission_id);
+  }, [formData.docuseal_submission_id]);
 
   // Loading state
-  if (manufacturersLoading) {
+  if (!selectedProduct) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading manufacturer configuration...</p>
+      <div className="text-center py-8">
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          No Product Selected
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400">
+          Please select a product before proceeding to the IVR step.
+        </p>
+      </div>
+    );
+  }
+
+  // Handle IVR not required scenario
+  if (!isIvrRequired) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+            Insurance Verification Request (IVR)
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            IVR is not required for this order
+          </p>
+        </div>
+
+        {/* IVR Not Required Message */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <h3 className="text-lg font-medium text-blue-900 dark:text-blue-100">
+              IVR Not Required
+            </h3>
+          </div>
+          <p className="text-blue-700 dark:text-blue-300 text-sm">
+            This order does not require an Insurance Verification Request (IVR) from the manufacturer.
+            You can still upload clinical documents and supporting files below if needed.
+          </p>
+          {formData.ivr_bypass_reason && (
+            <div className="mt-3 p-3 bg-blue-100 dark:bg-blue-800 rounded-md">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Reason:</strong> {formData.ivr_bypass_reason}
+              </p>
+            </div>
+          )}
+        </div>
+
+
+
+        {/* Next Button for IVR Not Required */}
+        <div className="mt-6 flex justify-between items-center">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-blue-600 dark:text-blue-400">
+              ℹ️ IVR not required - proceeding to Order Form
+            </span>
+          </div>
+          <Button
+            onClick={() => onNext?.()}
+            className="inline-flex items-center gap-2"
+          >
+            Next
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Continue Button */}
+        <div className="flex justify-end">
+          <Button onClick={() => onNext?.()} className="inline-flex items-center gap-2">
+            Continue to Order Form
+            <ArrowRight className="w-4 h-4" />
+          </Button>
         </div>
       </div>
     );
   }
 
-  // No product selected
-  if (!selectedProduct) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <FileText className="w-12 h-12 mx-auto mb-4" />
-        <p>Please select a product first</p>
-      </div>
-    );
-  }
-
-  // No IVR required
-  if (!templateId) {
-    return (
-      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-8 text-center">
-        <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-green-900 dark:text-green-100 mb-2">
-          No IVR Required
-        </h3>
-        <p className="text-green-700 dark:text-green-300 mb-6">
-          {selectedProduct.name} does not require an insurance verification form.
-        </p>
-        <Button onClick={() => onNext?.()} className="inline-flex items-center gap-2">
-          Continue to Final Review
-          <ArrowRight className="w-4 h-4" />
-        </Button>
-      </div>
-    );
-  }
-
-  const isCompleted = formData.docuseal_submission_id && formData.docuseal_submission_id !== 'NO_IVR_REQUIRED';
+  // if (!templateId) {
+  //   return (
+  //     <div className="text-center py-8">
+  //       <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+  //       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+  //         No IVR Template Found
+  //       </h3>
+  //       <p className="text-gray-600 dark:text-gray-400">
+  //         No IVR template is configured for {selectedProduct.name}. Please contact support.
+  //       </p>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="space-y-6">
@@ -205,50 +431,7 @@ export default function Step7DocusealIVR({
         </p>
       </div>
 
-      {/* Document Upload Section */}
-      {!isCompleted && (
-        <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Upload Documents (Optional)
-            </h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowDocUpload(!showDocUpload)}
-            >
-              {showDocUpload ? <X className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
-            </Button>
-          </div>
-          
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Upload insurance cards or clinical documents to auto-fill form fields
-          </p>
 
-          {showDocUpload && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <DocumentUploadBox
-                title="Insurance Card (Front)"
-                type="insurance_card_front"
-                file={uploadedDocs.insurance_card_front}
-                onUpload={(file) => handleDocumentUpload(file, 'insurance_card_front')}
-              />
-              <DocumentUploadBox
-                title="Insurance Card (Back)"
-                type="insurance_card_back"
-                file={uploadedDocs.insurance_card_back}
-                onUpload={(file) => handleDocumentUpload(file, 'insurance_card_back')}
-              />
-              <DocumentUploadBox
-                title="Clinical Notes"
-                type="clinical_document"
-                file={uploadedDocs.clinical_document}
-                onUpload={(file) => handleDocumentUpload(file, 'clinical_document')}
-              />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* IVR Form Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
@@ -279,8 +462,8 @@ export default function Step7DocusealIVR({
                   </div>
                 </div>
                 <div className="mt-4">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="ghost"
                     onClick={() => {
                       setIvrError(null);
                       window.location.reload();
@@ -291,17 +474,58 @@ export default function Step7DocusealIVR({
                 </div>
               </div>
             ) : (
-              <DocusealEmbed
-                manufacturerId={String(manufacturerConfig?.id || selectedProduct?.manufacturer_id || '')}
-                templateId={templateId}
-                productCode={selectedProduct?.q_code || selectedProduct?.code || ''}
-                documentType="IVR"
-                formData={formData}
-                episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
-                onComplete={handleIvrComplete}
-                onError={handleIvrError}
-                debug={true}
-              />
+              <>
+                <div ref={docusealFormRef}>
+                  <DocusealEmbed
+                    manufacturerId={String(manufacturerConfig?.id || selectedProduct?.manufacturer_id || '')}
+                    templateId={templateId}
+                    productCode={selectedProduct?.q_code || selectedProduct?.code || ''}
+                    documentType="IVR"
+                    formData={formData}
+                    episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
+                    onComplete={handleIvrComplete}
+                    onError={handleIvrError}
+                    debug={true}
+                  />
+                </div>
+
+                {/* Next Button with Auto-Submit */}
+                <div className="mt-6 flex justify-between items-center">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {isCompleted ? (
+                      <span className="text-green-600 dark:text-green-400">
+                        ✅ IVR form completed successfully
+                      </span>
+                    ) : (
+                      <span className="text-orange-600 dark:text-orange-400">
+                        ⚠️ IVR form must be submitted before proceeding
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    onClick={handleAutoSubmit}
+                    disabled={isAutoSubmitting || !isCompleted}
+                    className="inline-flex items-center gap-2"
+                  >
+                    {isAutoSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Auto-Submitting...
+                      </>
+                    ) : isCompleted ? (
+                      <>
+                        Next
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    ) : (
+                      <>
+                        Submit IVR First
+                        <AlertCircle className="w-4 h-4" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
             )}
           </div>
         ) : (
@@ -331,11 +555,75 @@ export default function Step7DocusealIVR({
           <p className="text-red-700 dark:text-red-300">{errors.docuseal}</p>
         </div>
       )}
+
+
+      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6 border-2 border-blue-200 dark:border-blue-800">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          📁 Upload Documents (Optional)
+        </h3>
+
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Upload insurance cards or clinical documents to auto-fill form fields
+        </p>
+
+        <div className="space-y-6">
+          {/* Clinical Documents Upload */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+              🏥 Clinical Documents
+            </h4>
+            <MultiFileUpload
+              title="Upload Clinical Documents"
+              description="Upload clinical notes, wound photos, and other medical documentation"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              maxFiles={10}
+              maxFileSize={10 * 1024 * 1024} // 10MB
+              onFilesChange={(files) => {
+                console.log('📁 Clinical documents uploaded:', files);
+                handleClinicalDocumentsChange(files);
+              }}
+              onFileRemove={(fileId) => {
+                console.log('🗑️ Clinical document removed:', fileId);
+                handleClinicalDocumentsRemove(fileId);
+              }}
+              showPreview={true}
+            />
+          </div>
+
+          {/* Demographics and Supporting Documents Upload */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+              👤 Demographics & Supporting Documents
+            </h4>
+            <MultiFileUpload
+              title="Upload Demographics & Supporting Documents"
+              description="Upload patient demographics, face sheets, ID documents, and other supporting files"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              maxFiles={15}
+              maxFileSize={10 * 1024 * 1024} // 10MB
+              onFilesChange={(files) => {
+                console.log('📁 Demographics and supporting documents uploaded:', files);
+                // Handle demographics and supporting documents
+                setUploadedDocs(prev => ({ ...prev, demographics_documents: files }));
+                updateFormData({ demographics_documents: files });
+              }}
+              onFileRemove={(fileId) => {
+                console.log('🗑️ Demographics file removed:', fileId);
+                // Handle file removal
+                const updatedFiles = uploadedDocs.demographics_documents?.filter(f => f.id !== fileId) || [];
+                setUploadedDocs(prev => ({ ...prev, demographics_documents: updatedFiles }));
+                updateFormData({ demographics_documents: updatedFiles });
+              }}
+              showPreview={true}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-// Document Upload Component
+// Document Upload Component (Legacy support for insurance cards)
 interface DocumentUploadBoxProps {
   title: string;
   type: string;
@@ -343,10 +631,10 @@ interface DocumentUploadBoxProps {
   onUpload: (file: File) => void;
 }
 
-const DocumentUploadBox: React.FC<DocumentUploadBoxProps> = ({ 
-  title, 
-  file, 
-  onUpload 
+const DocumentUploadBox: React.FC<DocumentUploadBoxProps> = ({
+  title,
+  file,
+  onUpload
 }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -360,8 +648,8 @@ const DocumentUploadBox: React.FC<DocumentUploadBoxProps> = ({
       <label className="block">
         <div className={`
           border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-          ${file 
-            ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20' 
+          ${file
+            ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20'
             : 'border-gray-300 hover:border-blue-400 dark:border-gray-600 dark:hover:border-blue-500'
           }
         `}>

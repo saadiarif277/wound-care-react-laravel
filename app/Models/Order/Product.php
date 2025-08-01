@@ -145,8 +145,7 @@ class Product extends Model
     public function getTotalPrice($size, $useNationalAsp = false)
     {
         $pricePerSqCm = $useNationalAsp ? $this->price_per_sq_cm : $this->msc_price;
-        // Total Coverage = size in sq cm (assuming quantity of 1)
-        // Total Price = total coverage × ASP
+        // Price = size × per unit price
         return $pricePerSqCm * $size;
     }
 

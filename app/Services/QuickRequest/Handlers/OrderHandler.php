@@ -421,28 +421,21 @@ class OrderHandler
         $totalQuantity = 0;
 
         foreach ($products as $product) {
-            // Handle different product array structures
             $productId = $product['id'] ?? $product['product_id'] ?? 1;
             $size = $product['size'] ?? null;
             $quantity = $product['quantity'] ?? 1;
-
-            // This would normally fetch pricing from database
             $unitPrice = $this->getProductPrice($productId, $size);
-
             if ($size) {
                 $sizeValue = floatval($size);
                 if (!is_nan($sizeValue)) {
-                    // Total Coverage = units × size in sq cm
-                    $totalCoverage = $sizeValue * $quantity;
-                    // Total Price = total coverage × ASP
-                    $subtotal += $totalCoverage * $unitPrice;
+                    // Price = size × per unit price × quantity
+                    $subtotal += $sizeValue * $unitPrice * $quantity;
                 } else {
                     $subtotal += $unitPrice * $quantity;
                 }
             } else {
                 $subtotal += $unitPrice * $quantity;
             }
-
             $totalQuantity += $quantity;
         }
 

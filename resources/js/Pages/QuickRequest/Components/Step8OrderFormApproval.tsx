@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { router } from '@inertiajs/core';
-import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiSkipForward } from 'react-icons/fi';
+import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiSkipForward, FiDollarSign, FiEdit3 } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
@@ -81,6 +81,9 @@ interface FormData {
   order_form_completed_at?: string;
   order_form_skipped?: boolean;
 
+  // Admin Note
+  admin_note?: string;
+
   episode_id?: string;
 
   [key: string]: any;
@@ -99,6 +102,8 @@ interface Step8Props {
     manufacturer_id?: number;
     available_sizes?: any;
     price_per_sq_cm?: number;
+    msc_price?: number;
+    national_asp?: number;
   }>;
   providers?: Array<{
     id: number;
@@ -145,6 +150,7 @@ export default function Step8OrderFormApproval({
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderFormSubmission, setOrderFormSubmission] = useState<any>(null);
+  const [showAdminNote, setShowAdminNote] = useState(false);
 
   // Get the selected product
   const getSelectedProduct = () => {
@@ -171,13 +177,116 @@ export default function Step8OrderFormApproval({
   // Check if IVR is required for this order
   const isIvrRequired = formData.ivr_required !== false && !formData.ivr_bypass_reason;
 
+  // Calculate pricing and totals
+  const calculatePricing = () => {
+    if (!formData.selected_products?.length) {
+      return { subtotal: 0, tax: 0, shipping: 0, total: 0, itemBreakdown: [] };
+    }
+
+    let subtotal = 0;
+    let totalQuantity = 0;
+    const itemBreakdown = [];
+
+    for (const item of formData.selected_products) {
+      const product = products.find(p => p.id === item.product_id);
+      if (!product) continue;
+
+      const quantity = item.quantity || 1;
+      const size = item.size;
+      // Use MSC price if available, otherwise fall back to price_per_sq_cm
+      const unitPrice = product.msc_price || product.price_per_sq_cm || 0;
+
+      let itemTotal = 0;
+      if (size) {
+        const sizeValue = parseFloat(size);
+        if (!isNaN(sizeValue)) {
+          // Price = size × per unit price × quantity
+          itemTotal = sizeValue * unitPrice * quantity;
+        } else {
+          itemTotal = unitPrice * quantity;
+        }
+      } else {
+        itemTotal = unitPrice * quantity;
+      }
+
+      subtotal += itemTotal;
+      totalQuantity += quantity;
+
+      itemBreakdown.push({
+        product_id: product.id,
+        product_name: product.name,
+        quantity: quantity,
+        unit_price: unitPrice,
+        total_price: itemTotal,
+        size: size,
+      });
+    }
+
+    // Calculate tax (8% for example)
+    const tax = subtotal * 0.08;
+
+    // Calculate shipping (free over $500, otherwise $15)
+    const shipping = subtotal > 500 ? 0 : 15.00;
+
+    const total = subtotal + tax + shipping;
+
+    return {
+      subtotal: Math.round(subtotal * 100) / 100,
+      tax: Math.round(tax * 100) / 100,
+      shipping: Math.round(shipping * 100) / 100,
+      total: Math.round(total * 100) / 100,
+      totalQuantity,
+      itemBreakdown
+    };
+  };
+
+  const pricing = calculatePricing();
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
   // Debug logging
   console.log('Step 8 - Selected Product:', {
     name: selectedProduct?.name,
     manufacturer: selectedProduct?.manufacturer,
     manufacturer_id: selectedProduct?.manufacturer_id,
-    hasOrderForm: hasOrderForm
+    hasOrderForm: hasOrderForm,
+    pricing: pricing
   });
+
+  // Debug pricing calculation
+  console.log('Step 8 - Pricing Debug:', {
+    formDataSelectedProducts: formData.selected_products,
+    products: products,
+    selectedProduct: selectedProduct,
+    calculatePricingResult: calculatePricing()
+  });
+
+  // More detailed pricing debug
+  if (formData.selected_products?.length) {
+    console.log('Step 8 - Detailed Pricing Debug:');
+    formData.selected_products.forEach((item: any, index: number) => {
+      const product = products.find(p => p.id === item.product_id);
+      console.log(`Item ${index}:`, {
+        product_id: item.product_id,
+        quantity: item.quantity,
+        size: item.size,
+        product: product ? {
+          id: product.id,
+          name: product.name,
+          price_per_sq_cm: product.price_per_sq_cm,
+          msc_price: product.msc_price,
+          national_asp: product.national_asp
+        } : 'Product not found',
+        calculated_total: product ? (parseFloat(item.size || '0') * (product.msc_price || product.price_per_sq_cm || 0) * (item.quantity || 1)) : 0
+      });
+    });
+  }
 
   // Check if this step was already completed or skipped
   useEffect(() => {
@@ -266,6 +375,10 @@ export default function Step8OrderFormApproval({
 
   const handleManualNext = () => {
     onNext();
+  };
+
+  const handleAdminNoteChange = (note: string) => {
+    updateFormData({ admin_note: note });
   };
 
   // No product selected
@@ -367,6 +480,130 @@ export default function Step8OrderFormApproval({
         <p className={cn("text-sm mt-1", t.text.secondary)}>
           Optional step to review and confirm all order details
         </p>
+      </div>
+
+      {/* Pricing Summary */}
+      <div className={cn("p-4 rounded-lg", t.glass.card)}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={cn("text-lg font-medium", t.text.primary)}>
+            <FiDollarSign className="inline mr-2 h-5 w-5" />
+            Order Summary
+          </h3>
+        </div>
+
+        {formData.selected_products && formData.selected_products.length > 0 ? (
+          <div className="space-y-3">
+            {formData.selected_products.map((item: any, index: number) => {
+              const product = products.find(p => p.id === item.product_id);
+              if (!product) return null;
+
+              const quantity = item.quantity || 1;
+              const size = item.size;
+              // Use MSC price if available, otherwise fall back to price_per_sq_cm
+              const unitPrice = product.msc_price || product.price_per_sq_cm || 0;
+              let itemTotal = 0;
+
+              if (size) {
+                const sizeValue = parseFloat(size);
+                if (!isNaN(sizeValue)) {
+                  itemTotal = sizeValue * unitPrice * quantity;
+                } else {
+                  itemTotal = unitPrice * quantity;
+                }
+              } else {
+                itemTotal = unitPrice * quantity;
+              }
+
+              return (
+                <div key={index} className={cn("flex justify-between items-center p-3 rounded-lg", "bg-white/5")}>
+                  <div className="flex-1">
+                    <p className={cn("font-medium", t.text.primary)}>
+                      {product.name}
+                    </p>
+                    <div className={cn("text-sm", t.text.secondary)}>
+                      <p>Qty: {quantity}</p>
+                      {size && <p>Size: {size} cm²</p>}
+                      <p>Price: {formatCurrency(unitPrice)}/cm²</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={cn("font-semibold", t.text.primary)}>
+                      {formatCurrency(itemTotal)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Totals */}
+            <div className={cn("border-t pt-3 space-y-2", t.glass.border)}>
+              <div className="flex justify-between">
+                <span className={cn("text-sm", t.text.secondary)}>Subtotal:</span>
+                <span className={cn("text-sm", t.text.primary)}>{formatCurrency(pricing.subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={cn("text-sm", t.text.secondary)}>Tax (8%):</span>
+                <span className={cn("text-sm", t.text.primary)}>{formatCurrency(pricing.tax)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={cn("text-sm", t.text.secondary)}>Shipping:</span>
+                <span className={cn("text-sm", t.text.primary)}>{formatCurrency(pricing.shipping)}</span>
+              </div>
+              <div className={cn("flex justify-between pt-2 border-t", t.glass.border)}>
+                <span className={cn("font-semibold", t.text.primary)}>Total Bill:</span>
+                <span className={cn("text-lg font-bold", t.text.primary)}>{formatCurrency(pricing.total)}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className={cn("text-sm", t.text.secondary)}>No products selected</p>
+        )}
+      </div>
+
+      {/* Admin Note Section */}
+      <div className={cn("p-4 rounded-lg", t.glass.card)}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className={cn("text-lg font-medium", t.text.primary)}>
+            <FiEdit3 className="inline mr-2 h-5 w-5" />
+            Admin Notes
+          </h3>
+          <button
+            onClick={() => setShowAdminNote(!showAdminNote)}
+            className={cn(
+              "text-sm px-3 py-1 rounded-md transition-colors",
+              showAdminNote
+                ? theme === 'dark'
+                  ? 'bg-blue-700 text-white'
+                  : 'bg-blue-600 text-white'
+                : theme === 'dark'
+                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            )}
+          >
+            {showAdminNote ? 'Hide' : 'Add Note'}
+          </button>
+        </div>
+
+        {showAdminNote && (
+          <div className="mt-3">
+            <textarea
+              value={formData.admin_note || ''}
+              onChange={(e) => handleAdminNoteChange(e.target.value)}
+              placeholder="Add any additional notes or special instructions for this order..."
+              className={cn(
+                "w-full p-3 rounded-lg border resize-none",
+                "focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+              )}
+              rows={4}
+            />
+            <p className={cn("text-xs mt-1", t.text.muted)}>
+              This note will be included with the order submission.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Choice Section */}

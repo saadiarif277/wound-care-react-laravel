@@ -364,19 +364,14 @@ const ProductSelector: React.FC<Props> = ({
     return selectedProducts.reduce((total, item) => {
       const product = item.product || products.find(p => p.id === item.product_id);
       if (!product) return total;
-
       const pricePerUnit = currentRoleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-
       if (item.size) {
         const sizeValue = parseFloat(item.size);
         if (!isNaN(sizeValue)) {
-          // Total Coverage = units × size in sq cm
-          const totalCoverage = sizeValue * item.quantity;
-          // Total Price = total coverage × ASP
-          return total + (totalCoverage * pricePerUnit);
+          // Price = size × per unit price × quantity
+          return total + (sizeValue * pricePerUnit * item.quantity);
         }
       }
-
       // No size selected, fallback to base calculation
       return total + (pricePerUnit * item.quantity);
     }, 0);
@@ -394,6 +389,30 @@ const ProductSelector: React.FC<Props> = ({
       style: 'currency',
       currency: 'USD'
     }).format(price);
+  };
+
+  const getSizeLabel = (product: Product, sizeValue: string): string => {
+    const sizeNum = parseFloat(sizeValue);
+    if (isNaN(sizeNum)) return sizeValue;
+
+    // First try to find in size_pricing
+    if (product.size_pricing) {
+      for (const [label, area] of Object.entries(product.size_pricing)) {
+        if (area === sizeNum) {
+          return label;
+        }
+      }
+    }
+
+    // Fallback to calculated dimensions
+    const sqrtSize = Math.sqrt(sizeNum);
+    const isSquare = sqrtSize === Math.floor(sqrtSize);
+
+    if (isSquare) {
+      return `${sqrtSize} x ${sqrtSize} cm`;
+    } else {
+      return `${sizeNum} cm²`;
+    }
   };
 
   if (loading) {
@@ -675,14 +694,16 @@ const ProductSelector: React.FC<Props> = ({
                     const pricePerUnit = currentRoleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
 
                     let unitPrice = pricePerUnit;
+                    let sizeValue = 0;
                     if (item.size) {
-                      const sizeValue = parseFloat(item.size);
+                      sizeValue = parseFloat(item.size);
                       if (!isNaN(sizeValue)) {
-                        unitPrice = pricePerUnit * sizeValue;
+                        // Price = size × per unit price × quantity
+                        unitPrice = pricePerUnit; // Keep the per-unit price, don't multiply by size here
                       }
                     }
 
-                    const totalPrice = unitPrice * item.quantity;
+                    const totalPrice = sizeValue * unitPrice * item.quantity;
                     return (
                       <div key={`${item.product_id}-${item.size || 'no-size'}`} className="border border-gray-200 rounded-md p-3">
                         <div className="flex items-start justify-between mb-2">
@@ -690,7 +711,7 @@ const ProductSelector: React.FC<Props> = ({
                             {item.size ? (
                               <div>
                                 <h5 className="text-sm font-medium text-gray-900">
-                                  Size: {getProductSizeLabel(product.name, item.size)}
+                                  Size: {getSizeLabel(product, item.size)}
                                 </h5>
                                 <p className="text-xs text-gray-500">
                                   {formatPrice(unitPrice)} per unit
@@ -747,7 +768,7 @@ const ProductSelector: React.FC<Props> = ({
                               {formatPrice(totalPrice)}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {item.quantity} × {formatPrice(unitPrice)}
+                              {sizeValue > 0 ? `${sizeValue} cm² × ${formatPrice(unitPrice)} × ${item.quantity}` : `${item.quantity} × ${formatPrice(unitPrice)}`}
                             </p>
                           </div>
                         </div>
@@ -821,10 +842,8 @@ const ProductCard: React.FC<{
       if (isNaN(sizeValue)) {
         return pricePerUnit * quantity;
       }
-      // Total Coverage = units × size in sq cm
-      const totalCoverage = sizeValue * quantity;
-      // Total Price = total coverage × ASP
-      return totalCoverage * pricePerUnit;
+      // Price = size × per unit price × quantity
+      return sizeValue * pricePerUnit * quantity;
     }
     return pricePerUnit * quantity;
   };
@@ -910,10 +929,9 @@ const ProductCard: React.FC<{
             {product.size_options.map(sizeLabel => {
               const areaCm2 = product.size_pricing?.[sizeLabel] || 0;
               const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-              const sizePrice = pricePerUnit * areaCm2;
               return (
                 <option key={sizeLabel} value={areaCm2.toString()}>
-                  {sizeLabel} - {formatPrice(sizePrice)}
+                  {sizeLabel}
                 </option>
               );
             })}

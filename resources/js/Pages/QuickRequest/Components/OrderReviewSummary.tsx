@@ -425,7 +425,7 @@ export default function OrderReviewSummary({
         ])}
         expanded={expandedSections.has('patient')}
         onToggle={() => toggleSection('patient')}
-        onEdit={isPreSubmission ? () => onEdit?.('patient-insurance') : undefined}
+
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Patient Demographics */}
@@ -542,7 +542,7 @@ export default function OrderReviewSummary({
           status={getSectionStatus(orderData.provider, ['name', 'npi'])}
           expanded={expandedSections.has('provider')}
           onToggle={() => toggleSection('provider')}
-          onEdit={isPreSubmission && userRole === 'admin' ? () => onEdit?.('provider') : undefined}
+
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <dl className="space-y-2 text-sm">
@@ -598,7 +598,7 @@ export default function OrderReviewSummary({
         ])}
         expanded={expandedSections.has('clinical')}
         onToggle={() => toggleSection('clinical')}
-        onEdit={isPreSubmission ? () => onEdit?.('clinical-billing') : undefined}
+
       >
         <div className="space-y-6">
           {/* Wound Details */}
@@ -724,7 +724,7 @@ export default function OrderReviewSummary({
         status={getSectionStatus({ products: orderData.products }, ['products'])}
         expanded={expandedSections.has('products')}
         onToggle={() => toggleSection('products')}
-        onEdit={isPreSubmission ? () => onEdit?.('product-selection') : undefined}
+
       >
         <div className="space-y-4">
           {orderData.products.map((product, idx) => (
@@ -921,7 +921,7 @@ export default function OrderReviewSummary({
         status={{ icon: 'complete', color: 'green', message: 'Complete' }}
         expanded={expandedSections.has('shipping')}
         onToggle={() => toggleSection('shipping')}
-        onEdit={isPreSubmission ? () => onEdit?.('shipping') : undefined}
+
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -1094,7 +1094,6 @@ interface SectionCardProps {
   status?: SectionStatus;
   expanded: boolean;
   onToggle: () => void;
-  onEdit?: () => void;
   children: React.ReactNode;
 }
 
@@ -1104,7 +1103,6 @@ function SectionCard({
   status,
   expanded,
   onToggle,
-  onEdit,
   children
 }: SectionCardProps) {
   const { theme = 'dark' } = useTheme();
@@ -1126,22 +1124,6 @@ function SectionCard({
         </div>
 
         <div className="flex items-center space-x-3">
-          {onEdit && expanded && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-              className={cn(
-                "px-3 py-1 rounded text-sm flex items-center space-x-1",
-                t.glass.frost,
-                "hover:bg-white/10 transition-colors"
-              )}
-            >
-              <FiEdit2 className="w-3 h-3" />
-              <span>Edit</span>
-            </button>
-          )}
           {expanded ? (
             <FiChevronDown className={cn("w-5 h-5", t.text.secondary)} />
           ) : (

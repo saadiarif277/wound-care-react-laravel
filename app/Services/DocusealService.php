@@ -1788,6 +1788,26 @@ class DocusealService
      */
     private function transformQuickRequestData(array $prefillData, string $templateId, ?string $manufacturerName = null): array
     {
+        // Check if this is ACZ & Associates IVR template (ID: 852440)
+        if ($templateId == '852440' && $manufacturerName === 'ACZ & ASSOCIATES') {
+            return $this->transformACZIVRData($prefillData, $templateId);
+        }
+
+        // Check if this is MedLife AMNIO AMP IVR template (ID: 1233913)
+        if ($templateId == '1233913' && $manufacturerName === 'MEDLIFE SOLUTIONS') {
+            return $this->transformMedLifeAmnioAmpIVRData($prefillData, $templateId);
+        }
+
+        // Check if this is Celularity Biovance IVR template (ID: 1330769)
+        if ($templateId == '1330769' && $manufacturerName === 'CELULARITY') {
+            return $this->transformCelularityBiovanceIVRData($prefillData, $templateId);
+        }
+
+        // Check if this is Extremity Care Coll-e-Derm IVR template (ID: 1234285)
+        if ($templateId == '1234285' && $manufacturerName === 'EXTREMITY CARE LLC') {
+            return $this->transformExtremityCareCollEDermIVRData($prefillData, $templateId);
+        }
+
         $docusealFields = [];
 
         // STEP 1: Get the actual template fields from DocuSeal
@@ -2563,5 +2583,783 @@ class DocusealService
                 'trace' => $e->getTraceAsString()
             ];
         }
+    }
+
+    /**
+     * Transform data for ACZ & Associates IVR template with comprehensive field mapping
+     */
+    private function transformACZIVRData(array $prefillData, string $templateId): array
+    {
+        Log::info('Using ACZ IVR comprehensive field mapping', [
+            'template_id' => $templateId,
+            'input_data_keys' => array_keys($prefillData),
+            'input_data_count' => count($prefillData)
+        ]);
+
+        // Load the ACZ IVR field mapping configuration
+        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/field-mapping-config.php';
+        $fieldMappings = $mappingConfig['field_mappings'];
+        $transformations = $mappingConfig['transformations'];
+
+        $mappedFields = [];
+        $missingFields = [];
+        $debugInfo = [];
+
+        foreach ($fieldMappings as $docusealField => $mapping) {
+            $source = $mapping['source'];
+            $value = null;
+
+            // Extract value from form data
+            if (is_array($source)) {
+                // Multiple source fields
+                $values = [];
+                foreach ($source as $field) {
+                    if (isset($prefillData[$field])) {
+                        $values[] = $prefillData[$field];
+                    }
+                }
+                $value = $values;
+            } else {
+                // Single source field
+                $value = $prefillData[$source] ?? null;
+            }
+
+            if ($value !== null && $value !== '' && (!is_array($value) || !empty(array_filter($value)))) {
+                // Apply transformation if specified
+                if (isset($mapping['transform']) && isset($transformations[$mapping['transform']])) {
+                    $transformFunction = $transformations[$mapping['transform']];
+                    if (is_callable($transformFunction)) {
+                        $value = $transformFunction($value);
+                    }
+                }
+
+                $mappedFields[$docusealField] = $value;
+
+                // Handle original value for debugging
+                $originalValue = null;
+                if (is_array($source)) {
+                    $originalValue = [];
+                    foreach ($source as $sourceField) {
+                        if (isset($prefillData[$sourceField])) {
+                            $originalValue[$sourceField] = $prefillData[$sourceField];
+                        }
+                    }
+                } else {
+                    $originalValue = $prefillData[$source] ?? null;
+                }
+
+                $debugInfo[$docusealField] = [
+                    'source' => $source,
+                    'original_value' => $originalValue,
+                    'transformed_value' => $value,
+                    'transform' => $mapping['transform'] ?? null
+                ];
+            } else {
+                $missingFields[] = [
+                    'docuseal_field' => $docusealField,
+                    'source' => $source,
+                    'required' => $mapping['required'] ?? false
+                ];
+            }
+        }
+
+        // Log comprehensive debugging information
+        Log::info('ACZ IVR field mapping results', [
+            'template_id' => $templateId,
+            'total_template_fields' => count($fieldMappings),
+            'mapped_fields' => count($mappedFields),
+            'missing_fields' => count($missingFields),
+            'success_rate' => count($mappedFields) / count($fieldMappings) * 100,
+            'mapped_field_names' => array_keys($mappedFields),
+            'missing_field_details' => $missingFields
+        ]);
+
+        // Log detailed debugging for each mapped field
+        foreach ($debugInfo as $fieldName => $info) {
+            Log::debug('ACZ IVR field mapping detail', [
+                'field' => $fieldName,
+                'source' => $info['source'],
+                'original_value' => $info['original_value'],
+                'transformed_value' => $info['transformed_value'],
+                'transform' => $info['transform']
+            ]);
+        }
+
+        // Log missing fields for debugging
+        foreach ($missingFields as $missing) {
+            Log::warning('ACZ IVR missing field', [
+                'docuseal_field' => $missing['docuseal_field'],
+                'source' => $missing['source'],
+                'required' => $missing['required']
+            ]);
+        }
+
+        return $mappedFields;
+    }
+
+    /**
+     * Debug field mapping for ACZ IVR template
+     */
+    public function debugACZIVRMapping(array $prefillData): array
+    {
+        $templateId = '852440';
+        $mappedFields = $this->transformACZIVRData($prefillData, $templateId);
+
+        // Load configuration for analysis
+        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/field-mapping-config.php';
+        $fieldMappings = $mappingConfig['field_mappings'];
+        $validation = $mappingConfig['validation'];
+
+        $analysis = [
+            'template_info' => [
+                'template_id' => $templateId,
+                'template_name' => 'ACZ & Associates IVR',
+                'manufacturer' => 'ACZ & ASSOCIATES'
+            ],
+            'input_data' => [
+                'total_fields' => count($prefillData),
+                'available_fields' => array_keys($prefillData),
+                'sample_values' => array_slice($prefillData, 0, 10, true)
+            ],
+            'mapping_results' => [
+                'total_template_fields' => count($fieldMappings),
+                'mapped_fields' => count($mappedFields),
+                'success_rate' => count($mappedFields) / count($fieldMappings) * 100,
+                'mapped_field_names' => array_keys($mappedFields)
+            ],
+            'field_categories' => [
+                'product_selection' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Product Q Code']),
+                'representative_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Sales Rep', 'ISO if applicable', 'Additional Emails for Notification']),
+                'physician_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Physician Name', 'Physician NPI', 'Physician Specialty', 'Physician Tax ID', 'Physician PTAN', 'Physician Medicaid #', 'Physician Phone #', 'Physician Fax #', 'Physician Organization']),
+                'facility_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Facility NPI', 'Facility Tax ID', 'Facility Name', 'Facility PTAN', 'Facility Address', 'Facility Medicaid #', 'Facility City, State, Zip', 'Facility Phone #', 'Facility Contact Name', 'Facility Fax #', 'Facility Contact Phone # / Facility Contact Email', 'Facility Organization']),
+                'place_of_service' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Place of Service', 'POS Other Specify']),
+                'patient_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Patient Name', 'Patient DOB', 'Patient Address', 'Patient City, State, Zip', 'Patient Phone #', 'Patient Email', 'Patient Caregiver Info']),
+                'insurance_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Primary Insurance Name', 'Secondary Insurance Name', 'Primary Policy Number', 'Secondary Policy Number', 'Primary Payer Phone #', 'Secondary Payer Phone #']),
+                'network_status' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Physician Status With Primary', 'Physician Status With Secondary']),
+                'authorization_questions' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Permission To Initiate And Follow Up On Prior Auth?', 'Is The Patient Currently in Hospice?', 'Is The Patient In A Facility Under Part A Stay?', 'Is The Patient Under Post-Op Global Surgery Period?']),
+                'surgery_fields' => $this->analyzeCategory($fieldMappings, $mappedFields, ['If Yes, List Surgery CPTs', 'Surgery Date']),
+                'clinical_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Location of Wound', 'ICD-10 Codes', 'Total Wound Size', 'Medical History'])
+            ],
+            'missing_fields_analysis' => $this->analyzeMissingFields($fieldMappings, $mappedFields, $prefillData),
+            'recommendations' => $this->generateRecommendations($mappedFields, $fieldMappings, $prefillData)
+        ];
+
+        return $analysis;
+    }
+
+    /**
+     * Analyze a category of fields
+     */
+    private function analyzeCategory(array $fieldMappings, array $mappedFields, array $categoryFields): array
+    {
+        $total = 0;
+        $mapped = 0;
+        $fields = [];
+
+        foreach ($categoryFields as $fieldName) {
+            if (isset($fieldMappings[$fieldName])) {
+                $total++;
+                if (isset($mappedFields[$fieldName])) {
+                    $mapped++;
+                    $fields[$fieldName] = [
+                        'mapped' => true,
+                        'value' => $mappedFields[$fieldName] ?? null,
+                        'required' => $fieldMappings[$fieldName]['required'] ?? false
+                    ];
+                } else {
+                    $fields[$fieldName] = [
+                        'mapped' => false,
+                        'value' => null,
+                        'required' => $fieldMappings[$fieldName]['required'] ?? false
+                    ];
+                }
+            }
+        }
+
+        return [
+            'total_fields' => $total,
+            'mapped_fields' => $mapped,
+            'success_rate' => $total > 0 ? ($mapped / $total) * 100 : 0,
+            'fields' => $fields
+        ];
+    }
+
+    /**
+     * Analyze missing fields and their sources
+     */
+    private function analyzeMissingFields(array $fieldMappings, array $mappedFields, array $prefillData): array
+    {
+        $missing = [];
+
+        foreach ($fieldMappings as $docusealField => $mapping) {
+            if (!isset($mappedFields[$docusealField])) {
+                $source = $mapping['source'];
+                $sourceFields = is_array($source) ? $source : [$source];
+                $availableSources = [];
+                $missingSources = [];
+
+                foreach ($sourceFields as $sourceField) {
+                    if (isset($prefillData[$sourceField])) {
+                        $availableSources[] = $sourceField;
+                    } else {
+                        $missingSources[] = $sourceField;
+                    }
+                }
+
+                $missing[] = [
+                    'docuseal_field' => $docusealField,
+                    'source_fields' => $sourceFields,
+                    'available_sources' => $availableSources,
+                    'missing_sources' => $missingSources,
+                    'required' => $mapping['required'] ?? false,
+                    'type' => $mapping['type'] ?? 'text'
+                ];
+            }
+        }
+
+        return $missing;
+    }
+
+    /**
+     * Generate recommendations for improving field mapping
+     */
+    private function generateRecommendations(array $mappedFields, array $fieldMappings, array $prefillData): array
+    {
+        $recommendations = [];
+
+        // Check for missing required fields
+        $missingRequired = array_filter($fieldMappings, function($mapping, $fieldName) use ($mappedFields) {
+            return ($mapping['required'] ?? false) && !isset($mappedFields[$fieldName]);
+        }, ARRAY_FILTER_USE_BOTH);
+
+        if (!empty($missingRequired)) {
+            $recommendations[] = [
+                'type' => 'critical',
+                'message' => 'Missing required fields: ' . implode(', ', array_keys($missingRequired)),
+                'fields' => array_keys($missingRequired)
+            ];
+        }
+
+        // Check for common missing data patterns
+        $commonPatterns = [
+            'provider' => ['provider_name', 'provider_npi', 'provider_phone'],
+            'facility' => ['facility_name', 'facility_address', 'facility_phone'],
+            'patient' => ['patient_name', 'patient_dob', 'patient_phone'],
+            'insurance' => ['primary_insurance_name', 'primary_member_id']
+        ];
+
+        foreach ($commonPatterns as $pattern => $fields) {
+            $missingInPattern = array_filter($fields, function($field) use ($prefillData) {
+                return !isset($prefillData[$field]) || empty($prefillData[$field]);
+            });
+
+            if (!empty($missingInPattern)) {
+                $recommendations[] = [
+                    'type' => 'warning',
+                    'message' => "Missing {$pattern} information: " . implode(', ', $missingInPattern),
+                    'fields' => $missingInPattern
+                ];
+            }
+        }
+
+        // Check mapping success rate
+        $successRate = count($mappedFields) / count($fieldMappings) * 100;
+        if ($successRate < 80) {
+            $recommendations[] = [
+                'type' => 'info',
+                'message' => "Field mapping success rate is {$successRate}%. Consider adding more data sources.",
+                'success_rate' => $successRate
+            ];
+        }
+
+        return $recommendations;
+    }
+
+    /**
+     * Transform data for MedLife AMNIO AMP IVR template with comprehensive field mapping
+     */
+    private function transformMedLifeAmnioAmpIVRData(array $prefillData, string $templateId): array
+    {
+        Log::info('Using MedLife AMNIO AMP IVR comprehensive field mapping', [
+            'template_id' => $templateId,
+            'input_data_keys' => array_keys($prefillData),
+            'input_data_count' => count($prefillData)
+        ]);
+
+        // Load the MedLife AMNIO AMP IVR field mapping configuration
+        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/medlife-amnio-amp-ivr-config.php';
+        $fieldMappings = $mappingConfig['field_mappings'];
+        $transformations = $mappingConfig['transformations'];
+
+        $mappedFields = [];
+        $missingFields = [];
+        $debugInfo = [];
+
+        foreach ($fieldMappings as $docusealField => $mapping) {
+            $source = $mapping['source'];
+            $value = null;
+
+            // Extract value from form data
+            if (is_array($source)) {
+                // Multiple source fields
+                $values = [];
+                foreach ($source as $field) {
+                    if (isset($prefillData[$field])) {
+                        $values[] = $prefillData[$field];
+                    }
+                }
+                $value = $values;
+            } else {
+                // Single source field
+                $value = $prefillData[$source] ?? null;
+            }
+
+            if ($value !== null && $value !== '' && (!is_array($value) || !empty(array_filter($value)))) {
+                // Apply transformation if specified
+                if (isset($mapping['transform']) && isset($transformations[$mapping['transform']])) {
+                    $transformFunction = $transformations[$mapping['transform']];
+                    if (is_callable($transformFunction)) {
+                        $value = $transformFunction($value);
+                    }
+                }
+
+                $mappedFields[$docusealField] = $value;
+
+                // Handle original value for debugging
+                $originalValue = null;
+                if (is_array($source)) {
+                    $originalValue = [];
+                    foreach ($source as $sourceField) {
+                        if (isset($prefillData[$sourceField])) {
+                            $originalValue[$sourceField] = $prefillData[$sourceField];
+                        }
+                    }
+                } else {
+                    $originalValue = $prefillData[$source] ?? null;
+                }
+
+                $debugInfo[$docusealField] = [
+                    'source' => $source,
+                    'original_value' => $originalValue,
+                    'transformed_value' => $value,
+                    'transform' => $mapping['transform'] ?? null
+                ];
+            } else {
+                $missingFields[] = [
+                    'docuseal_field' => $docusealField,
+                    'source' => $source,
+                    'required' => $mapping['required'] ?? false
+                ];
+            }
+        }
+
+        // Log comprehensive debugging information
+        Log::info('MedLife AMNIO AMP IVR field mapping results', [
+            'template_id' => $templateId,
+            'total_template_fields' => count($fieldMappings),
+            'mapped_fields' => count($mappedFields),
+            'missing_fields' => count($missingFields),
+            'success_rate' => count($mappedFields) / count($fieldMappings) * 100,
+            'mapped_field_names' => array_keys($mappedFields),
+            'missing_field_details' => $missingFields
+        ]);
+
+        // Log detailed debugging for each mapped field
+        foreach ($debugInfo as $fieldName => $info) {
+            Log::debug('MedLife AMNIO AMP IVR field mapping detail', [
+                'field' => $fieldName,
+                'source' => $info['source'],
+                'original_value' => $info['original_value'],
+                'transformed_value' => $info['transformed_value'],
+                'transform' => $info['transform']
+            ]);
+        }
+
+        // Log missing fields for debugging
+        foreach ($missingFields as $missing) {
+            Log::warning('MedLife AMNIO AMP IVR missing field', [
+                'docuseal_field' => $missing['docuseal_field'],
+                'source' => $missing['source'],
+                'required' => $missing['required']
+            ]);
+        }
+
+        return $mappedFields;
+    }
+
+    /**
+     * Debug field mapping for MedLife AMNIO AMP IVR template
+     */
+    public function debugMedLifeAmnioAmpIVRMapping(array $prefillData): array
+    {
+        $templateId = '1233913';
+        $mappedFields = $this->transformMedLifeAmnioAmpIVRData($prefillData, $templateId);
+
+        // Load configuration for analysis
+        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/medlife-amnio-amp-ivr-config.php';
+        $fieldMappings = $mappingConfig['field_mappings'];
+        $validation = $mappingConfig['validation'];
+
+        $analysis = [
+            'template_info' => [
+                'template_id' => $templateId,
+                'template_name' => 'MedLife AMNIO AMP IVR',
+                'manufacturer' => 'MEDLIFE SOLUTIONS'
+            ],
+            'input_data' => [
+                'total_fields' => count($prefillData),
+                'available_fields' => array_keys($prefillData),
+                'sample_values' => array_slice($prefillData, 0, 10, true)
+            ],
+            'mapping_results' => [
+                'total_template_fields' => count($fieldMappings),
+                'mapped_fields' => count($mappedFields),
+                'success_rate' => count($mappedFields) / count($fieldMappings) * 100,
+                'mapped_field_names' => array_keys($mappedFields)
+            ],
+            'field_categories' => [
+                'distributor_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Distributor/Company']),
+                'physician_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Physician Name', 'Practice Name', 'Physician PTAN', 'Practice PTAN', 'Physician NPI', 'Practice NPI', 'TAX ID']),
+                'contact_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Office Contact Name', 'Office Contact Email']),
+                'patient_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Patient DOB', 'Patient Name']),
+                'insurance_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Primary Insurance', 'Primary Member ID', 'Secondary Insurance', 'Secondary Member ID']),
+                'place_of_service' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Place of Service', 'Other']),
+                'nursing_home_questions' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Is the patient currently residing in a Nursing Home OR Skilled Nursing Facility', 'If yes, has it been over 100 days']),
+                'post_op_questions' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Is this patient currently under a post-op period', 'If yes please list CPT codes of previous surgery', 'Surgery Date']),
+                'procedure_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Procedure Date']),
+                'wound_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['L', 'W', 'Wound Size Total', 'Wound location', 'Size of Graft Requested']),
+                'diagnosis_codes' => $this->analyzeCategory($fieldMappings, $mappedFields, ['ICD-10 #1', 'ICD-10 #2', 'ICD-10 #3', 'ICD-10 #4']),
+                'procedure_codes' => $this->analyzeCategory($fieldMappings, $mappedFields, ['CPT #1', 'CPT #2', 'CPT #3', 'CPT #4', 'HCPCS #1', 'HCPCS #2', 'HCPCS #3', 'HCPCS #4'])
+            ],
+            'missing_fields_analysis' => $this->analyzeMissingFields($fieldMappings, $mappedFields, $prefillData),
+            'recommendations' => $this->generateRecommendations($mappedFields, $fieldMappings, $prefillData)
+        ];
+
+        return $analysis;
+    }
+
+    /**
+     * Transform data for Celularity Biovance IVR template with comprehensive field mapping
+     */
+    private function transformCelularityBiovanceIVRData(array $prefillData, string $templateId): array
+    {
+        Log::info('Using Celularity Biovance IVR comprehensive field mapping', [
+            'template_id' => $templateId,
+            'input_data_keys' => array_keys($prefillData),
+            'input_data_count' => count($prefillData)
+        ]);
+
+        // Load the Celularity Biovance IVR field mapping configuration
+        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/celularity-biovance-ivr-config.php';
+        $fieldMappings = $mappingConfig['field_mappings'];
+        $transformations = $mappingConfig['transformations'];
+
+        $mappedFields = [];
+        $missingFields = [];
+        $debugInfo = [];
+
+        foreach ($fieldMappings as $docusealField => $mapping) {
+            $source = $mapping['source'];
+            $value = null;
+
+            // Extract value from form data
+            if (is_array($source)) {
+                // Multiple source fields
+                $values = [];
+                foreach ($source as $field) {
+                    if (isset($prefillData[$field])) {
+                        $values[] = $prefillData[$field];
+                    }
+                }
+                $value = $values;
+            } else {
+                // Single source field
+                $value = $prefillData[$source] ?? null;
+            }
+
+            if ($value !== null && $value !== '' && (!is_array($value) || !empty(array_filter($value)))) {
+                // Apply transformation if specified
+                if (isset($mapping['transform']) && isset($transformations[$mapping['transform']])) {
+                    $transformFunction = $transformations[$mapping['transform']];
+                    if (is_callable($transformFunction)) {
+                        $value = $transformFunction($value);
+                    }
+                }
+
+                $mappedFields[$docusealField] = $value;
+
+                // Handle original value for debugging
+                $originalValue = null;
+                if (is_array($source)) {
+                    $originalValue = [];
+                    foreach ($source as $sourceField) {
+                        if (isset($prefillData[$sourceField])) {
+                            $originalValue[$sourceField] = $prefillData[$sourceField];
+                        }
+                    }
+                } else {
+                    $originalValue = $prefillData[$source] ?? null;
+                }
+
+                $debugInfo[$docusealField] = [
+                    'source' => $source,
+                    'original_value' => $originalValue,
+                    'transformed_value' => $value,
+                    'transform' => $mapping['transform'] ?? null
+                ];
+            } else {
+                $missingFields[] = [
+                    'docuseal_field' => $docusealField,
+                    'source' => $source,
+                    'required' => $mapping['required'] ?? false
+                ];
+            }
+        }
+
+        // Log comprehensive debugging information
+        Log::info('Celularity Biovance IVR field mapping results', [
+            'template_id' => $templateId,
+            'total_template_fields' => count($fieldMappings),
+            'mapped_fields' => count($mappedFields),
+            'missing_fields' => count($missingFields),
+            'success_rate' => count($mappedFields) / count($fieldMappings) * 100,
+            'mapped_field_names' => array_keys($mappedFields),
+            'missing_field_details' => $missingFields
+        ]);
+
+        // Log detailed debugging for each mapped field
+        foreach ($debugInfo as $fieldName => $info) {
+            Log::debug('Celularity Biovance IVR field mapping detail', [
+                'field' => $fieldName,
+                'source' => $info['source'],
+                'original_value' => $info['original_value'],
+                'transformed_value' => $info['transformed_value'],
+                'transform' => $info['transform']
+            ]);
+        }
+
+        // Log missing fields for debugging
+        foreach ($missingFields as $missing) {
+            Log::warning('Celularity Biovance IVR missing field', [
+                'docuseal_field' => $missing['docuseal_field'],
+                'source' => $missing['source'],
+                'required' => $missing['required']
+            ]);
+        }
+
+        return $mappedFields;
+    }
+
+    /**
+     * Debug field mapping for Celularity Biovance IVR template
+     */
+    public function debugCelularityBiovanceIVRMapping(array $prefillData): array
+    {
+        $templateId = '1330769';
+        $mappedFields = $this->transformCelularityBiovanceIVRData($prefillData, $templateId);
+
+        // Load configuration for analysis
+        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/celularity-biovance-ivr-config.php';
+        $fieldMappings = $mappingConfig['field_mappings'];
+        $validation = $mappingConfig['validation'];
+
+        $analysis = [
+            'template_info' => [
+                'template_id' => $templateId,
+                'template_name' => 'Celularity Biovance IVR',
+                'manufacturer' => 'CELULARITY'
+            ],
+            'input_data' => [
+                'total_fields' => count($prefillData),
+                'available_fields' => array_keys($prefillData),
+                'sample_values' => array_slice($prefillData, 0, 10, true)
+            ],
+            'mapping_results' => [
+                'total_template_fields' => count($fieldMappings),
+                'mapped_fields' => count($mappedFields),
+                'success_rate' => count($mappedFields) / count($fieldMappings) * 100,
+                'mapped_field_names' => array_keys($mappedFields)
+            ],
+            'field_categories' => [
+                'product_selection' => $this->analyzeCategory($fieldMappings, $mappedFields, ['INTERFYL', 'BIOVANCE 3L', 'BIOVANCE']),
+                'account_executive' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Account Executive contact information name and email']),
+                'patient_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['PATIENT NAME', 'DOB', 'PATIENT ADDRESS', 'CITY STATE ZIP']),
+                'insurance_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['PRIM INS', 'PRIM MEM ID', 'PRIM INS PH', 'SEC INS', 'SEC MEM ID', 'SEC INS PH']),
+                'global_period' => $this->analyzeCategory($fieldMappings, $mappedFields, ['SURG GLOBAL', 'If yes what is the CPT surgery code']),
+                'snf_status' => $this->analyzeCategory($fieldMappings, $mappedFields, ['SNF']),
+                'place_of_service' => $this->analyzeCategory($fieldMappings, $mappedFields, ['PHYS OFC', 'HOPD', 'ASC', 'Other Please Write In']),
+                'physician_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Rendering Physician Name', 'PHYS OFC NPI', 'PHYS OFC TIN', 'PHYS OFC PTAN', 'Rendering Physician Address', 'Rendering Physician PRIM CONTACT NAME', 'Rendering Physician CONTACT EMAIL', 'PHYS OFC PHONE', 'PHYS OFC FAX', 'PHYS OFC CONTACT PH', 'PHYS OFC CONTACT FAX']),
+                'facility_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['FAC NAME', 'FAC PHONE', 'FAC ADDRESS', 'FAC FAX', 'FAC TIN', 'FAC NPI', 'GRP PTAN', 'FAC CONTACT NAME', 'FAC CONTACT EMAIL', 'FAC CONTACT PHONE', 'FAC CONTACT FAX']),
+                'procedure_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Procedure Date', 'CPT AND HCPCS Codes', 'Diagnosis ICD10 Codes']),
+                'wound_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Wound Sizes', 'Wound Location', 'Additional Patient Notes']),
+                'product_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['No GRAFTS', 'SIZE INITIAL APP']),
+                'signature' => $this->analyzeCategory($fieldMappings, $mappedFields, ['SIG DATE'])
+            ],
+            'missing_fields_analysis' => $this->analyzeMissingFields($fieldMappings, $mappedFields, $prefillData),
+            'recommendations' => $this->generateRecommendations($mappedFields, $fieldMappings, $prefillData)
+        ];
+
+        return $analysis;
+    }
+
+    /**
+     * Transform data for Extremity Care Coll-e-Derm IVR template with comprehensive field mapping
+     */
+    private function transformExtremityCareCollEDermIVRData(array $prefillData, string $templateId): array
+    {
+        Log::info('Using Extremity Care Coll-e-Derm IVR comprehensive field mapping', [
+            'template_id' => $templateId,
+            'input_data_keys' => array_keys($prefillData),
+            'input_data_count' => count($prefillData)
+        ]);
+
+        // Load the Extremity Care Coll-e-Derm IVR field mapping configuration
+        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/extremity-care-coll-e-derm-ivr-config.php';
+        $fieldMappings = $mappingConfig['field_mappings'];
+        $transformations = $mappingConfig['transformations'];
+
+        $mappedFields = [];
+        $missingFields = [];
+        $debugInfo = [];
+
+        foreach ($fieldMappings as $docusealField => $mapping) {
+            $source = $mapping['source'];
+            $value = null;
+
+            // Extract value from form data
+            if (is_array($source)) {
+                // Multiple source fields
+                $values = [];
+                foreach ($source as $field) {
+                    if (isset($prefillData[$field])) {
+                        $values[] = $prefillData[$field];
+                    }
+                }
+                $value = $values;
+            } else {
+                // Single source field
+                $value = $prefillData[$source] ?? null;
+            }
+
+            if ($value !== null && $value !== '' && (!is_array($value) || !empty(array_filter($value)))) {
+                // Apply transformation if specified
+                if (isset($mapping['transform']) && isset($transformations[$mapping['transform']])) {
+                    $transformFunction = $transformations[$mapping['transform']];
+                    if (is_callable($transformFunction)) {
+                        $value = $transformFunction($value);
+                    }
+                }
+
+                $mappedFields[$docusealField] = $value;
+
+                // Handle original value for debugging
+                $originalValue = null;
+                if (is_array($source)) {
+                    $originalValue = [];
+                    foreach ($source as $sourceField) {
+                        if (isset($prefillData[$sourceField])) {
+                            $originalValue[$sourceField] = $prefillData[$sourceField];
+                        }
+                    }
+                } else {
+                    $originalValue = $prefillData[$source] ?? null;
+                }
+
+                $debugInfo[$docusealField] = [
+                    'source' => $source,
+                    'original_value' => $originalValue,
+                    'transformed_value' => $value,
+                    'transform' => $mapping['transform'] ?? null
+                ];
+            } else {
+                $missingFields[] = [
+                    'docuseal_field' => $docusealField,
+                    'source' => $source,
+                    'required' => $mapping['required'] ?? false
+                ];
+            }
+        }
+
+        // Log comprehensive debugging information
+        Log::info('Extremity Care Coll-e-Derm IVR field mapping results', [
+            'template_id' => $templateId,
+            'total_template_fields' => count($fieldMappings),
+            'mapped_fields' => count($mappedFields),
+            'missing_fields' => count($missingFields),
+            'success_rate' => count($mappedFields) / count($fieldMappings) * 100,
+            'mapped_field_names' => array_keys($mappedFields),
+            'missing_field_details' => $missingFields
+        ]);
+
+        // Log detailed debugging for each mapped field
+        foreach ($debugInfo as $fieldName => $info) {
+            Log::debug('Extremity Care Coll-e-Derm IVR field mapping detail', [
+                'field' => $fieldName,
+                'source' => $info['source'],
+                'original_value' => $info['original_value'],
+                'transformed_value' => $info['transformed_value'],
+                'transform' => $info['transform']
+            ]);
+        }
+
+        // Log missing fields for debugging
+        foreach ($missingFields as $missing) {
+            Log::warning('Extremity Care Coll-e-Derm IVR missing field', [
+                'docuseal_field' => $missing['docuseal_field'],
+                'source' => $missing['source'],
+                'required' => $missing['required']
+            ]);
+        }
+
+        return $mappedFields;
+    }
+
+    /**
+     * Debug field mapping for Extremity Care Coll-e-Derm IVR template
+     */
+    public function debugExtremityCareCollEDermIVRMapping(array $prefillData): array
+    {
+        $templateId = '1234285';
+        $mappedFields = $this->transformExtremityCareCollEDermIVRData($prefillData, $templateId);
+
+        // Load configuration for analysis
+        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/extremity-care-coll-e-derm-ivr-config.php';
+        $fieldMappings = $mappingConfig['field_mappings'];
+        $validation = $mappingConfig['validation'];
+
+        $analysis = [
+            'template_info' => [
+                'template_id' => $templateId,
+                'template_name' => 'Extremity Care Coll-e-Derm IVR',
+                'manufacturer' => 'EXTREMITY CARE LLC'
+            ],
+            'input_data' => [
+                'total_fields' => count($prefillData),
+                'available_fields' => array_keys($prefillData),
+                'sample_values' => array_slice($prefillData, 0, 10, true)
+            ],
+            'mapping_results' => [
+                'total_template_fields' => count($fieldMappings),
+                'mapped_fields' => count($mappedFields),
+                'success_rate' => count($mappedFields) / count($fieldMappings) * 100,
+                'mapped_field_names' => array_keys($mappedFields)
+            ],
+            'field_categories' => [
+                'application_type' => $this->analyzeCategory($fieldMappings, $mappedFields, ['New Application', 'Additional Application', 'Re-Verification', 'New Insurance']),
+                'place_of_service' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Physicians Office', 'Patient Home', 'Assisted Living', 'Nursing Facility', 'Skilled Nursing', 'Other']),
+                'product_sizes' => $this->analyzeCategory($fieldMappings, $mappedFields, ['2x2', '2x3', '2x4', '4x4', '4x6', '4x8']),
+                'patient_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Patient Name', 'DOB', 'Address', 'City', 'State', 'Zip']),
+                'nursing_home_days' => $this->analyzeCategory($fieldMappings, $mappedFields, ['If YES how many days has the patient been admitted to the skilled nursing facility or nursing home']),
+                'insurance_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Primary Insurance', 'Payer Phone', 'Policy Number']),
+                'provider_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Provider Name', 'Provider ID s']),
+                'facility_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Facility Name', 'Facility ID s', 'Facility Contact', 'Facility Contact Email']),
+                'wound_info' => $this->analyzeCategory($fieldMappings, $mappedFields, ['Check BoxA', 'Feet/Hands/Head ≤ 100 sq cm', 'Feet/Hands/Head ≥ 100 sq cm', 'Wound Information  Diagnosis Codes Provide the ICD10CM Codes for the treatment condition below']),
+                'wound_types' => $this->analyzeCategory($fieldMappings, $mappedFields, ['q Diabetic Ulcer Code Diabetes and Ulcer Locations Separately 2 codes must be present on claim', 'q Venous Ulcer Code Venous and Ulcer Locations Separately 2 codes must be present on claim', 'q Trauma Wounds', 'q Surgical Dehiscence', 'q Other'])
+            ],
+            'missing_fields_analysis' => $this->analyzeMissingFields($fieldMappings, $mappedFields, $prefillData),
+            'recommendations' => $this->generateRecommendations($mappedFields, $fieldMappings, $prefillData)
+        ];
+
+        return $analysis;
     }
 }

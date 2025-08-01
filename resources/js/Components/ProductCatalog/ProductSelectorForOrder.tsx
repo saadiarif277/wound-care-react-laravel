@@ -153,10 +153,8 @@ const ProductSelectorForOrder: React.FC<Props> = ({
     if (selectedProduct?.product && graphSize) {
       const size = parseFloat(graphSize);
       if (!isNaN(size)) {
-        // Total Coverage = units × size in sq cm
-        const totalCoverage = size * units;
-        // Total Price = total coverage × ASP
-        const totalCost = totalCoverage * selectedProduct.pricePerSqCm;
+        // Price = size × per unit price × quantity
+        const totalCost = size * selectedProduct.pricePerSqCm * units;
         onExpectedReimbursementChange(totalCost);
         onInvoiceAmountMedicareChange(totalCost * 0.8);
         onSecondaryPayerChange((totalCost * 0.2).toString());

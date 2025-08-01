@@ -409,7 +409,7 @@ Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRe
     ->name('docuseal.webhook.quickrequest');
 
 // Document Intelligence Routes
-Route::prefix('v1/document-intelligence')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('document-intelligence.')->group(function () {
+Route::prefix('v1/document-intelligence')->middleware(['permission:manage-orders'])->name('document-intelligence.')->group(function () {
     Route::post('analyze-template', [\App\Http\Controllers\Api\DocumentIntelligenceController::class, 'analyzeTemplate'])->name('analyze-template');
     Route::post('extract-form-data', [\App\Http\Controllers\Api\DocumentIntelligenceController::class, 'extractFormData'])->name('extract-form-data');
     Route::post('get-suggestions', [\App\Http\Controllers\Api\DocumentIntelligenceController::class, 'getSuggestions'])->name('get-suggestions');
@@ -863,7 +863,7 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
 
     // Docuseal Test Mapping - for debugging field mappings (restored full auth)
     Route::post('docuseal/test-mapping', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'testFieldMapping'])
-        ->middleware(['auth:sanctum', 'permission:create-product-requests'])
+        ->middleware(['permission:create-product-requests'])
         ->name('api.quick-requests.docuseal.test-mapping');
 });
 
@@ -904,3 +904,272 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
 // DocuSeal debug route
 Route::post('/v1/quick-request/docuseal/debug-template', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'debugTemplateFields']);
+
+// ACZ IVR Field Mapping Debug Route
+Route::post('/debug/acz-ivr-mapping', function (\Illuminate\Http\Request $request) {
+    $docusealService = app(\App\Services\DocusealService::class);
+
+    // Sample form data for testing
+    $formData = [
+        "request_type" => "new_request",
+        "provider_id" => 3,
+        "facility_id" => 1,
+        "organization_id" => 22,
+        "organization_name" => "Test Healthcare Network",
+        "patient_name" => "John Doe",
+        "patient_first_name" => "John",
+        "patient_last_name" => "Doe",
+        "patient_dob" => "1965-03-15",
+        "patient_gender" => "male",
+        "patient_is_subscriber" => true,
+        "primary_insurance_name" => "Cigna",
+        "primary_member_id" => "MED123456789",
+        "primary_plan_type" => "ffs",
+        "has_secondary_insurance" => false,
+        "prior_auth_permission" => true,
+        "wound_type" => "diabetic_foot_ulcer",
+        "wound_types" => ["diabetic_foot_ulcer"],
+        "wound_location" => "right_foot",
+        "wound_size_length" => "4",
+        "wound_size_width" => "4",
+        "wound_size_depth" => "0",
+        "application_cpt_codes" => [""],
+        "place_of_service" => "11",
+        "shipping_speed" => "standard_next_day",
+        "expected_service_date" => "2025-08-02",
+        "order_items" => [],
+        "failed_conservative_treatment" => true,
+        "information_accurate" => true,
+        "medical_necessity_established" => true,
+        "maintain_documentation" => true,
+        "authorize_prior_auth" => true,
+        "provider_npi" => "12345",
+        "selected_products" => [
+            [
+                "product_id" => 4,
+                "quantity" => 1,
+                "size" => "1.54",
+                "product" => [
+                    "id" => 4,
+                    "code" => "Q4316",
+                    "name" => "Amchoplast",
+                    "manufacturer" => "ACZ & Associates",
+                    "manufacturer_id" => 1,
+                    "available_sizes" => ["1.54", "2.55", "4.00", "6.00", "8.00", "9.00", "12.00", "15.00", "16.00", "24.00", "25.00", "28.00", "32.00", "48.00", "49.00", "72.00", "100.00", "200.00", "400.00"],
+                    "size_options" => ["14 mm disc", "18 mm disc", "2×2 cm", "2×3 cm", "2×4 cm", "3×3 cm", "2×6 cm", "3×5 cm", "4×4 cm", "4×6 cm", "5×5 cm", "4×7 cm", "4×8 cm", "6×8 cm", "7×7 cm", "6×12 cm", "10×10 cm", "10×20 cm", "20×20 cm"],
+                    "size_pricing" => [
+                        "14 mm disc" => "1.54",
+                        "18 mm disc" => "2.55",
+                        "2×2 cm" => "4.00",
+                        "2×3 cm" => "6.00",
+                        "2×4 cm" => "8.00",
+                        "3×3 cm" => "9.00",
+                        "2×6 cm" => "12.00",
+                        "3×5 cm" => "15.00",
+                        "4×4 cm" => "16.00",
+                        "4×6 cm" => "24.00",
+                        "5×5 cm" => "25.00",
+                        "4×7 cm" => "28.00",
+                        "4×8 cm" => "32.00",
+                        "6×8 cm" => "48.00",
+                        "7×7 cm" => "49.00",
+                        "6×12 cm" => "72.00",
+                        "10×10 cm" => "100.00",
+                        "10×20 cm" => "200.00",
+                        "20×20 cm" => "400.00"
+                    ],
+                    "size_unit" => "cm",
+                    "price_per_sq_cm" => "441.60",
+                    "msc_price" => 264.96,
+                    "commission_rate" => null,
+                    "docuseal_template_id" => null,
+                    "signature_required" => false
+                ]
+            ]
+        ],
+        "manufacturer_fields" => [],
+        "docuseal_submission_id" => "",
+        "delivery_date" => "2025-08-02",
+        "patient_member_id" => "MED123456789",
+        "patient_address_line1" => "123 Main Street",
+        "patient_address_line2" => "Apt 4B",
+        "patient_city" => "New York",
+        "patient_state" => "NY",
+        "patient_zip" => "10001",
+        "patient_phone" => "(555) 123-4567",
+        "patient_email" => "john.doe@email.com",
+        "primary_payer_phone" => "",
+        "wound_location_details" => "Plantar surface, first metatarsal head",
+        "primary_diagnosis_code" => "E11.621",
+        "secondary_diagnosis_code" => "L97.519",
+        "wound_duration_weeks" => "6",
+        "wound_duration_days" => "2",
+        "prior_applications" => "0",
+        "prior_application_product" => "Standard dressing",
+        "prior_application_within_12_months" => false,
+        "anticipated_applications" => "4",
+        "medicare_part_b_authorized" => false,
+        "hospice_status" => false,
+        "part_a_status" => false,
+        "global_period_status" => false,
+        "primary_physician_network_status" => "in_network",
+        "primary_payer_id" => "3",
+        // Additional data that would be available in a real scenario
+        "provider_name" => "Dr. Jane Smith",
+        "facility_name" => "Test Healthcare Network",
+        "facility_address_line1" => "456 Medical Center Blvd",
+        "facility_city" => "New York",
+        "facility_state" => "NY",
+        "facility_zip" => "10002"
+    ];
+
+    // Merge with any additional data from request
+    if ($request->has('formData')) {
+        $formData = array_merge($formData, $request->input('formData'));
+    }
+
+    $result = $docusealService->debugACZIVRMapping($formData);
+
+    return response()->json($result);
+})->middleware('auth');
+
+// MedLife AMNIO AMP IVR Field Mapping Debug Route
+Route::post('/debug/medlife-amnio-amp-ivr-mapping', function (\Illuminate\Http\Request $request) {
+    $docusealService = app(\App\Services\DocusealService::class);
+
+    // Sample form data for testing
+    $formData = [
+        "request_type" => "new_request",
+        "provider_id" => 3,
+        "facility_id" => 1,
+        "organization_id" => 22,
+        "organization_name" => "Test Healthcare Network",
+        "patient_name" => "John Doe",
+        "patient_first_name" => "John",
+        "patient_last_name" => "Doe",
+        "patient_dob" => "1965-03-15",
+        "patient_gender" => "male",
+        "patient_is_subscriber" => true,
+        "primary_insurance_name" => "Cigna",
+        "primary_member_id" => "MED123456789",
+        "primary_plan_type" => "ffs",
+        "has_secondary_insurance" => false,
+        "prior_auth_permission" => true,
+        "wound_type" => "diabetic_foot_ulcer",
+        "wound_types" => ["diabetic_foot_ulcer"],
+        "wound_location" => "right_foot",
+        "wound_size_length" => "4",
+        "wound_size_width" => "4",
+        "wound_size_depth" => "0",
+        "application_cpt_codes" => [""],
+        "place_of_service" => "11",
+        "shipping_speed" => "standard_next_day",
+        "expected_service_date" => "2025-08-02",
+        "order_items" => [],
+        "failed_conservative_treatment" => true,
+        "information_accurate" => true,
+        "medical_necessity_established" => true,
+        "maintain_documentation" => true,
+        "authorize_prior_auth" => true,
+        "provider_npi" => "12345",
+        "selected_products" => [
+            [
+                "product_id" => 4,
+                "quantity" => 1,
+                "size" => "1.54",
+                "product" => [
+                    "id" => 4,
+                    "code" => "Q4316",
+                    "name" => "Amchoplast",
+                    "manufacturer" => "MedLife Solutions",
+                    "manufacturer_id" => 1,
+                    "available_sizes" => ["1.54", "2.55", "4.00", "6.00", "8.00", "9.00", "12.00", "15.00", "16.00", "24.00", "25.00", "28.00", "32.00", "48.00", "49.00", "72.00", "100.00", "200.00", "400.00"],
+                    "size_options" => ["14 mm disc", "18 mm disc", "2×2 cm", "2×3 cm", "2×4 cm", "3×3 cm", "2×6 cm", "3×5 cm", "4×4 cm", "4×6 cm", "5×5 cm", "4×7 cm", "4×8 cm", "6×8 cm", "7×7 cm", "6×12 cm", "10×10 cm", "10×20 cm", "20×20 cm"],
+                    "size_pricing" => [
+                        "14 mm disc" => "1.54",
+                        "18 mm disc" => "2.55",
+                        "2×2 cm" => "4.00",
+                        "2×3 cm" => "6.00",
+                        "2×4 cm" => "8.00",
+                        "3×3 cm" => "9.00",
+                        "2×6 cm" => "12.00",
+                        "3×5 cm" => "15.00",
+                        "4×4 cm" => "16.00",
+                        "4×6 cm" => "24.00",
+                        "5×5 cm" => "25.00",
+                        "4×7 cm" => "28.00",
+                        "4×8 cm" => "32.00",
+                        "6×8 cm" => "48.00",
+                        "7×7 cm" => "49.00",
+                        "6×12 cm" => "72.00",
+                        "10×10 cm" => "100.00",
+                        "10×20 cm" => "200.00",
+                        "20×20 cm" => "400.00"
+                    ],
+                    "size_unit" => "cm",
+                    "price_per_sq_cm" => "441.60",
+                    "msc_price" => 264.96,
+                    "commission_rate" => null,
+                    "docuseal_template_id" => null,
+                    "signature_required" => false
+                ]
+            ]
+        ],
+        "manufacturer_fields" => [],
+        "docuseal_submission_id" => "",
+        "delivery_date" => "2025-08-02",
+        "patient_member_id" => "MED123456789",
+        "patient_address_line1" => "123 Main Street",
+        "patient_address_line2" => "Apt 4B",
+        "patient_city" => "New York",
+        "patient_state" => "NY",
+        "patient_zip" => "10001",
+        "patient_phone" => "(555) 123-4567",
+        "patient_email" => "john.doe@email.com",
+        "primary_payer_phone" => "",
+        "wound_location_details" => "Plantar surface, first metatarsal head",
+        "primary_diagnosis_code" => "E11.621",
+        "secondary_diagnosis_code" => "L97.519",
+        "wound_duration_weeks" => "6",
+        "wound_duration_days" => "2",
+        "prior_applications" => "0",
+        "prior_application_product" => "Standard dressing",
+        "prior_application_within_12_months" => false,
+        "anticipated_applications" => "4",
+        "medicare_part_b_authorized" => false,
+        "hospice_status" => false,
+        "part_a_status" => false,
+        "global_period_status" => false,
+        "primary_physician_network_status" => "in_network",
+        "primary_payer_id" => "3",
+        // Additional data that would be available in a real scenario
+        "provider_name" => "Dr. Jane Smith",
+        "facility_name" => "Test Healthcare Network",
+        "facility_address_line1" => "456 Medical Center Blvd",
+        "facility_city" => "New York",
+        "facility_state" => "NY",
+        "facility_zip" => "10002",
+        // MedLife specific fields
+        "nursing_home_status" => false,
+        "nursing_home_over_100_days" => false,
+        "surgery_cpt_codes" => [],
+        "surgery_date" => null,
+        "secondary_insurance_name" => "Medicare",
+        "secondary_member_id" => "1AB2C3D4E5F6",
+        "facility_contact_name" => "Jane Smith",
+        "facility_contact_email" => "jane.smith@facility.com",
+        "provider_ptan" => "123456789",
+        "facility_ptan" => "987654321",
+        "facility_npi" => "1234567890",
+        "facility_tax_id" => "98-7654321"
+    ];
+
+    // Merge with any additional data from request
+    if ($request->has('formData')) {
+        $formData = array_merge($formData, $request->input('formData'));
+    }
+
+    $result = $docusealService->debugMedLifeAmnioAmpIVRMapping($formData);
+
+    return response()->json($result);
+})->middleware('auth');

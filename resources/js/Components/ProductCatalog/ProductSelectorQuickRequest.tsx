@@ -322,19 +322,14 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
     return selectedProductsMemo.reduce((total, item) => {
       const product = item.product || products.find(p => p.id === item.product_id);
       if (!product) return total;
-
       const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-
       if (item.size) {
         const sizeValue = parseFloat(item.size);
         if (!isNaN(sizeValue)) {
-          // Total Coverage = units × size in sq cm
-          const totalCoverage = sizeValue * item.quantity;
-          // Total Price = total coverage × ASP
-          return total + (totalCoverage * pricePerUnit);
+          // Price = size × per unit price × quantity
+          return total + (sizeValue * pricePerUnit * item.quantity);
         }
       }
-
       // No size selected, fallback to base calculation
       return total + (pricePerUnit * item.quantity);
     }, 0);
@@ -357,6 +352,39 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
       style: 'currency',
       currency: 'USD'
     }).format(price);
+  };
+
+  const getSizeLabel = (product: Product, sizeValue: string): string => {
+    const sizeNum = parseFloat(sizeValue);
+    if (isNaN(sizeNum)) return sizeValue;
+
+    // First try to find in size_specific_pricing
+    if (product.size_specific_pricing) {
+      for (const [label, data] of Object.entries(product.size_specific_pricing)) {
+        if (data.area_cm2 === sizeNum) {
+          return data.display_label || label;
+        }
+      }
+    }
+
+    // Then try to find in size_pricing
+    if (product.size_pricing) {
+      for (const [label, area] of Object.entries(product.size_pricing)) {
+        if (area === sizeNum) {
+          return label;
+        }
+      }
+    }
+
+    // Fallback to calculated dimensions
+    const sqrtSize = Math.sqrt(sizeNum);
+    const isSquare = sqrtSize === Math.floor(sqrtSize);
+
+    if (isSquare) {
+      return `${sqrtSize} x ${sqrtSize} cm`;
+    } else {
+      return `${sizeNum} cm²`;
+    }
   };
 
   if (loading) {
@@ -567,15 +595,17 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
 
                     const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
                     let unitPrice = pricePerUnit;
+                    let sizeValue = 0;
 
                     if (item.size) {
-                      const sizeValue = parseFloat(item.size);
+                      sizeValue = parseFloat(item.size);
                       if (!isNaN(sizeValue)) {
-                        unitPrice = pricePerUnit * sizeValue;
+                        // Price = size × per unit price × quantity
+                        unitPrice = pricePerUnit; // Keep the per-unit price, don't multiply by size here
                       }
                     }
 
-                    const totalPrice = unitPrice * item.quantity;
+                    const totalPrice = sizeValue * unitPrice * item.quantity;
 
                     return (
                       <div key={`${item.product_id}-${item.size || 'no-size'}`} className={`border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} rounded-md p-3`}>
@@ -583,19 +613,12 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                           <div className="flex-1">
                             {item.size ? (
                               <div>
-                                {(() => {
-                                  const sizeInfo = parseSizeString(item.size);
-                                  return (
-                                    <>
-                                      <h5 className={`text-sm font-medium ${t.text.primary}`}>
-                                        Size: {sizeInfo.dimensions}
-                                      </h5>
-                                      <p className={`text-xs ${t.text.secondary}`}>
-                                        {sizeInfo.area} cm²{roleRestrictions.can_see_order_totals && ` • ${formatPrice(unitPrice)} per unit`}
-                                      </p>
-                                    </>
-                                  );
-                                })()}
+                                <h5 className={`text-sm font-medium ${t.text.primary}`}>
+                                  Size: {getSizeLabel(product, item.size)}
+                                </h5>
+                                <p className={`text-xs ${t.text.secondary}`}>
+                                  {sizeValue} cm²{roleRestrictions.can_see_order_totals && ` • ${formatPrice(unitPrice)} per unit`}
+                                </p>
                               </div>
                             ) : (
                               <div>
@@ -648,7 +671,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                                 {formatPrice(totalPrice)}
                               </p>
                               <p className={`text-xs ${t.text.secondary}`}>
-                                {item.quantity} × {formatPrice(unitPrice)}
+                                {sizeValue > 0 ? `${sizeValue} cm² × ${formatPrice(unitPrice)} × ${item.quantity}` : `${item.quantity} × ${formatPrice(unitPrice)}`}
                               </p>
                             </div>
                           )}
@@ -727,30 +750,35 @@ const QuickRequestProductCard: React.FC<{
       if (isNaN(sizeValue)) {
         return 0;
       }
-
-      // Try to find size-specific pricing data
       if (product.size_specific_pricing) {
         for (const [label, data] of Object.entries(product.size_specific_pricing)) {
           if (data.area_cm2 === sizeValue) {
-            // Total Coverage = units × size in sq cm
-            const totalCoverage = sizeValue * quantity;
-            // Total Price = total coverage × effective price
-            return totalCoverage * data.effective_price;
+            // Price = size × per unit price × quantity
+            return sizeValue * data.effective_price * quantity;
           }
         }
       }
-
       // Fallback to calculated price if no size-specific data
       const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-      // Total Coverage = units × size in sq cm
-      const totalCoverage = sizeValue * quantity;
-      // Total Price = total coverage × ASP
-      return totalCoverage * pricePerUnit;
+      // Price = size × per unit price × quantity
+      return sizeValue * pricePerUnit * quantity;
     }
-
-    // No size selected, return base price
+    // No size selected, return base price × quantity
     const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
     return pricePerUnit * quantity;
+  };
+
+  const getPriceCalculationText = () => {
+    if (selectedSize) {
+      const sizeValue = parseFloat(selectedSize);
+      if (isNaN(sizeValue)) {
+        return `${quantity} × ${formatPrice(roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm)}`;
+      }
+      const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+      return `${sizeValue} cm² × ${formatPrice(pricePerUnit)} × ${quantity} = ${formatPrice(sizeValue * pricePerUnit * quantity)}`;
+    }
+    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+    return `${quantity} × ${formatPrice(pricePerUnit)}`;
   };
 
   return (
@@ -825,7 +853,7 @@ const QuickRequestProductCard: React.FC<{
               const sizeData = product.size_specific_pricing?.[sizeLabel];
               return (
                 <option key={sizeLabel} value={sizeData?.area_cm2?.toString() || '0'}>
-                  {sizeData?.display_label || sizeLabel}
+                  {sizeLabel}
                 </option>
               );
             })}

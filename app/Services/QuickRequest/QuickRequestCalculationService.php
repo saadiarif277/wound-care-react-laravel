@@ -31,10 +31,8 @@ class QuickRequestCalculationService
             if ($size) {
                 $sizeValue = floatval($size);
                 if (!is_nan($sizeValue)) {
-                    // Total Coverage = units × size in sq cm
-                    $totalCoverage = $sizeValue * $quantity;
-                    // Total Price = total coverage × ASP
-                    $itemTotal = $totalCoverage * $unitPrice;
+                    // Price = size × per unit price × quantity
+                    $itemTotal = $sizeValue * $unitPrice * $quantity;
                 } else {
                     $itemTotal = $unitPrice * $quantity;
                 }

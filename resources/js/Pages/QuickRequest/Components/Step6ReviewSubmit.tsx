@@ -217,7 +217,7 @@ export default function Step6ReviewSubmit({
 
   const handleSubmit = async () => {
     if (!confirmChecked) return;
-    
+
     setShowConfirmModal(false);
     if (onSubmit) {
       await onSubmit();
@@ -372,12 +372,6 @@ export default function Step6ReviewSubmit({
             >
               <FiEdit3 className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => handleEdit('clinical-billing')}
-              className={cn("px-3 py-1 text-sm rounded-lg", t.button.secondary.base, t.button.secondary.hover)}
-            >
-              Edit
-            </button>
           </div>
         </div>
 
@@ -446,12 +440,6 @@ export default function Step6ReviewSubmit({
               className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
             >
               <FiEdit3 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleEdit('product-selection')}
-              className={cn("px-3 py-1 text-sm rounded-lg", t.button.secondary.base, t.button.secondary.hover)}
-            >
-              Edit
             </button>
           </div>
         </div>
@@ -534,12 +522,6 @@ export default function Step6ReviewSubmit({
               className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
             >
               <FiEdit3 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleEdit('patient-insurance')}
-              className={cn("px-3 py-1 text-sm rounded-lg", t.button.secondary.base, t.button.secondary.hover)}
-            >
-              Edit
             </button>
           </div>
         </div>
