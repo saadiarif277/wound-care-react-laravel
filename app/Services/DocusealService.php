@@ -1139,6 +1139,15 @@ class DocusealService
                 return Carbon::parse($value)->format('Y-m-d');
             case 'phone':
                 return preg_replace('/[^0-9]/', '', $value);
+            case 'array_to_string':
+                if (is_array($value)) {
+                    // Filter out empty values and join with commas
+                    $filtered = array_filter($value, function($item) {
+                        return !empty($item) && $item !== '';
+                    });
+                    return implode(', ', $filtered);
+                }
+                return $value;
             default:
                 return $value;
         }
@@ -1808,6 +1817,11 @@ class DocusealService
             return $this->transformExtremityCareCollEDermIVRData($prefillData, $templateId);
         }
 
+        // Check if this is Advanced Solution IVR template (ID: 1199885)
+        if ($templateId == '1199885' && $manufacturerName === 'ADVANCED SOLUTION') {
+            return $this->transformAdvancedSolutionIVRData($prefillData, $templateId);
+        }
+
         $docusealFields = [];
 
         // STEP 1: Get the actual template fields from DocuSeal
@@ -2071,6 +2085,31 @@ class DocusealService
             if (count($parts) === 2 && isset($data[$parts[0]]) && isset($data[$parts[1]])) {
                 return floatval($data[$parts[0]]) * floatval($data[$parts[1]]);
             }
+        }
+
+        // Handle wound size computation (e.g., "wound_size_length + ' x ' + wound_size_width + ' cm'")
+        if (strpos($computation, 'wound_size_length') !== false && strpos($computation, 'wound_size_width') !== false) {
+            $length = $data['wound_size_length'] ?? '';
+            $width = $data['wound_size_width'] ?? '';
+            if ($length && $width) {
+                return $length . ' x ' . $width . ' cm';
+            }
+        }
+
+        // Handle ICD-10 diagnosis codes computation (e.g., "primary_diagnosis_code + ', ' + secondary_diagnosis_code")
+        if (strpos($computation, 'primary_diagnosis_code') !== false && strpos($computation, 'secondary_diagnosis_code') !== false) {
+            $primary = $data['primary_diagnosis_code'] ?? '';
+            $secondary = $data['secondary_diagnosis_code'] ?? '';
+            if ($primary && $secondary) {
+                return $primary . ', ' . $secondary;
+            } elseif ($primary) {
+                return $primary;
+            }
+        }
+
+        // Handle current date computation
+        if ($computation === 'current_date') {
+            return date('Y-m-d');
         }
 
         return null;
@@ -3361,5 +3400,461 @@ class DocusealService
         ];
 
         return $analysis;
+    }
+
+    /**
+     * Transform data for Advanced Solution IVR template (ID: 1199885)
+     * Maps all 67 fields with proper transformations and conditional logic
+     */
+    private function transformAdvancedSolutionIVRData(array $prefillData, string $templateId): array
+    {
+        Log::info('Using Advanced Solution IVR comprehensive field mapping', [
+            'template_id' => $templateId,
+            'input_data_keys' => array_keys($prefillData),
+            'input_data_count' => count($prefillData)
+        ]);
+
+        $docusealFields = [];
+        $missingFields = [];
+        $debugInfo = [];
+
+        // Load the Advanced Solution field mapping configuration directly from file
+        $manufacturerConfig = require config_path('manufacturers/advanced-solution.php');
+        $fieldMappings = $manufacturerConfig['docuseal_field_names'] ?? [];
+        $fieldConfigs = $manufacturerConfig['fields'] ?? [];
+
+        Log::info('Advanced Solution IVR field mapping started', [
+            'template_id' => $templateId,
+            'field_mappings_count' => count($fieldMappings),
+            'field_configs_count' => count($fieldConfigs)
+        ]);
+
+        foreach ($fieldMappings as $canonicalField => $docusealField) {
+            $value = null;
+            $fieldConfig = $fieldConfigs[$canonicalField] ?? [];
+
+            // Extract value based on field configuration
+            if (isset($fieldConfig['source'])) {
+                if ($fieldConfig['source'] === 'computed') {
+                    $value = $this->computeFieldValue($fieldConfig, $prefillData);
+                } else {
+                    $value = $prefillData[$fieldConfig['source']] ?? null;
+                }
+            } else {
+                // Fallback to direct mapping
+                $value = $prefillData[$canonicalField] ?? null;
+            }
+
+            // Apply transformations
+            if ($value !== null && isset($fieldConfig['transform'])) {
+                $value = $this->applyTransformation($value, $fieldConfig['transform']);
+            }
+
+            // Handle conditional fields
+            if (isset($fieldConfig['conditional'])) {
+                $conditionalField = $fieldConfig['conditional'];
+                $conditionalValue = $prefillData[$conditionalField] ?? false;
+
+                // Only include conditional field if parent field is true/selected
+                if (!$conditionalValue) {
+                    continue;
+                }
+            }
+
+            // Handle checkbox fields with boolean values
+            if (isset($fieldConfig['type']) && $fieldConfig['type'] === 'checkbox') {
+                if (is_bool($value)) {
+                    $value = $value ? 'true' : 'false';
+                } elseif (is_string($value)) {
+                    // Handle string-based checkbox logic
+                    $value = $this->convertStringToCheckboxValue($value, $fieldConfig);
+                }
+            }
+
+            // Handle radio button fields
+            if (isset($fieldConfig['type']) && $fieldConfig['type'] === 'radio') {
+                $value = $this->convertToRadioValue($value, $fieldConfig);
+            }
+
+            // Format the value for DocuSeal
+            $formattedValue = $this->formatFieldValue($value);
+
+            if ($formattedValue !== null && $formattedValue !== '') {
+                $docusealFields[$docusealField] = $formattedValue;
+                $debugInfo['mapped'][$canonicalField] = [
+                    'docuseal_field' => $docusealField,
+                    'value' => $formattedValue,
+                    'original_value' => $value
+                ];
+            } else {
+                $missingFields[] = $canonicalField;
+                $debugInfo['missing'][$canonicalField] = [
+                    'docuseal_field' => $docusealField,
+                    'reason' => 'No value available'
+                ];
+            }
+        }
+
+        // Special handling for Advanced Solution specific fields
+        $docusealFields = $this->applyAdvancedSolutionSpecificMappings($docusealFields, $prefillData);
+
+        Log::info('Advanced Solution IVR field mapping completed', [
+            'template_id' => $templateId,
+            'mapped_fields_count' => count($docusealFields),
+            'missing_fields_count' => count($missingFields),
+            'success_rate' => count($fieldMappings) > 0 ? round((count($docusealFields) / count($fieldMappings)) * 100, 1) : 0,
+            'mapped_fields' => array_keys($docusealFields),
+            'missing_fields' => $missingFields
+        ]);
+
+        return $docusealFields;
+    }
+
+    /**
+     * Apply Advanced Solution specific field mappings and transformations
+     */
+    private function applyAdvancedSolutionSpecificMappings(array $docusealFields, array $prefillData): array
+    {
+        // Handle Place of Service checkboxes (map from real data)
+        $placeOfService = $prefillData['place_of_service'] ?? '';
+        if ($placeOfService) {
+            // Map place of service codes to checkbox values
+            $docusealFields['Office'] = ($placeOfService === '11') ? 'true' : 'false';
+            $docusealFields['Outpatient Hospital'] = ($placeOfService === '22') ? 'true' : 'false';
+            $docusealFields['Ambulatory Surgical Center'] = ($placeOfService === '24') ? 'true' : 'false';
+            $docusealFields['Other'] = (in_array($placeOfService, ['99', 'other'])) ? 'true' : 'false';
+
+            // Handle POS Other conditional field
+            if (in_array($placeOfService, ['99', 'other'])) {
+                $docusealFields['POS Other'] = $prefillData['place_of_service_other'] ?? '';
+            }
+        }
+
+        // Handle OK to Contact Patient checkboxes
+        $okToContact = $prefillData['ok_to_contact_patient'] ?? null;
+        if ($okToContact !== null) {
+            $docusealFields['Ok to Contact Patient Yes'] = $okToContact ? 'true' : 'false';
+            $docusealFields['OK to Contact Patient No'] = $okToContact ? 'false' : 'true';
+        }
+
+        // Handle Primary Plan Type checkboxes (map from real data)
+        $primaryPlanType = $prefillData['primary_plan_type'] ?? '';
+        if ($primaryPlanType) {
+            $docusealFields['Primary Type of Plan HMO'] = ($primaryPlanType === 'hmo') ? 'true' : 'false';
+            $docusealFields['Primary Type of Plan PPO'] = ($primaryPlanType === 'ppo') ? 'true' : 'false';
+            $docusealFields['Primary Type of Plan Other'] = (in_array($primaryPlanType, ['ffs', 'other'])) ? 'true' : 'false';
+
+            // Handle Primary Plan Type Other conditional field
+            if (in_array($primaryPlanType, ['ffs', 'other'])) {
+                $docusealFields['Primary Type of Plan Other (String)'] = $prefillData['primary_plan_type_other'] ?? '';
+            }
+        }
+
+        // Handle Secondary Plan Type checkboxes
+        $secondaryPlanType = $prefillData['secondary_plan_type'] ?? '';
+        if ($secondaryPlanType) {
+            $docusealFields['Secondary Type of Plan HMO'] = ($secondaryPlanType === 'hmo') ? 'true' : 'false';
+            $docusealFields['Secondary Type of Plan PPO'] = ($secondaryPlanType === 'ppo') ? 'true' : 'false';
+            $docusealFields['Secondary Type of Plan Other'] = ($secondaryPlanType === 'other') ? 'true' : 'false';
+
+            // Handle Secondary Plan Type Other conditional field
+            if ($secondaryPlanType === 'other') {
+                $docusealFields['Secondary Type of Plan Other (String)'] = $prefillData['secondary_plan_type_other'] ?? '';
+            }
+        }
+
+        // Handle Physician Status checkboxes
+        $physicianStatusPrimary = $prefillData['physician_status_primary'] ?? '';
+        if ($physicianStatusPrimary) {
+            $docusealFields['Physician Status With Primary: In-Network'] = ($physicianStatusPrimary === 'in_network') ? 'true' : 'false';
+            $docusealFields['Physician Status With Primary: Out-of-Network'] = ($physicianStatusPrimary === 'out_of_network') ? 'true' : 'false';
+        }
+
+        $physicianStatusSecondary = $prefillData['physician_status_secondary'] ?? '';
+        if ($physicianStatusSecondary) {
+            $docusealFields['Physician Status With Secondary: In-Network'] = ($physicianStatusSecondary === 'in_network') ? 'true' : 'false';
+            $docusealFields['Physician Status With Secondary: Out-of-Network'] = ($physicianStatusSecondary === 'out_of_network') ? 'true' : 'false';
+        }
+
+        // Handle Wound Type checkboxes
+        $woundType = $prefillData['wound_type'] ?? '';
+        if ($woundType) {
+            $docusealFields['Diabetic Foot Ulcer'] = ($woundType === 'diabetic_foot_ulcer') ? 'true' : 'false';
+            $docusealFields['Venous Leg Ulcer'] = ($woundType === 'venous_leg_ulcer') ? 'true' : 'false';
+            $docusealFields['Pressure Ulcer'] = ($woundType === 'pressure_ulcer') ? 'true' : 'false';
+            $docusealFields['Traumatic Burns'] = ($woundType === 'traumatic_burns') ? 'true' : 'false';
+            $docusealFields['Radiation Burns'] = ($woundType === 'radiation_burns') ? 'true' : 'false';
+            $docusealFields['Necrotizing Facilitis'] = ($woundType === 'necrotizing_facilitis') ? 'true' : 'false';
+            $docusealFields['Dehisced Surgical Wound'] = ($woundType === 'dehisced_surgical_wound') ? 'true' : 'false';
+            $docusealFields['Other Wound'] = ($woundType === 'other') ? 'true' : 'false';
+
+            // Handle Wound Type Other conditional field
+            if ($woundType === 'other') {
+                $docusealFields['Type of Wound Other'] = $prefillData['wound_type_other'] ?? '';
+            }
+        }
+
+        // Handle Product Selection checkboxes
+        $selectedProducts = $prefillData['selected_products'] ?? [];
+        if (is_array($selectedProducts)) {
+            $docusealFields['Complete AA'] = in_array('complete_aa', $selectedProducts) ? 'true' : 'false';
+            $docusealFields['Membrane Wrap Hydro'] = in_array('membrane_wrap_hydro', $selectedProducts) ? 'true' : 'false';
+            $docusealFields['Membrane Wrap'] = in_array('membrane_wrap', $selectedProducts) ? 'true' : 'false';
+            $docusealFields['WoundPlus'] = in_array('wound_plus', $selectedProducts) ? 'true' : 'false';
+            $docusealFields['CompleteFT'] = in_array('complete_ft', $selectedProducts) ? 'true' : 'false';
+
+            // Handle Product Other conditional field
+            if (in_array('other', $selectedProducts)) {
+                $docusealFields['Product Other'] = $prefillData['product_other'] ?? '';
+            }
+            $docusealFields['Other Product'] = in_array('other', $selectedProducts) ? 'true' : 'false';
+        }
+
+        // Handle Patient Status checkboxes
+        $patientInSnf = $prefillData['patient_in_snf'] ?? null;
+        if ($patientInSnf !== null) {
+            $docusealFields['Patient in SNF No'] = $patientInSnf ? 'false' : 'true';
+        }
+
+        $patientUnderGlobal = $prefillData['patient_under_global'] ?? null;
+        if ($patientUnderGlobal !== null) {
+            $docusealFields['Patient Under Global Yes'] = $patientUnderGlobal ? 'true' : 'false';
+            $docusealFields['Patient Under Global No'] = $patientUnderGlobal ? 'false' : 'true';
+        }
+
+        // Handle computed fields
+        if (isset($prefillData['patient_first_name']) && isset($prefillData['patient_last_name'])) {
+            $docusealFields['Patient Name'] = $prefillData['patient_first_name'] . ' ' . $prefillData['patient_last_name'];
+        }
+
+        // Handle date fields
+        if (isset($prefillData['patient_dob'])) {
+            $docusealFields['Patient DOB'] = date('m/d/Y', strtotime($prefillData['patient_dob']));
+        }
+
+        if (isset($prefillData['primary_subscriber_dob'])) {
+            $docusealFields['Primary Subscriber DOB'] = date('m/d/Y', strtotime($prefillData['primary_subscriber_dob']));
+        }
+
+        if (isset($prefillData['secondary_subscriber_dob'])) {
+            $docusealFields['Secondary Subscriber DOB'] = date('m/d/Y', strtotime($prefillData['secondary_subscriber_dob']));
+        }
+
+        if (isset($prefillData['date_of_service'])) {
+            $docusealFields['Date of Service'] = date('m/d/Y', strtotime($prefillData['date_of_service']));
+        }
+
+        // Handle missing critical fields from real data
+        if (isset($prefillData['wound_size_length']) && isset($prefillData['wound_size_width'])) {
+            $docusealFields['Wound Size'] = $prefillData['wound_size_length'] . ' x ' . $prefillData['wound_size_width'] . ' cm';
+        }
+
+        if (isset($prefillData['application_cpt_codes']) && is_array($prefillData['application_cpt_codes'])) {
+            $filteredCodes = array_filter($prefillData['application_cpt_codes'], function($code) {
+                return !empty($code) && $code !== '';
+            });
+            $docusealFields['CPT Codes'] = implode(', ', $filteredCodes);
+        }
+
+        if (isset($prefillData['expected_service_date'])) {
+            $docusealFields['Date of Service'] = date('m/d/Y', strtotime($prefillData['expected_service_date']));
+        }
+
+        if (isset($prefillData['primary_diagnosis_code']) && isset($prefillData['secondary_diagnosis_code'])) {
+            $docusealFields['ICD-10 Diagnosis Codes'] = $prefillData['primary_diagnosis_code'] . ', ' . $prefillData['secondary_diagnosis_code'];
+        } elseif (isset($prefillData['primary_diagnosis_code'])) {
+            $docusealFields['ICD-10 Diagnosis Codes'] = $prefillData['primary_diagnosis_code'];
+        }
+
+        // Handle product selection from real data
+        if (isset($prefillData['selected_products']) && is_array($prefillData['selected_products'])) {
+            $productNames = [];
+            foreach ($prefillData['selected_products'] as $product) {
+                if (isset($product['product']['name'])) {
+                    $productNames[] = $product['product']['name'];
+                }
+            }
+            // Map product names to Advanced Solution products
+            $docusealFields['Complete AA'] = in_array('Amchoplast', $productNames) ? 'true' : 'false';
+            $docusealFields['Membrane Wrap Hydro'] = in_array('Membrane Wrap Hydro', $productNames) ? 'true' : 'false';
+            $docusealFields['Membrane Wrap'] = in_array('Membrane Wrap', $productNames) ? 'true' : 'false';
+            $docusealFields['WoundPlus'] = in_array('WoundPlus', $productNames) ? 'true' : 'false';
+            $docusealFields['CompleteFT'] = in_array('CompleteFT', $productNames) ? 'true' : 'false';
+        }
+
+        // Handle additional fields from real data
+        if (isset($prefillData['patient_address_line1'])) {
+            $address = $prefillData['patient_address_line1'];
+            if (isset($prefillData['patient_address_line2'])) {
+                $address .= ', ' . $prefillData['patient_address_line2'];
+            }
+            if (isset($prefillData['patient_city'])) {
+                $address .= ', ' . $prefillData['patient_city'];
+            }
+            if (isset($prefillData['patient_state'])) {
+                $address .= ', ' . $prefillData['patient_state'];
+            }
+            if (isset($prefillData['patient_zip'])) {
+                $address .= ' ' . $prefillData['patient_zip'];
+            }
+            $docusealFields['Patient Address'] = $address;
+        }
+
+        // Handle facility information (use organization as fallback)
+        if (isset($prefillData['organization_name'])) {
+            $docusealFields['Facility Name'] = $prefillData['organization_name'];
+        }
+
+        // Handle MAC (Medicare Administrative Contractor) - only set if available in data
+        if (isset($prefillData['medicare_mac'])) {
+            $docusealFields['MAC'] = $prefillData['medicare_mac'];
+        }
+
+        // Handle facility contact - only set if available in data
+        if (isset($prefillData['facility_contact_name'])) {
+            $docusealFields['Factility Contact Name'] = $prefillData['facility_contact_name'];
+        }
+
+        // Handle facility information - only set if available in data
+        if (isset($prefillData['facility_address'])) {
+            $docusealFields['Facility Address'] = $prefillData['facility_address'];
+        }
+        if (isset($prefillData['facility_npi'])) {
+            $docusealFields['Facility NPI'] = $prefillData['facility_npi'];
+        }
+        if (isset($prefillData['facility_tin'])) {
+            $docusealFields['Facility TIN'] = $prefillData['facility_tin'];
+        }
+        if (isset($prefillData['facility_phone'])) {
+            $docusealFields['Facility Phone Number'] = $prefillData['facility_phone'];
+        }
+        if (isset($prefillData['facility_ptan'])) {
+            $docusealFields['Facility PTAN'] = $prefillData['facility_ptan'];
+        }
+        if (isset($prefillData['facility_fax'])) {
+            $docusealFields['Facility Fax Number'] = $prefillData['facility_fax'];
+        }
+
+        // Handle physician information - only set if available in data
+        if (isset($prefillData['physician_name'])) {
+            $docusealFields['Physician Name'] = $prefillData['physician_name'];
+        }
+        if (isset($prefillData['physician_fax'])) {
+            $docusealFields['Physician Fax'] = $prefillData['physician_fax'];
+        }
+        if (isset($prefillData['physician_address'])) {
+            $docusealFields['Physician Address'] = $prefillData['physician_address'];
+        }
+        if (isset($prefillData['physician_phone'])) {
+            $docusealFields['Physician Phone'] = $prefillData['physician_phone'];
+        }
+        if (isset($prefillData['physician_tin'])) {
+            $docusealFields['Physician TIN'] = $prefillData['physician_tin'];
+        }
+
+        // Handle OK to Contact Patient - only set if available in data
+        if (isset($prefillData['ok_to_contact_patient'])) {
+            $docusealFields['Ok to Contact Patient Yes'] = $prefillData['ok_to_contact_patient'] ? 'true' : 'false';
+            $docusealFields['OK to Contact Patient No'] = $prefillData['ok_to_contact_patient'] ? 'false' : 'true';
+        }
+
+        // Handle secondary insurance - only set if available in data
+        if (isset($prefillData['secondary_insurance_name'])) {
+            $docusealFields['Secondary Insurance'] = $prefillData['secondary_insurance_name'];
+        }
+        if (isset($prefillData['secondary_subscriber_name'])) {
+            $docusealFields['Secondary Subscriber Name'] = $prefillData['secondary_subscriber_name'];
+        }
+        if (isset($prefillData['secondary_policy_number'])) {
+            $docusealFields['Secondary Policy Number'] = $prefillData['secondary_policy_number'];
+        }
+        if (isset($prefillData['secondary_subscriber_dob'])) {
+            $docusealFields['Secondary Subscriber DOB'] = date('m/d/Y', strtotime($prefillData['secondary_subscriber_dob']));
+        }
+        if (isset($prefillData['secondary_insurance_phone'])) {
+            $docusealFields['Secondary Insurance Phone Number'] = $prefillData['secondary_insurance_phone'];
+        }
+
+        // Handle insurance phone
+        if (isset($prefillData['primary_payer_phone'])) {
+            $docusealFields['Primary Insurance Phone Number'] = $prefillData['primary_payer_phone'];
+        }
+
+        // Handle physician status - only set if available in data
+        if (isset($prefillData['physician_status_primary'])) {
+            $docusealFields['Physician Status With Primary: In-Network'] = ($prefillData['physician_status_primary'] === 'in_network') ? 'true' : 'false';
+            $docusealFields['Physician Status With Primary: Out-of-Network'] = ($prefillData['physician_status_primary'] === 'out_of_network') ? 'true' : 'false';
+        }
+        if (isset($prefillData['primary_in_network_not_sure'])) {
+            $docusealFields['Primary In-Network Not Sure'] = $prefillData['primary_in_network_not_sure'];
+        }
+
+        // Handle patient status fields - only set if available in data
+        if (isset($prefillData['patient_in_snf'])) {
+            $docusealFields['Patient in SNF No'] = $prefillData['patient_in_snf'] ? 'false' : 'true';
+        }
+        if (isset($prefillData['patient_under_global'])) {
+            $docusealFields['Patient Under Global Yes'] = $prefillData['patient_under_global'] ? 'true' : 'false';
+            $docusealFields['Patient Under Global No'] = $prefillData['patient_under_global'] ? 'false' : 'true';
+        }
+
+        // Handle prior auth
+        if (isset($prefillData['prior_auth_permission'])) {
+            $docusealFields['Prior Auth'] = $prefillData['prior_auth_permission'] ? 'true' : 'false';
+        }
+
+        // Handle specialty site name
+        if (isset($prefillData['organization_name'])) {
+            $docusealFields['Specialty Site Name'] = $prefillData['organization_name'];
+        }
+
+        // Handle Is Patient Curer - only set if available in data
+        if (isset($prefillData['is_patient_curer'])) {
+            $docusealFields['Is Patient Curer'] = $prefillData['is_patient_curer'] ? 'true' : 'false';
+        }
+
+        // Handle signature - only set if available in data
+        if (isset($prefillData['physician_signature'])) {
+            $docusealFields['Physician or Authorized Signature'] = $prefillData['physician_signature'];
+        }
+
+        // Handle insurance card (proper base64 placeholder or remove if not required)
+        // $docusealFields['Insurance Card'] = 'data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsO...'; // Commented out to avoid validation error
+
+        // Auto-populate Date Signed
+        $docusealFields['Date Signed'] = date('m/d/Y');
+
+        return $docusealFields;
+    }
+
+    /**
+     * Convert string value to checkbox value for Advanced Solution fields
+     */
+    private function convertStringToCheckboxValue($value, array $config): string
+    {
+        if (isset($config['transform'])) {
+            $expectedValue = str_replace('equals:', '', $config['transform']);
+            return ($value === $expectedValue) ? 'true' : 'false';
+        }
+        return $value ? 'true' : 'false';
+    }
+
+    /**
+     * Convert value to radio button value for Advanced Solution fields
+     */
+    private function convertToRadioValue($value, array $config): string
+    {
+        if (isset($config['options']) && is_array($config['options'])) {
+            return in_array($value, $config['options']) ? $value : '';
+        }
+        return $value;
+    }
+
+    /**
+     * Debug method for Advanced Solution IVR mapping
+     */
+    public function debugAdvancedSolutionIVRMapping(array $prefillData): array
+    {
+        return $this->transformAdvancedSolutionIVRData($prefillData, '1199885');
     }
 }
