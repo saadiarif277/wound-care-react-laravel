@@ -34,7 +34,11 @@
       "Bash(mysql:*)",
       "WebFetch(domain:superinterface.ai)",
       "mcp__Thinking__sequentialthinking",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "mcp__serena__onboarding",
+      "mcp__serena__list_dir",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__write_memory"
     ],
     "deny": []
   }
