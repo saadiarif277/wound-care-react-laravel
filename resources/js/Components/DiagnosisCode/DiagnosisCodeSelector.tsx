@@ -63,15 +63,15 @@ const WOUND_TYPES: WoundType[] = [
     primaryLabel: 'Diabetes Mellitus (E-codes)',
     secondaryLabel: 'Chronic Ulcer (L97-codes)'
   },
-  {
-    id: 'arterial_ulcer',
-    name: 'Arterial Ulcer',
-    requiresDualCoding: true,
-    primaryCategory: 'arterial_primary',
-    secondaryCategory: 'chronic_ulcer_l97',
-    primaryLabel: 'Arterial Diagnosis (I70-codes)',
-    secondaryLabel: 'Chronic Ulcer (L97-codes)'
-  },
+  // {
+  //   id: 'arterial_ulcer',
+  //   name: 'Arterial Ulcer',
+  //   requiresDualCoding: true,
+  //   primaryCategory: 'arterial_primary',
+  //   secondaryCategory: 'chronic_ulcer_l97',
+  //   primaryLabel: 'Arterial Diagnosis (I70-codes)',
+  //   secondaryLabel: 'Chronic Ulcer (L97-codes)'
+  // },
   {
     id: 'pressure_ulcer',
     name: 'Pressure Ulcer',
@@ -323,7 +323,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'I70.25', description: 'Atherosclerosis of native arteries of other extremities with ulceration', category: 'arterial' }
       );
     }
-    
+
     // Surgical Wounds (T81 codes)
     else if (currentWoundType.primaryCategory === 'surgical_wound') {
       mockPrimaryCodes.push(
@@ -336,7 +336,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'T81.9XXA', description: 'Unspecified complication of procedure, initial encounter', category: 'surgical' }
       );
     }
-    
+
     // Traumatic Wounds (S codes)
     else if (currentWoundType.primaryCategory === 'traumatic_wound') {
       mockPrimaryCodes.push(
@@ -352,7 +352,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'S91.302A', description: 'Unspecified open wound, left foot, initial encounter', category: 'traumatic' }
       );
     }
-    
+
     // Other/General - Allow selection from all available diagnosis codes
     else if (currentWoundType.primaryCategory === 'other_general') {
       mockPrimaryCodes.push(
@@ -366,7 +366,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'T81.43XA', description: 'Infection following a procedure, organ and space surgical site, initial encounter', category: 'other_general' },
         { code: 'T81.44XA', description: 'Sepsis following a procedure, initial encounter', category: 'other_general' },
         { code: 'T81.49XA', description: 'Infection following a procedure, other surgical site, initial encounter', category: 'other_general' },
-        
+
         // Post-Procedural (Z48 codes)
         { code: 'Z48.00', description: 'Encounter for change or removal of nonsurgical wound dressing', category: 'other_general' },
         { code: 'Z48.01', description: 'Encounter for change or removal of surgical wound dressing', category: 'other_general' },
@@ -375,7 +375,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'Z48.1', description: 'Encounter for planned postprocedural wound closure', category: 'other_general' },
         { code: 'Z48.280', description: 'Encounter for aftercare following organ transplant', category: 'other_general' },
         { code: 'Z48.290', description: 'Encounter for aftercare following other organ transplant', category: 'other_general' },
-        
+
         // Infection (L03, B95, B96 codes)
         { code: 'L03.111', description: 'Cellulitis of right axilla', category: 'other_general' },
         { code: 'L03.112', description: 'Cellulitis of left axilla', category: 'other_general' },
@@ -388,7 +388,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'B95.61', description: 'Methicillin susceptible Staphylococcus aureus infection as the cause of diseases classified elsewhere', category: 'other_general' },
         { code: 'B95.62', description: 'Methicillin resistant Staphylococcus aureus infection as the cause of diseases classified elsewhere', category: 'other_general' },
         { code: 'B96.20', description: 'Unspecified Escherichia coli [E. coli] as the cause of diseases classified elsewhere', category: 'other_general' },
-        
+
         // Amputation (T87 codes)
         { code: 'T87.30', description: 'Neuroma of amputation stump, unspecified extremity', category: 'other_general' },
         { code: 'T87.31', description: 'Neuroma of amputation stump, right upper extremity', category: 'other_general' },
@@ -403,7 +403,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'T87.50', description: 'Necrosis of amputation stump, unspecified extremity', category: 'other_general' },
         { code: 'T87.81', description: 'Dehiscence of amputation stump', category: 'other_general' },
         { code: 'T87.89', description: 'Other complications of amputation stump', category: 'other_general' },
-        
+
         // Chronic Ulcers (L97/L98 codes)
         { code: 'L97.101', description: 'Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin', category: 'other_general' },
         { code: 'L97.102', description: 'Non-pressure chronic ulcer of unspecified thigh with fat layer exposed', category: 'other_general' },
@@ -415,7 +415,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'L98.411', description: 'Non-pressure chronic ulcer of buttock limited to breakdown of skin', category: 'other_general' },
         { code: 'L98.421', description: 'Non-pressure chronic ulcer of back limited to breakdown of skin', category: 'other_general' },
         { code: 'L98.491', description: 'Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin', category: 'other_general' },
-        
+
         // Additional wound-related codes for comprehensive coverage
         { code: 'K62.6', description: 'Ulcer of anus and rectum', category: 'other_general' },
         { code: 'N36.2', description: 'Urethral caruncle', category: 'other_general' },
@@ -453,7 +453,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'I83.025', description: 'Varicose veins of left lower extremity with ulcer other part of foot', category: 'venous_ulcer' },
         { code: 'I83.028', description: 'Varicose veins of left lower extremity with ulcer other part of lower leg', category: 'venous_ulcer' },
         { code: 'I83.029', description: 'Varicose veins of left lower extremity with ulcer of unspecified site', category: 'venous_ulcer' },
-        
+
         // I87 codes - Venous insufficiency with ulcer
         { code: 'I87.011', description: 'Postthrombotic syndrome with ulcer of right lower extremity', category: 'venous_ulcer' },
         { code: 'I87.012', description: 'Postthrombotic syndrome with ulcer of left lower extremity', category: 'venous_ulcer' },
@@ -474,7 +474,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'I87.339', description: 'Chronic venous hypertension (idiopathic) with ulcer and inflammation of unspecified lower extremity', category: 'venous_ulcer' }
       );
     }
-    
+
     // Group 3 - Diabetic Foot Ulcers (E-codes + L97)
     else if (currentWoundType.primaryCategory === 'diabetes_mellitus') {
       mockPrimaryCodes.push(
@@ -495,7 +495,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'E11.49', description: 'Type 2 diabetes mellitus with other diabetic neurological complication', category: 'diabetes' }
       );
     }
-    
+
     // Group 4 - Pressure Ulcers (L89 - single coding)
     else if (currentWoundType.primaryCategory === 'pressure_ulcer_l89') {
       mockPrimaryCodes.push(
@@ -521,7 +521,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         { code: 'L89.604', description: 'Pressure ulcer of unspecified heel, stage 4', category: 'pressure_ulcer' }
       );
     }
-    
+
 
 
     // Secondary codes for dual-coding wound types (L97 codes)

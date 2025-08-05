@@ -200,11 +200,11 @@ export default function MultiFileUpload({
   };
 
   return (
-    <div className={cn("space-y-4", className)}>
-      {/* Upload Area */}
+    <div className={cn("space-y-3", className)}>
+      {/* Upload Area - Small Button */}
       <div
         className={cn(
-          "border-2 border-dashed rounded-lg p-6 transition-all duration-200",
+          "border border-dashed rounded-md p-2 transition-all duration-200 w-fit",
           isDragActive
             ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
             : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500",
@@ -217,20 +217,14 @@ export default function MultiFileUpload({
         onDrop={handleDrop}
         onClick={handleClick}
       >
-        <div className="text-center">
+        <div className="flex items-center justify-center gap-2">
           <Upload className={cn(
-            "w-8 h-8 mx-auto mb-2",
+            "w-4 h-4",
             isDragActive ? "text-blue-500" : "text-gray-400"
           )} />
-          <h3 className={cn("text-sm font-medium mb-1", t.text.primary)}>
+          <span className={cn("text-sm font-medium", t.text.primary)}>
             {title}
-          </h3>
-          <p className={cn("text-xs", t.text.secondary)}>
-            {description}
-          </p>
-          <p className={cn("text-xs mt-1", t.text.muted)}>
-            Max {maxFiles} files, {formatFileSize(maxFileSize)} each
-          </p>
+          </span>
         </div>
       </div>
 
@@ -244,10 +238,12 @@ export default function MultiFileUpload({
 
       {/* File List */}
       {files.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <h4 className={cn("text-sm font-medium", t.text.primary)}>
             Uploaded Files ({files.length}/{maxFiles})
           </h4>
+
+          {/* File List - Compact */}
           <div className="space-y-2">
             {files.map((file) => {
               const FileIcon = getFileIcon(file.type);
@@ -255,12 +251,12 @@ export default function MultiFileUpload({
                 <div
                   key={file.id}
                   className={cn(
-                    "flex items-center justify-between p-3 rounded-lg border",
+                    "flex items-center justify-between p-2 rounded-md border",
                     "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
                   )}
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <FileIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <FileIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className={cn("text-sm font-medium truncate", t.text.primary)}>
                         {file.name}
@@ -271,42 +267,79 @@ export default function MultiFileUpload({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {showPreview && file.preview && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          // Open preview in new window/tab
-                          const w = window.open();
-                          if (w) {
-                            w.document.write(`
-                              <html>
-                                <head><title>${file.name}</title></head>
-                                <body style="margin:0;padding:20px;text-align:center;">
-                                  <img src="${file.preview}" style="max-width:100%;max-height:80vh;" />
-                                </body>
-                              </html>
-                            `);
-                          }
-                        }}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    )}
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(file.id)}
-                      className="text-red-500 hover:text-red-700"
+                      className="text-red-500 hover:text-red-700 p-1"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {/* Preview Section - Below File List */}
+          {showPreview && files.some(file => file.preview) && (
+            <div className="border-t pt-3">
+              <h5 className={cn("text-sm font-medium mb-2", t.text.primary)}>
+                Previews
+              </h5>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                {files.map((file) => {
+                  if (!file.preview) return null;
+
+                  return (
+                    <div
+                      key={`preview-${file.id}`}
+                      className="relative group"
+                    >
+                      <div className="aspect-square rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800">
+                        {file.type.startsWith('image/') ? (
+                          <img
+                            src={file.preview}
+                            alt={file.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <FileText className="w-5 h-5 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 text-white hover:text-white p-1"
+                          onClick={() => {
+                            // Open preview in new window/tab
+                            const w = window.open();
+                            if (w) {
+                              w.document.write(`
+                                <html>
+                                  <head><title>${file.name}</title></head>
+                                  <body style="margin:0;padding:20px;text-align:center;">
+                                    <img src="${file.preview}" style="max-width:100%;max-height:80vh;" />
+                                  </body>
+                                </html>
+                              `);
+                            }
+                          }}
+                        >
+                          <Eye className="w-3 h-3" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 truncate">{file.name}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

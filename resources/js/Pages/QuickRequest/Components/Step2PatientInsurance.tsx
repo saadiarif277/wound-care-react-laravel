@@ -388,15 +388,13 @@ function Step2PatientInsurance({
       <div className="bg-gray-50 dark:bg-gray-900/20 p-3 rounded-lg">
         <h3 className="font-medium text-gray-900 dark:text-gray-300 mb-2">Document Upload (Optional)</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Upload insurance cards or clinical documents to auto-fill patient and insurance information.
+          Upload Front / Back insurance cards
         </p>
 
-        {/* Insurance Card Upload - One Button */}
-        <div className="mb-16">
-          <h4 className="font-medium mb-4">Insurance Card</h4>
+        {/* Insurance Card Upload - Small Button */}
+        <div className="mb-4">
           <MultiFileUpload
             title="Upload Insurance Cards"
-            description="Upload insurance card front and back images (multiple files allowed)"
             accept="image/*,application/pdf"
             maxFiles={10}
             onFilesChange={(files) => {
@@ -407,12 +405,12 @@ function Step2PatientInsurance({
               // Handle file removal
               console.log('Insurance card removed:', fileId);
             }}
-            className="h-48"
             showPreview={true}
           />
         </div>
 
       </div>
+
 
       {/* Patient Information */}
       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">

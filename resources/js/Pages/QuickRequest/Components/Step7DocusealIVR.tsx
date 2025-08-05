@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CheckCircle, ArrowRight, AlertCircle, FileText, Upload, X, Eye } from 'lucide-react';
 import { Button } from '@/Components/Button';
 import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
+import { EnhancedDocusealEmbed } from '@/Components/QuickRequest/EnhancedDocusealEmbed';
 import { useManufacturers } from '@/Hooks/useManufacturers';
 import MultiFileUpload from '@/Components/FileUpload/MultiFileUpload';
 import api from '@/lib/api';
@@ -104,7 +105,7 @@ export default function Step7DocusealIVR({
   errors,
   onNext
 }: Step7Props) {
-  const { manufacturers } = useManufacturers();
+  const { manufacturers, loading: manufacturersLoading, getManufacturerByName } = useManufacturers();
   const [showDocUpload, setShowDocUpload] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [ivrError, setIvrError] = useState<string | null>(null);
@@ -135,25 +136,11 @@ export default function Step7DocusealIVR({
   }, [formData.selected_products, products]);
 
   const manufacturerConfig = useMemo(() => {
-    if (!selectedProduct?.manufacturer_id) return null;
-    return manufacturers.find(m => m.id === selectedProduct.manufacturer_id);
-  }, [selectedProduct, manufacturers]);
+    if (manufacturersLoading || !selectedProduct?.manufacturer) return null;
+    return getManufacturerByName(selectedProduct.manufacturer);
+  }, [manufacturersLoading, selectedProduct?.manufacturer, getManufacturerByName]);
 
-  const templateId = useMemo(() => {
-    const manufacturerTemplateId = manufacturerConfig?.docuseal_template_id;
-    const productTemplateId = selectedProduct?.ivr_template_id;
-    const finalTemplateId = manufacturerTemplateId || productTemplateId;
-
-    console.log('🔍 Template ID Debug:', {
-      manufacturerConfig: manufacturerConfig,
-      selectedProduct: selectedProduct,
-      manufacturerTemplateId: manufacturerTemplateId,
-      productTemplateId: productTemplateId,
-      finalTemplateId: finalTemplateId
-    });
-
-    return finalTemplateId;
-  }, [manufacturerConfig, selectedProduct]);
+  const templateId = manufacturerConfig?.docuseal_template_id;
 
   // Check if IVR is required for this order
   const isIvrRequired = useMemo(() => {
@@ -327,6 +314,18 @@ export default function Step7DocusealIVR({
   }, [formData.docuseal_submission_id]);
 
   // Loading state
+  if (manufacturersLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading manufacturer configuration...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // No product selected
   if (!selectedProduct) {
     return (
       <div className="text-center py-8">
@@ -476,8 +475,24 @@ export default function Step7DocusealIVR({
             ) : (
               <>
                 <div ref={docusealFormRef}>
+                  {/* Enhanced Field Mapping Component - Uncomment to test */}
+                  {/* <EnhancedDocusealEmbed
+                    manufacturerId={String(manufacturerConfig?.id || '')}
+                    templateId={templateId}
+                    productCode={selectedProduct?.q_code || selectedProduct?.code || ''}
+                    documentType="IVR"
+                    formData={formData}
+                    episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
+                    onComplete={handleIvrComplete}
+                    onError={handleIvrError}
+                    debug={true}
+                    useFrontendMapping={true}
+                    useBackendEnhancedMapping={true}
+                  /> */}
+                  
+                  {/* Original Component (currently active) */}
                   <DocusealEmbed
-                    manufacturerId={String(manufacturerConfig?.id || selectedProduct?.manufacturer_id || '')}
+                    manufacturerId={String(manufacturerConfig?.id || '')}
                     templateId={templateId}
                     productCode={selectedProduct?.q_code || selectedProduct?.code || ''}
                     documentType="IVR"
