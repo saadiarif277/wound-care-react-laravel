@@ -9,6 +9,7 @@
 ## Step 1: Mailgun Account Configuration
 
 ### 1.1 Domain Setup
+
 ```bash
 # Add these DNS records to your domain:
 TXT @ "v=spf1 include:mailgun.org ~all"
@@ -17,6 +18,7 @@ CNAME mg.mscwoundcare.com mailgun.org
 ```
 
 ### 1.2 Get API Credentials
+
 1. Navigate to Settings > API Keys
 2. Copy your Private API Key
 3. Note your Domain name (mg.mscwoundcare.com)
@@ -24,11 +26,13 @@ CNAME mg.mscwoundcare.com mailgun.org
 ## Step 2: Laravel Configuration
 
 ### 2.1 Install Mailgun Driver
+
 ```bash
 composer require symfony/mailgun-mailer
 ```
 
 ### 2.2 Environment Configuration
+
 ```bash
 # .env
 MAIL_MAILER=mailgun
@@ -46,6 +50,7 @@ MAIL_FROM_NAME="MSC Wound Care Portal"
 ```
 
 ### 2.3 Services Configuration
+
 ```php
 // config/services.php
 'mailgun' => [
@@ -61,12 +66,14 @@ MAIL_FROM_NAME="MSC Wound Care Portal"
 ## Step 3: Database Setup
 
 ### 3.1 Run Migrations
+
 ```bash
 php artisan migrate --path=database/migrations/2024_XX_XX_create_email_logs_table.php
 php artisan migrate --path=database/migrations/2024_XX_XX_add_notification_fields.php
 ```
 
 ### 3.2 Seed Test Data
+
 ```bash
 php artisan db:seed --class=ManufacturerEmailSeeder
 ```
@@ -74,12 +81,14 @@ php artisan db:seed --class=ManufacturerEmailSeeder
 ## Step 4: Queue Configuration
 
 ### 4.1 Configure Queue Driver
+
 ```bash
 # .env
 QUEUE_CONNECTION=redis  # or database
 ```
 
 ### 4.2 Start Queue Worker
+
 ```bash
 php artisan queue:work --queue=emails,default
 ```
@@ -87,6 +96,7 @@ php artisan queue:work --queue=emails,default
 ## Step 5: Webhook Setup
 
 ### 5.1 Add Route
+
 ```php
 // routes/api.php
 Route::post('/webhooks/mailgun', [MailgunWebhookController::class, 'handle'])
@@ -94,6 +104,7 @@ Route::post('/webhooks/mailgun', [MailgunWebhookController::class, 'handle'])
 ```
 
 ### 5.2 Configure in Mailgun Dashboard
+
 1. Go to Webhooks section
 2. Add webhook URL: `https://your-domain.com/api/webhooks/mailgun`
 3. Select events: delivered, opened, clicked, failed, complained
@@ -101,6 +112,7 @@ Route::post('/webhooks/mailgun', [MailgunWebhookController::class, 'handle'])
 ## Step 6: Testing
 
 ### 6.1 Test Email Sending
+
 ```bash
 php artisan tinker
 >>> $user = App\Models\User::first();
@@ -109,6 +121,7 @@ php artisan tinker
 ```
 
 ### 6.2 Test Webhook Reception
+
 ```bash
 # Send test webhook from Mailgun dashboard
 # Check logs: tail -f storage/logs/laravel.log
@@ -117,16 +130,19 @@ php artisan tinker
 ## Step 7: DNS Verification
 
 ### 7.1 SPF Record
+
 ```
 v=spf1 include:mailgun.org ~all
 ```
 
 ### 7.2 DKIM Record
+
 ```
 k=rsa; p=[YOUR_PUBLIC_KEY_FROM_MAILGUN]
 ```
 
 ### 7.3 DMARC Record (Optional but Recommended)
+
 ```
 v=DMARC1; p=none; rua=mailto:dmarc@mscwoundcare.com
 ```
@@ -141,6 +157,7 @@ v=DMARC1; p=none; rua=mailto:dmarc@mscwoundcare.com
 4. **Emails in Spam**: Ensure SPF, DKIM, DMARC records are correct
 
 ### Debug Commands
+
 ```bash
 # Test email configuration
 php artisan config:clear

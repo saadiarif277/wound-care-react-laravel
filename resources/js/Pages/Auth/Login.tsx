@@ -31,7 +31,7 @@ export default function LoginPage() {
         backgroundAttachment: 'fixed'
       }}
     >
-      <Head title="MSC Wound Portal - Login" />
+      <Head title="MSC Woundcare | Login" />
 
       {/* Dark Overlay for readability */}
       <div className="absolute inset-0 bg-black bg-opacity-50"></div>
@@ -194,6 +194,23 @@ export default function LoginPage() {
                 <p className="text-xs text-gray-400 mt-1">
                   Secure healthcare management platform
                 </p>
+                <div className="mt-3">
+                  <a 
+                    href="#" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const supportEmail = import.meta.env.VITE_MAIL_FROM_ADDRESS || 'support@mscwoundcare.com';
+                      const currentDate = new Date().toISOString().split('T')[0];
+                      const subject = encodeURIComponent(`Support Request: ${currentDate} - Login Page`);
+                      const body = encodeURIComponent('Hi MSC Support Team,\n\nI need assistance with the wound care portal.\n\nDetails:\n- Page: Login\n- Issue: \n\nThank you for your help.');
+                      window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+                    }}
+                    className="text-xs hover:underline transition-colors"
+                    style={{ color: '#1925c3' }}
+                  >
+                    Contact Support
+                  </a>
+                </div>
               </div>
             </div>
           </div>

@@ -27,7 +27,8 @@ import {
   FiSliders,
   FiCloudLightning,
   FiCheckSquare,
-  FiCreditCard
+  FiCreditCard,
+  FiHelpCircle
 } from 'react-icons/fi';
 import { UserRole } from '@/types/roles';
 import { themes, cn } from '@/theme/glass-theme';
@@ -47,6 +48,7 @@ interface RoleBasedNavigationProps {
   currentPath: string;
   isCollapsed: boolean;
   theme: 'dark' | 'light';
+  userName?: string;
 }
 
 const getMenuByRole = (role: UserRole): MenuItem[] => {
@@ -534,7 +536,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
   }
 };
 
-export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed, theme }: RoleBasedNavigationProps) {
+export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed, theme, userName }: RoleBasedNavigationProps) {
   const menuItems = getMenuByRole(userRole);
   const [openMenus, setOpenMenus] = useState<string[]>([]);
   const t = themes[theme];
@@ -551,6 +553,57 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
     // Normalize role for comparison
     const normalizedRole = userRole === 'superadmin' ? 'super-admin' : userRole;
     return item.roles.includes(normalizedRole);
+  };
+
+  const handleSupportClick = () => {
+    const supportEmail = import.meta.env.VITE_MAIL_FROM_ADDRESS || 'support@mscwoundcare.com';
+    const currentDate = new Date().toISOString().split('T')[0];
+    const currentPageName = getCurrentPageName(currentPath);
+    const userInfo = userName || 'Unknown User';
+    
+    const subject = encodeURIComponent(`Support Request: ${currentDate} - ${userInfo}`);
+    const body = encodeURIComponent(`Hi MSC Support Team,
+
+I need assistance with the wound care portal.
+
+Details:
+- User: ${userInfo}
+- Role: ${userRole}
+- Current Page: ${currentPageName}
+- URL: ${currentPath}
+- Date: ${currentDate}
+- Issue: 
+
+Thank you for your help.`);
+    
+    window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+  };
+
+  const getCurrentPageName = (path: string): string => {
+    // Extract page name from current path
+    const pathSegments = path.split('/').filter(Boolean);
+    if (pathSegments.length === 0) return 'Dashboard';
+    
+    // Convert path segments to readable names
+    const pageMap: Record<string, string> = {
+      'admin': 'Admin',
+      'orders': 'Orders',
+      'products': 'Products',
+      'providers': 'Providers',
+      'facilities': 'Facilities',
+      'commission': 'Commission',
+      'reports': 'Reports',
+      'settings': 'Settings',
+      'users': 'User Management',
+      'invitations': 'Invitations',
+      'rbac': 'Roles & Permissions',
+      'quick-requests': 'Product Request',
+      'mac-validation': 'MAC Validation',
+      'docuseal': 'Documents'
+    };
+
+    const lastSegment = pathSegments[pathSegments.length - 1];
+    return (lastSegment && pageMap[lastSegment]) || (lastSegment ? lastSegment.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Dashboard');
   };
 
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
@@ -630,8 +683,34 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
   };
 
   return (
-    <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
-      {menuItems.map(item => renderMenuItem(item))}
-    </nav>
+    <div className="flex flex-col h-full">
+      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
+        {menuItems.map(item => renderMenuItem(item))}
+      </nav>
+      
+      {/* Support Button at Bottom */}
+      <div className="px-4 pb-4 border-t border-white/10">
+        <div
+          className={cn(
+            'flex items-center min-h-[48px] py-3 px-4 rounded-xl transition-all duration-200 group cursor-pointer backdrop-blur-sm mt-4',
+            theme === 'dark'
+              ? cn(t.text.secondary, 'hover:bg-white/[0.08] hover:text-white/95 hover:backdrop-blur-md border border-white/10')
+              : 'text-gray-700 hover:bg-white/60 hover:text-gray-900 hover:shadow-sm hover:border hover:border-gray-200/50 border border-gray-200/30',
+            isCollapsed ? 'justify-center' : ''
+          )}
+          title={isCollapsed ? 'Contact Support' : ''}
+          onClick={handleSupportClick}
+        >
+          <FiHelpCircle className={cn(
+            'flex-shrink-0 w-5 h-5',
+            isCollapsed ? '' : 'mr-4',
+            theme === 'dark' ? 'text-white/80 group-hover:text-white' : 'text-gray-600 group-hover:text-gray-900'
+          )} />
+          {!isCollapsed && (
+            <span className="truncate flex-1">Contact Support</span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
