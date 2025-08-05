@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use Illuminate\Support\Facades\Mail;
 // AccessRequestController removed - feature deprecated
 
@@ -144,6 +145,23 @@ Route::post('login', [LoginController::class, 'store'])
 Route::delete('logout', [LoginController::class, 'destroy'])
     ->name('logout')
     ->middleware('auth');
+
+// Password Reset Routes
+Route::get('password/reset', [PasswordResetController::class, 'create'])
+    ->name('password.request')
+    ->middleware('guest');
+
+Route::post('password/email', [PasswordResetController::class, 'store'])
+    ->name('password.email')
+    ->middleware('guest');
+
+Route::get('password/reset/{token}', [PasswordResetController::class, 'reset'])
+    ->name('password.reset')
+    ->middleware('guest');
+
+Route::post('password/reset', [PasswordResetController::class, 'update'])
+    ->name('password.update')
+    ->middleware('guest');
 
 // Access Request routes removed - feature deprecated
 
