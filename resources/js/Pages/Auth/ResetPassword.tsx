@@ -2,22 +2,24 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
 import Logo from '@/Components/Logo/Logo';
-import { FiMail, FiLock, FiLogIn } from 'react-icons/fi';
+import { FiLock, FiArrowLeft, FiCheck } from 'react-icons/fi';
 
-export default function LoginPage() {
+interface Props {
+  token: string;
+  email: string;
+}
+
+export default function ResetPassword({ token, email }: Props) {
   const { data, setData, errors, post, processing } = useForm({
-    email: 'johndoe@example.com',
-    password: 'secret',
-    remember: true
+    token,
+    email,
+    password: '',
+    password_confirmation: ''
   });
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    post(route('login.store'));
-
-
-
-
+    post(route('password.update'));
   }
 
   return (
@@ -31,12 +33,12 @@ export default function LoginPage() {
         backgroundAttachment: 'fixed'
       }}
     >
-      <Head title="MSC Wound Portal - Login" />
+      <Head title="MSC Wound Portal - Reset Password" />
 
       {/* Dark Overlay for readability */}
       <div className="absolute inset-0 bg-black bg-opacity-50"></div>
 
-      {/* Login Content */}
+      {/* Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
@@ -45,53 +47,21 @@ export default function LoginPage() {
               <div className="flex justify-center mb-4">
                 <Logo className="h-20 w-auto" />
               </div>
-              <p className="text-lg font-semibold text-gray-800 tracking-wide">
-                HEALING DESERVES INNOVATION.
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                Set New Password
+              </h2>
+              <p className="text-gray-600 text-sm">
+                Enter your new password below to complete the reset process.
               </p>
             </div>
 
-            {/* Login Form */}
+            {/* Form */}
             <div className="px-8 pb-8">
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Email Field */}
-                <div>
-                  <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <FiMail className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      id="email"
-                      type="email"
-                      className={`w-full pl-12 pr-4 py-4 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 shadow-sm ${
-                        errors.email
-                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                          : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400'
-                      }`}
-                      style={{
-                                                    '--tw-ring-color': errors.email ? '#ef4444' : '#1925c3'
-                      } as React.CSSProperties}
-                      value={data.email}
-                      onChange={(e) => setData('email', e.target.value)}
-                      placeholder="Enter your email"
-                      disabled={processing}
-                      required
-                    />
-                  </div>
-                  {errors.email && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center">
-                      <span className="mr-1">⚠️</span>
-                      {errors.email}
-                    </p>
-                  )}
-                </div>
-
                 {/* Password Field */}
                 <div>
                   <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Password
+                    New Password
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -106,13 +76,14 @@ export default function LoginPage() {
                           : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400'
                       }`}
                       style={{
-                                                    '--tw-ring-color': errors.password ? '#ef4444' : '#1925c3'
+                        '--tw-ring-color': errors.password ? '#ef4444' : '#1925c3'
                       } as React.CSSProperties}
                       value={data.password}
                       onChange={(e) => setData('password', e.target.value)}
-                      placeholder="Enter your password"
+                      placeholder="Enter your new password"
                       disabled={processing}
                       required
+                      autoFocus
                     />
                   </div>
                   {errors.password && (
@@ -123,51 +94,50 @@ export default function LoginPage() {
                   )}
                 </div>
 
-                {/* Remember Me & Forgot Password */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
+                {/* Confirm Password Field */}
+                <div>
+                  <label htmlFor="password_confirmation" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <FiCheck className="h-5 w-5 text-gray-400" />
+                    </div>
                     <input
-                      id="remember"
-                      type="checkbox"
-                      checked={data.remember}
-                      onChange={(e) => setData('remember', e.target.checked)}
+                      id="password_confirmation"
+                      type="password"
+                      className={`w-full pl-12 pr-4 py-4 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 shadow-sm ${
+                        errors.password_confirmation
+                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                          : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400'
+                      }`}
+                      style={{
+                        '--tw-ring-color': errors.password_confirmation ? '#ef4444' : '#1925c3'
+                      } as React.CSSProperties}
+                      value={data.password_confirmation}
+                      onChange={(e) => setData('password_confirmation', e.target.value)}
+                      placeholder="Confirm your new password"
                       disabled={processing}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      style={{ color: '#1925c3' }}
+                      required
                     />
-                    <label htmlFor="remember" className="ml-2 text-sm text-gray-600">
-                      Remember me
-                    </label>
                   </div>
-
-                  <Link
-                    href={route('password.request')}
-                    className="text-sm font-medium hover:underline transition-colors"
-                    style={{ color: '#1925c3' }}
-                  >
-                    Forgot password?
-                  </Link>
+                  {errors.password_confirmation && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                      <span className="mr-1">⚠️</span>
+                      {errors.password_confirmation}
+                    </p>
+                  )}
                 </div>
 
-                {/* Sign In Button */}
+                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={processing}
-                  className="w-full py-4 px-4 rounded-xl text-white font-semibold text-base transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-lg transform hover:scale-105"
+                  className="w-full py-4 px-4 rounded-xl text-white font-semibold text-base transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-lg"
                   style={{
                     backgroundColor: '#1925c3',
                     '--tw-ring-color': '#1925c3'
                   } as React.CSSProperties}
-                  onMouseEnter={(e) => {
-                    if (!processing) {
-                      e.currentTarget.style.backgroundColor = '#141c9a';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!processing) {
-                      e.currentTarget.style.backgroundColor = '#1925c3';
-                    }
-                  }}
                 >
                   {processing ? (
                     <>
@@ -175,15 +145,27 @@ export default function LoginPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Signing In...
+                      Updating Password...
                     </>
                   ) : (
                     <>
-                      <FiLogIn className="mr-2 h-5 w-5" />
-                      Sign In
+                      <FiLock className="mr-2 h-5 w-5" />
+                      Update Password
                     </>
                   )}
                 </button>
+
+                {/* Back to Login Link */}
+                <div className="text-center">
+                  <Link
+                    href={route('login')}
+                    className="inline-flex items-center text-sm font-medium hover:underline transition-colors"
+                    style={{ color: '#1925c3' }}
+                  >
+                    <FiArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Login
+                  </Link>
+                </div>
               </form>
 
               {/* Footer */}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New {{ $submission_type ?? 'Order' }} Submitted</title>
+    <title>Help Request from {{ $provider_name }}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -36,14 +36,14 @@
             padding: 30px;
         }
         .alert {
-            background: #e0f2fe;
-            border: 1px solid #0891b2;
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
             border-radius: 6px;
             padding: 15px;
             margin-bottom: 20px;
         }
         .alert-icon {
-            color: #0891b2;
+            color: #f59e0b;
             font-size: 1.2rem;
             margin-right: 8px;
         }
@@ -61,14 +61,14 @@
         }
         .info-label {
             font-weight: 600;
-            width: 140px;
+            width: 120px;
             color: #4a5568;
             margin-right: 10px;
         }
         .info-value {
             color: #2d3748;
         }
-        .comments-box {
+        .comment-box {
             background: #fff;
             border: 2px solid #e2e8f0;
             border-radius: 6px;
@@ -77,29 +77,11 @@
             font-style: italic;
             line-height: 1.7;
         }
-        .comments-header {
+        .comment-header {
             font-weight: 600;
             color: #2d3748;
             margin-bottom: 10px;
             font-style: normal;
-        }
-        .button {
-            display: inline-block;
-            padding: 14px 28px;
-            background: #1e40af;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
-            text-align: center;
-            margin: 20px 0;
-            transition: background-color 0.2s;
-        }
-        .button:hover {
-            background: #1e3a8a;
-        }
-        .button-container {
-            text-align: center;
         }
         .footer {
             background: #f8fafc;
@@ -108,16 +90,9 @@
             text-align: center;
             font-size: 0.875rem;
         }
-        .priority-badge {
-            display: inline-block;
-            background: #fef3c7;
-            color: #92400e;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.75rem;
+        .priority-high {
+            color: #dc2626;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
         
         @media (max-width: 600px) {
@@ -142,74 +117,54 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📝 New {{ $submission_type ?? 'Order' }} Submitted</h1>
+            <h1>🆘 Support Request</h1>
         </div>
         
         <div class="content">
             <div class="alert">
-                <span class="alert-icon">📋</span>
-                <strong>Action Required:</strong> A new {{ strtolower($submission_type ?? 'order') }} has been submitted and requires your review.
-                <span class="priority-badge">High Priority</span>
+                <span class="alert-icon">⚠️</span>
+                <strong>New help request received from a provider.</strong>
             </div>
             
-            <p>Hello Admin,</p>
-            
-            <p>{{ $provider_name }} has submitted a new {{ strtolower($submission_type ?? 'order') }} through the MSC Wound Care Portal. Please review the details below and take appropriate action.</p>
+            <p>A provider has submitted a support request through the MSC Wound Care Portal. Please review the details below and respond promptly.</p>
             
             <div class="info-box">
-                <div class="info-row">
-                    <span class="info-label">{{ $submission_type ?? 'Order' }} ID:</span>
-                    <span class="info-value">#{{ $order_id }}</span>
-                </div>
                 <div class="info-row">
                     <span class="info-label">Provider:</span>
                     <span class="info-value">{{ $provider_name }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Submission Date:</span>
-                    <span class="info-value">{{ $date }}</span>
+                    <span class="info-label">Email:</span>
+                    <span class="info-value">{{ $provider_email }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Submission Type:</span>
-                    <span class="info-value">{{ $submission_type ?? 'Order Request' }}</span>
+                    <span class="info-label">Request Time:</span>
+                    <span class="info-value">{{ now()->format('F j, Y \a\t g:i A T') }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Status:</span>
-                    <span class="info-value">Pending Review</span>
+                    <span class="info-label">Priority:</span>
+                    <span class="info-value priority-high">High</span>
                 </div>
             </div>
             
-            @if(!empty($comment))
-            <div class="comments-box">
-                <div class="comments-header">💬 Provider Comments:</div>
+            <div class="comment-box">
+                <div class="comment-header">📝 Provider's Message:</div>
                 {{ $comment }}
             </div>
-            @endif
             
             <p><strong>Next Steps:</strong></p>
             <ul>
-                <li>Review the {{ strtolower($submission_type ?? 'order') }} details and requirements</li>
-                <li>Verify provider information and eligibility</li>
-                <li>Process according to MSC guidelines</li>
-                <li>Update the {{ strtolower($submission_type ?? 'order') }} status as appropriate</li>
-                @if($submission_type === 'Order Form')
-                <li>Validate form completeness and accuracy</li>
-                <li>Coordinate with manufacturer if needed</li>
-                @endif
+                <li>Review the provider's request details above</li>
+                <li>Respond directly to <strong>{{ $provider_email }}</strong> (this email is configured to reply to the provider)</li>
+                <li>Escalate to development team if technical assistance is needed</li>
+                <li>Update internal support documentation if this reveals a common issue</li>
             </ul>
             
-            @if(isset($order_link))
-            <div class="button-container">
-                <a href="{{ $order_link }}" class="button">Review {{ $submission_type ?? 'Order' }}</a>
-            </div>
-            @endif
-            
-            <p><em>This notification was automatically generated from the MSC Wound Care Portal system.</em></p>
+            <p><em>This is an automated notification from the MSC Wound Care Portal. Please do not reply to this email address - use the provider's email above instead.</em></p>
         </div>
         
         <div class="footer">
             <p>MSC Wound Care Portal | Medical Solutions Company<br>
-            Administrative Dashboard<br>
             Notification sent at {{ now()->format('F j, Y \a\t g:i A T') }}</p>
         </div>
     </div>

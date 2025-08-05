@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSC Wound Care - Email Template Previews</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .preview-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .preview-header {
+            background: linear-gradient(135deg, #0033A0 0%, #002270 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+        }
+        .preview-nav {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .preview-nav button {
+            padding: 10px 20px;
+            border: 2px solid #0033A0;
+            background: white;
+            color: #0033A0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .preview-nav button.active,
+        .preview-nav button:hover {
+            background: #0033A0;
+            color: white;
+        }
+        .template-preview {
+            background: white;
+            padding: 30px;
+            display: none;
+        }
+        .template-preview.active {
+            display: block;
+        }
+        .template-meta {
+            background: #f8f9fa;
+            padding: 20px;
+            border-left: 4px solid #0033A0;
+            margin-bottom: 30px;
+        }
+        .email-frame {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .code-section {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        .toggle-mode {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #374151;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .dark-mode {
+            background-color: #1a1a1a;
+            color: #f9fafb;
+        }
+        .dark-mode .preview-nav {
+            background: #2a2a2a;
+            border-bottom-color: #3a3a3a;
+        }
+        .dark-mode .template-preview {
+            background: #2a2a2a;
+        }
+        .dark-mode .template-meta {
+            background: #374151;
+        }
+    </style>
+</head>
+<body>
+    <button class="toggle-mode" onclick="toggleDarkMode()">🌙 Dark Mode</button>
+    
+    <div class="preview-container">
+        <header class="preview-header">
+            <h1>MSC Wound Care Portal</h1>
+            <h2>Email Template Preview System</h2>
+            <p>Interactive preview of all notification email templates</p>
+        </header>
+        
+        <nav class="preview-nav">
+            <button class="active" onclick="showTemplate('user-invitation')">User Invitation</button>
+            <button onclick="showTemplate('order-submitted')">Order Submitted</button>
+            <button onclick="showTemplate('order-approved')">Order Approved</button>
+            <button onclick="showTemplate('order-denied')">Order Denied</button>
+            <button onclick="showTemplate('order-sent-back')">Order Sent Back</button>
+            <button onclick="showTemplate('ivr-submission')">IVR Submission</button>
+            <button onclick="showTemplate('order-fulfilled')">Order Fulfilled</button>
+            <button onclick="showTemplate('help-request')">Help Request</button>
+        </nav>
+
+        <!-- User Invitation Template -->
+        <div id="user-invitation" class="template-preview active">
+            <div class="template-meta">
+                <h3>User Invitation Email</h3>
+                <p><strong>Trigger:</strong> Admin invites new user to platform</p>
+                <p><strong>Recipients:</strong> New users (Providers, Admins, Manufacturers)</p>
+                <p><strong>Purpose:</strong> Welcome new users and provide login credentials</p>
+            </div>
+            
+            <div class="email-frame">
+                <!-- User Invitation Email Content -->
+                <div style="background: linear-gradient(135deg, #0033A0 0%, #002270 100%); padding: 30px; text-align: center;">
+                    <div style="background-color: rgba(255, 255, 255, 0.95); padding: 15px 25px; border-radius: 8px; display: inline-block;">
+                        <svg width="200" height="60" viewBox="0 0 200 60">
+                            <text x="10" y="35" font-family="Arial" font-size="24" font-weight="bold" fill="#0033A0">MSC WOUND CARE</text>
+                        </svg>
+                    </div>
+                    <p style="color: #ffffff; font-size: 14px; margin-top: 15px;">Your gateway to streamlined wound care management</p>
+                </div>
+                
+                <div style="padding: 40px 30px; background-color: #ffffff;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="margin: 0; color: #0033A0; font-size: 28px;">Welcome to MSC Wound Care! 🎉</h1>
+                        <p style="font-size: 18px; color: #666666; margin-top: 10px;">You've been invited to join our platform</p>
+                    </div>
+                    
+                    <p style="margin: 0 0 16px 0; color: #666666;">Hi John,</p>
+                    
+                    <p style="margin: 0 0 16px 0; color: #666666;">You've been invited to join the MSC Wound Care Platform as a <strong>Provider</strong>. We're excited to have you on board!</p>
+                    
+                    <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 0 6px 6px 0;">
+                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1a1a1a;">Your Login Credentials</h2>
+                        <table style="width: 100%;">
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>Email:</strong></td>
+                                <td style="padding: 5px 0;">john.doe@example.com</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>Temporary Password:</strong></td>
+                                <td style="padding: 5px 0;">
+                                    <code style="background-color: #e5e7eb; padding: 4px 8px; border-radius: 4px; font-size: 14px;">TempPass123!</code>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 40px 0;">
+                        <a href="#" style="background-color: #0033A0; color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600; font-size: 18px;">Get Started →</a>
+                        <p style="margin: 15px 0 0 0; font-size: 14px; color: #999999;">You'll be prompted to change your password on first login</p>
+                    </div>
+                </div>
+                
+                <div style="padding: 30px 20px; text-align: center; color: #999999; font-size: 14px;">
+                    <p style="margin: 0;">MSC Wound Care Portal<br>© 2025 MSC Wound Care. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Submitted Template -->
+        <div id="order-submitted" class="template-preview">
+            <div class="template-meta">
+                <h3>Order Submitted Email</h3>
+                <p><strong>Trigger:</strong> Provider submits new order request</p>
+                <p><strong>Recipients:</strong> All Admin users</p>
+                <p><strong>Purpose:</strong> Notify admins of new orders requiring review</p>
+            </div>
+            
+            <div class="email-frame">
+                <!-- Order Submitted Email Content -->
+                <div style="background: linear-gradient(135deg, #0033A0 0%, #002270 100%); padding: 30px; text-align: center;">
+                    <div style="background-color: rgba(255, 255, 255, 0.95); padding: 15px 25px; border-radius: 8px; display: inline-block;">
+                        <svg width="200" height="60" viewBox="0 0 200 60">
+                            <text x="10" y="35" font-family="Arial" font-size="24" font-weight="bold" fill="#0033A0">MSC WOUND CARE</text>
+                        </svg>
+                    </div>
+                </div>
+                
+                <div style="padding: 40px 30px; background-color: #ffffff;">
+                    <h1 style="margin: 0 0 20px 0; font-size: 28px; color: #0033A0;">📝 New Order Request Submitted</h1>
+                    
+                    <p style="margin: 0 0 20px 0; color: #666666;">Hello Admin,</p>
+                    
+                    <p style="margin: 0 0 20px 0; color: #666666;">A new order request has been submitted and requires your review.</p>
+                    
+                    <div style="background-color: #f8f9fa; border-left: 4px solid #0033A0; padding: 20px; margin: 20px 0; border-radius: 0 6px 6px 0;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 12px; width: 40%; font-weight: 600; color: #0033A0;">Order ID:</td>
+                                <td style="padding: 12px; color: #666666;">#12345</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px; font-weight: 600; color: #0033A0;">Provider:</td>
+                                <td style="padding: 12px; color: #666666;">Dr. Sarah Johnson</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px; font-weight: 600; color: #0033A0;">Facility:</td>
+                                <td style="padding: 12px; color: #666666;">City General Hospital</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px; font-weight: 600; color: #0033A0;">Service Date:</td>
+                                <td style="padding: 12px; color: #666666;">February 15, 2025</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px; font-weight: 600; color: #0033A0;">Total Value:</td>
+                                <td style="padding: 12px; font-size: 18px; font-weight: 700; color: #0033A0;">$2,450.00</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="#" style="background-color: #0033A0; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">Review Order Details</a>
+                    </div>
+                    
+                    <p style="text-align: center; font-size: 14px; color: #999999; margin-top: 20px;">This order requires your immediate attention.</p>
+                </div>
+                
+                <div style="padding: 30px 20px; text-align: center; color: #999999; font-size: 14px;">
+                    <p style="margin: 0;">MSC Wound Care Portal<br>© 2025 MSC Wound Care. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Denied Template -->
+        <div id="order-denied" class="template-preview">
+            <div class="template-meta">
+                <h3>Order Denied Email</h3>
+                <p><strong>Trigger:</strong> Admin denies order request</p>
+                <p><strong>Recipients:</strong> Order submitting provider</p>
+                <p><strong>Purpose:</strong> Inform provider of denial with reason</p>
+            </div>
+            
+            <div class="email-frame">
+                <div style="background: linear-gradient(135deg, #0033A0 0%, #002270 100%); padding: 30px; text-align: center;">
+                    <div style="background-color: rgba(255, 255, 255, 0.95); padding: 15px 25px; border-radius: 8px; display: inline-block;">
+                        <svg width="200" height="60" viewBox="0 0 200 60">
+                            <text x="10" y="35" font-family="Arial" font-size="24" font-weight="bold" fill="#0033A0">MSC WOUND CARE</text>
+                        </svg>
+                    </div>
+                </div>
+                
+                <div style="padding: 40px 30px; background-color: #ffffff;">
+                    <h1 style="margin: 0 0 20px 0; font-size: 28px; color: #DC143C;">❌ Order Request Denied</h1>
+                    
+                    <p style="margin: 0 0 20px 0; color: #666666;">Hello Dr. Johnson,</p>
+                    
+                    <p style="margin: 0 0 20px 0; color: #666666;">Unfortunately, your order request has been denied. Please see the details below:</p>
+                    
+                    <div style="background-color: #FFEEF0; border-left: 4px solid #DC143C; padding: 20px; margin: 20px 0; border-radius: 0 6px 6px 0;">
+                        <h2 style="margin: 0 0 10px 0; font-size: 16px;">Denial Reason:</h2>
+                        <p style="margin: 0; color: #1a1a1a; font-weight: 500;">Missing required pre-authorization documentation. Please obtain insurance pre-auth before resubmitting.</p>
+                    </div>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                        <thead>
+                            <tr>
+                                <th colspan="2" style="text-align: left; padding: 12px; background-color: #E6EBF5; color: #0033A0; font-weight: 600;">Order Information</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 12px; width: 40%; border-bottom: 1px solid #e5e7eb;"><strong>Order ID:</strong></td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">#12345</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;"><strong>Status:</strong></td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+                                    <span style="background-color: #FFEEF0; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">DENIED</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="#" style="background-color: #ffffff; color: #0033A0; border: 2px solid #0033A0; padding: 14px 32px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">View Order Details</a>
+                    </div>
+                </div>
+                
+                <div style="padding: 30px 20px; text-align: center; color: #999999; font-size: 14px;">
+                    <p style="margin: 0;">MSC Wound Care Portal<br>© 2025 MSC Wound Care. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- IVR Submission Template -->
+        <div id="ivr-submission" class="template-preview">
+            <div class="template-meta">
+                <h3>IVR Submission Email</h3>
+                <p><strong>Trigger:</strong> Admin sends IVR to manufacturer</p>
+                <p><strong>Recipients:</strong> Manufacturer contact(s)</p>
+                <p><strong>Purpose:</strong> Submit IVR for insurance verification</p>
+            </div>
+            
+            <div class="email-frame">
+                <div style="background: linear-gradient(135deg, #0033A0 0%, #002270 100%); padding: 30px; text-align: center;">
+                    <div style="background-color: rgba(255, 255, 255, 0.95); padding: 15px 25px; border-radius: 8px; display: inline-block;">
+                        <svg width="200" height="60" viewBox="0 0 200 60">
+                            <text x="10" y="35" font-family="Arial" font-size="24" font-weight="bold" fill="#0033A0">MSC WOUND CARE</text>
+                        </svg>
+                    </div>
+                </div>
+                
+                <div style="padding: 40px 30px; background-color: #ffffff;">
+                    <h1 style="margin: 0 0 20px 0; font-size: 28px; color: #0033A0;">📄 IVR Request for Order #12345</h1>
+                    
+                    <p style="margin: 0 0 20px 0; color: #666666;">Dear Manufacturer Team,</p>
+                    
+                    <p style="margin: 0 0 20px 0; color: #666666;">Please find attached the Insurance Verification Request (IVR) for the following order:</p>
+                    
+                    <div style="background-color: #f8f9fa; border-left: 4px solid #0033A0; padding: 20px; margin: 20px 0; border-radius: 0 6px 6px 0;">
+                        <p style="margin: 0; font-weight: 600;">
+                            📎 The IVR document is attached to this email as a PDF file.
+                        </p>
+                    </div>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                        <thead>
+                            <tr>
+                                <th colspan="2" style="text-align: left; padding: 12px; background-color: #E6EBF5; color: #0033A0; font-weight: 600;">Order Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 12px; width: 40%; border-bottom: 1px solid #e5e7eb;"><strong>Order ID:</strong></td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">#12345</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;"><strong>Provider:</strong></td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">Dr. Sarah Johnson</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;"><strong>Service Date:</strong></td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">February 15, 2025</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;"><strong>Priority:</strong></td>
+                                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+                                    <span style="background-color: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">STANDARD</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px;"><strong>Total Value:</strong></td>
+                                <td style="padding: 12px; font-size: 18px; font-weight: 700; color: #0033A0;">$2,450.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="#" style="background-color: #0033A0; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">View Full Order Details</a>
+                    </div>
+                    
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin-top: 30px;">
+                        <h3 style="margin: 0 0 10px 0; font-size: 16px;">Next Steps:</h3>
+                        <ol style="margin: 0; padding-left: 20px; font-size: 14px;">
+                            <li>Review the attached IVR document</li>
+                            <li>Verify insurance coverage and authorization</li>
+                            <li>Update order status in the portal</li>
+                            <li>Proceed with fulfillment upon approval</li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div style="padding: 30px 20px; text-align: center; color: #999999; font-size: 14px;">
+                    <p style="margin: 0;">MSC Wound Care Portal<br>© 2025 MSC Wound Care. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Placeholder templates for remaining ones -->
+        <div id="order-approved" class="template-preview">
+            <div class="template-meta">
+                <h3>Order Approved Email</h3>
+                <p><strong>Trigger:</strong> Admin approves order request</p>
+                <p><strong>Recipients:</strong> Order submitting provider</p>
+                <p><strong>Purpose:</strong> Confirm order approval and next steps</p>
+            </div>
+            <div class="email-frame">
+                <div style="padding: 40px; text-align: center; color: #666; background: #f8f9fa; border-radius: 8px;">
+                    <h3 style="color: #10b981;">✅ Order Approved Template</h3>
+                    <p>This template notifies providers when their order has been approved and is ready to proceed.</p>
+                    <p><em>Full template implementation available in the codebase.</em></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="order-sent-back" class="template-preview">
+            <div class="template-meta">
+                <h3>Order Sent Back Email</h3>
+                <p><strong>Trigger:</strong> Admin sends order back for corrections</p>
+                <p><strong>Recipients:</strong> Order submitting provider</p>
+                <p><strong>Purpose:</strong> Request corrections with specific feedback</p>
+            </div>
+            <div class="email-frame">
+                <div style="padding: 40px; text-align: center; color: #666; background: #f8f9fa; border-radius: 8px;">
+                    <h3 style="color: #f59e0b;">🔄 Order Sent Back Template</h3>
+                    <p>This template notifies providers when their order requires corrections before approval.</p>
+                    <p><em>Full template implementation available in the codebase.</em></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="order-fulfilled" class="template-preview">
+            <div class="template-meta">
+                <h3>Order Fulfilled Email</h3>
+                <p><strong>Trigger:</strong> Manufacturer confirms fulfillment</p>
+                <p><strong>Recipients:</strong> Admin users</p>
+                <p><strong>Purpose:</strong> Notify of successful order completion</p>
+            </div>
+            <div class="email-frame">
+                <div style="padding: 40px; text-align: center; color: #666; background: #f8f9fa; border-radius: 8px;">
+                    <h3 style="color: #0033A0;">📦 Order Fulfilled Template</h3>
+                    <p>This template notifies admins when a manufacturer has completed an order.</p>
+                    <p><em>Full template implementation available in the codebase.</em></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="help-request" class="template-preview">
+            <div class="template-meta">
+                <h3>Help Request Email</h3>
+                <p><strong>Trigger:</strong> Provider submits help request</p>
+                <p><strong>Recipients:</strong> Admin users</p>
+                <p><strong>Purpose:</strong> Forward support requests to admin team</p>
+            </div>
+            <div class="email-frame">
+                <div style="padding: 40px; text-align: center; color: #666; background: #f8f9fa; border-radius: 8px;">
+                    <h3 style="color: #DC143C;">💬 Help Request Template</h3>
+                    <p>This template forwards provider support requests to the admin team for assistance.</p>
+                    <p><em>Full template implementation available in the codebase.</em></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTemplate(templateId) {
+            // Hide all templates
+            document.querySelectorAll('.template-preview').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Remove active from all buttons
+            document.querySelectorAll('.preview-nav button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected template
+            document.getElementById(templateId).classList.add('active');
+            
+            // Add active to clicked button
+            event.target.classList.add('active');
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            document.querySelector('.toggle-mode').textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+        }
+
+        // Add some interactive features
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add tooltips to buttons
+            const buttons = document.querySelectorAll('.preview-nav button');
+            buttons.forEach(button => {
+                button.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-2px)';
+                    this.style.boxShadow = '0 4px 8px rgba(0, 51, 160, 0.2)';
+                });
+                
+                button.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = 'none';
+                });
+            });
+            
+            // Add keyboard navigation
+            document.addEventListener('keydown', function(e) {
+                const buttons = Array.from(document.querySelectorAll('.preview-nav button'));
+                const activeButton = document.querySelector('.preview-nav button.active');
+                const currentIndex = buttons.indexOf(activeButton);
+                
+                if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                    buttons[currentIndex - 1].click();
+                } else if (e.key === 'ArrowRight' && currentIndex < buttons.length - 1) {
+                    buttons[currentIndex + 1].click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

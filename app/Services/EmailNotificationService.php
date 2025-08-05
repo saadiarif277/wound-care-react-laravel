@@ -490,4 +490,519 @@ class EmailNotificationService
             'recent' => $notifications->where('created_at', '>=', now()->subDays(7))->count(),
         ];
     }
+
+    /**
+     * Send user invitation email 
+     * Implements the user onboarding notification
+     */
+    public function sendUserInvitation(User $user, string $role): bool
+    {
+        try {
+            Mail::send('emails.provider-invitation', [
+                'user' => $user,
+                'first_name' => $user->first_name,
+                'role' => $role,
+                'login_url' => route('login'),
+            ], function ($message) use ($user) {
+                $message->to($user->email, $user->name)
+                        ->subject("🚀 You're Invited to Join the MSC Wound Care Platform 🚀");
+            });
+
+            Log::info('User invitation sent', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'role' => $role
+            ]);
+
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send user invitation', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send order request submitted notification to admin
+     * Updates existing notification to match new requirements
+     */
+    public function sendOrderSubmittedToAdmin(ProductRequest $order, ?string $comments = null): bool
+    {
+        try {
+            $admins = User::where('user_type', 'admin')->get();
+            
+            if ($admins->isEmpty()) {
+                Log::warning('No admin users found to notify of order submission', [
+                    'order_id' => $order->id
+                ]);
+                return false;
+            }
+
+            $successCount = 0;
+
+            foreach ($admins as $admin) {
+                Mail::send('emails.order.new-order-admin', [
+                    'order' => $order,
+                    'order_id' => $order->id,
+                    'provider_name' => $order->provider->name ?? 'Unknown Provider',
+                    'date' => $order->created_at->format('F j, Y'),
+                    'comment' => $comments,
+                    'order_link' => route('admin.orders.show', $order->id),
+                ], function ($message) use ($admin, $order) {
+                    $message->to($admin->email, $admin->name)
+                            ->subject("📝 MSC: New Order Request Submitted by {$order->provider->name}");
+                });
+
+                $successCount++;
+            }
+
+            Log::info('Order submission notification sent to admins', [
+                'order_id' => $order->id,
+                'admin_count' => $successCount
+            ]);
+
+            return $successCount > 0;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send order submission notification to admin', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send IVR verified notification to provider
+     */
+    public function sendIvrVerifiedToProvider(ProductRequest $order, ?string $comments = null): bool
+    {
+        try {
+            $provider = $this->getOrderRequestor($order);
+            
+            if (!$provider || !$provider->email) {
+                Log::warning('No provider found for IVR verified notification', [
+                    'order_id' => $order->id
+                ]);
+                return false;
+            }
+
+            Mail::send('emails.order.status-update-provider', [
+                'order' => $order,
+                'order_id' => $order->id,
+                'manufacturer_name' => $order->manufacturer->name ?? 'Unknown Manufacturer',
+                'admin_name' => auth()->user()->name ?? 'MSC Admin',
+                'comments' => $comments,
+                'order_link' => route('provider.orders.show', $order->id),
+                'status_type' => 'IVR Verification Complete',
+                'status_emoji' => '✅',
+            ], function ($message) use ($provider, $order) {
+                $message->to($provider->email, $provider->name)
+                        ->subject("✅ MSC: IVR Verification Complete for Order #{$order->id}");
+            });
+
+            Log::info('IVR verified notification sent to provider', [
+                'order_id' => $order->id,
+                'provider_email' => $provider->email
+            ]);
+
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send IVR verified notification', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send IVR sent back notification to provider
+     */
+    public function sendIvrSentBackToProvider(ProductRequest $order, string $reason, ?string $comments = null): bool
+    {
+        try {
+            $provider = $this->getOrderRequestor($order);
+            
+            if (!$provider || !$provider->email) {
+                Log::warning('No provider found for IVR sent back notification', [
+                    'order_id' => $order->id
+                ]);
+                return false;
+            }
+
+            Mail::send('emails.order.status-update-provider', [
+                'order' => $order,
+                'order_id' => $order->id,
+                'provider_name' => $provider->name,
+                'manufacturer_name' => $order->manufacturer->name ?? 'Unknown Manufacturer',
+                'denial_reason' => $reason,
+                'comments' => $comments,
+                'order_link' => route('provider.orders.show', $order->id),
+                'status_type' => 'IVR Sent Back',
+                'status_emoji' => '❌',
+            ], function ($message) use ($provider, $order) {
+                $message->to($provider->email, $provider->name)
+                        ->subject("❌ MSC: IVR Sent Back - #{$order->id}");
+            });
+
+            Log::info('IVR sent back notification sent to provider', [
+                'order_id' => $order->id,
+                'provider_email' => $provider->email,
+                'reason' => $reason
+            ]);
+
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send IVR sent back notification', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send order form submitted notification to admin
+     */
+    public function sendOrderFormSubmittedToAdmin(ProductRequest $order, ?string $comments = null): bool
+    {
+        try {
+            $admins = User::where('user_type', 'admin')->get();
+            
+            if ($admins->isEmpty()) {
+                Log::warning('No admin users found to notify of order form submission', [
+                    'order_id' => $order->id
+                ]);
+                return false;
+            }
+
+            $successCount = 0;
+
+            foreach ($admins as $admin) {
+                Mail::send('emails.order.new-order-admin', [
+                    'order' => $order,
+                    'order_id' => $order->id,
+                    'provider_name' => $order->provider->name ?? 'Unknown Provider',
+                    'date' => $order->created_at->format('F j, Y'),
+                    'comment' => $comments,
+                    'order_link' => route('admin.orders.show', $order->id),
+                    'submission_type' => 'Order Form',
+                ], function ($message) use ($admin, $order) {
+                    $message->to($admin->email, $admin->name)
+                            ->subject("📝 MSC: New Order Form Submitted by {$order->provider->name}");
+                });
+
+                $successCount++;
+            }
+
+            Log::info('Order form submission notification sent to admins', [
+                'order_id' => $order->id,
+                'admin_count' => $successCount
+            ]);
+
+            return $successCount > 0;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send order form submission notification to admin', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send order submitted to manufacturer notification to provider
+     */
+    public function sendOrderSubmittedToManufacturerNotification(ProductRequest $order, ?string $comments = null): bool
+    {
+        try {
+            $provider = $this->getOrderRequestor($order);
+            
+            if (!$provider || !$provider->email) {
+                Log::warning('No provider found for order submitted to manufacturer notification', [
+                    'order_id' => $order->id
+                ]);
+                return false;
+            }
+
+            Mail::send('emails.order.status-update-provider', [
+                'order' => $order,
+                'order_id' => $order->id,
+                'manufacturer_name' => $order->manufacturer->name ?? 'Unknown Manufacturer',
+                'admin_name' => auth()->user()->name ?? 'MSC Admin',
+                'comments' => $comments,
+                'order_link' => route('provider.orders.show', $order->id),
+                'status_type' => 'Order Submitted to Manufacturer',
+                'status_emoji' => '✅',
+            ], function ($message) use ($provider, $order) {
+                $message->to($provider->email, $provider->name)
+                        ->subject("✅ MSC: Order Submitted to Manufacturer - Order #{$order->id}");
+            });
+
+            Log::info('Order submitted to manufacturer notification sent to provider', [
+                'order_id' => $order->id,
+                'provider_email' => $provider->email
+            ]);
+
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send order submitted to manufacturer notification', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send manufacturer confirmation notification to provider
+     */
+    public function sendManufacturerConfirmationToProvider(ProductRequest $order, ?string $comments = null): bool
+    {
+        try {
+            $provider = $this->getOrderRequestor($order);
+            
+            if (!$provider || !$provider->email) {
+                Log::warning('No provider found for manufacturer confirmation notification', [
+                    'order_id' => $order->id
+                ]);
+                return false;
+            }
+
+            Mail::send('emails.order.status-update-provider', [
+                'order' => $order,
+                'order_id' => $order->id,
+                'provider_name' => $provider->name,
+                'manufacturer_name' => $order->manufacturer->name ?? 'Unknown Manufacturer',
+                'admin_name' => auth()->user()->name ?? 'MSC Admin',
+                'comments' => $comments,
+                'order_link' => route('provider.orders.show', $order->id),
+                'status_type' => 'Order Confirmed by Manufacturer',
+                'status_emoji' => '📦',
+            ], function ($message) use ($provider, $order) {
+                $message->to($provider->email, $provider->name)
+                        ->subject("📦 MSC: Order Confirmed by Manufacturer - Order #{$order->id}");
+            });
+
+            Log::info('Manufacturer confirmation notification sent to provider', [
+                'order_id' => $order->id,
+                'provider_email' => $provider->email
+            ]);
+
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send manufacturer confirmation notification', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send order denied notification to provider
+     */
+    public function sendOrderDeniedToProvider(ProductRequest $order, string $reason): bool
+    {
+        try {
+            $provider = $this->getOrderRequestor($order);
+            
+            if (!$provider || !$provider->email) {
+                Log::warning('No provider found for order denied notification', [
+                    'order_id' => $order->id
+                ]);
+                return false;
+            }
+
+            Mail::send('emails.order.status-update-provider', [
+                'order' => $order,
+                'order_id' => $order->id,
+                'denial_reason' => $reason,
+                'order_link' => route('provider.orders.show', $order->id),
+                'status_type' => 'Order Denied',
+                'status_emoji' => '❌',
+            ], function ($message) use ($provider, $order) {
+                $message->to($provider->email, $provider->name)
+                        ->subject("❌ MSC Order Denied - #{$order->id}");
+            });
+
+            Log::info('Order denied notification sent to provider', [
+                'order_id' => $order->id,
+                'provider_email' => $provider->email,
+                'reason' => $reason
+            ]);
+
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send order denied notification', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send help request notification to admin
+     */
+    public function sendHelpRequest(\App\Models\Provider $provider, string $comment): bool
+    {
+        try {
+            $admins = User::where('user_type', 'admin')->get();
+            
+            if ($admins->isEmpty()) {
+                Log::warning('No admin users found to notify of help request', [
+                    'provider_id' => $provider->id
+                ]);
+                return false;
+            }
+
+            $successCount = 0;
+
+            foreach ($admins as $admin) {
+                Mail::send('emails.admin.help-request', [
+                    'provider' => $provider,
+                    'provider_name' => $provider->name,
+                    'provider_email' => $provider->email,
+                    'comment' => $comment,
+                ], function ($message) use ($admin, $provider) {
+                    $message->to($admin->email, $admin->name)
+                            ->subject("MSC Support Requested by {$provider->name}")
+                            ->replyTo($provider->email, $provider->name);
+                });
+
+                $successCount++;
+            }
+
+            Log::info('Help request notification sent to admins', [
+                'provider_id' => $provider->id,
+                'admin_count' => $successCount
+            ]);
+
+            return $successCount > 0;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send help request notification', [
+                'provider_id' => $provider->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send password reset notification
+     */
+    public function sendPasswordResetNotification(User $user, string $resetToken): bool
+    {
+        try {
+            $resetLink = url("/password/reset/{$resetToken}?email=" . urlencode($user->email));
+            
+            Mail::send('emails.password-reset', [
+                'user' => $user,
+                'resetLink' => $resetLink,
+                'trackingPixel' => $this->generateTrackingPixel($user->id, 'password-reset'),
+            ], function ($message) use ($user) {
+                $message->to($user->email)
+                        ->subject("🔐 MSC Wound Care - Password Reset Request")
+                        ->priority(1)
+                        ->getHeaders()
+                        ->addTextHeader('X-Mailgun-Tag', 'password-reset')
+                        ->addTextHeader('X-Mailgun-Variables', json_encode([
+                            'user_id' => $user->id,
+                            'type' => 'password-reset',
+                        ]));
+            });
+            
+            $this->logEmail($user->id, 'password-reset', $user->email);
+            
+            Log::info('Password reset email sent successfully', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+            ]);
+            
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send password reset notification', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send password reset confirmation
+     */
+    public function sendPasswordResetConfirmation(User $user): bool
+    {
+        try {
+            Mail::send('emails.password-reset-confirmation', [
+                'user' => $user,
+                'trackingPixel' => $this->generateTrackingPixel($user->id, 'password-reset-confirmation'),
+            ], function ($message) use ($user) {
+                $message->to($user->email)
+                        ->subject("✅ MSC Wound Care - Password Successfully Reset")
+                        ->priority(1)
+                        ->getHeaders()
+                        ->addTextHeader('X-Mailgun-Tag', 'password-reset-confirmation')
+                        ->addTextHeader('X-Mailgun-Variables', json_encode([
+                            'user_id' => $user->id,
+                            'type' => 'password-reset-confirmation',
+                        ]));
+            });
+            
+            $this->logEmail($user->id, 'password-reset-confirmation', $user->email);
+            
+            Log::info('Password reset confirmation email sent successfully', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+            ]);
+            
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Failed to send password reset confirmation', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Generate tracking pixel for email tracking
+     */
+    private function generateTrackingPixel(int $userId, string $type): string
+    {
+        return route('email.track', [
+            'user' => $userId,
+            'type' => $type,
+            'timestamp' => time()
+        ]);
+    }
+
+    /**
+     * Log email sending for tracking
+     */
+    private function logEmail(int $userId, string $type, string $email): void
+    {
+        Log::info('Email logged', [
+            'user_id' => $userId,
+            'type' => $type,
+            'email' => $email,
+            'timestamp' => now()
+        ]);
+    }
 }
