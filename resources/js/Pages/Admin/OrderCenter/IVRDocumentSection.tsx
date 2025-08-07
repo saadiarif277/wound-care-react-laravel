@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, FileText, Send, CheckCircle, Clock, AlertCir
 import { Button } from '@/Components/Button';
 import StatusUpdateModal from './StatusUpdateModal';
 import DocumentViewerPanel from '@/Components/DocumentViewerPanel';
+import { OrderFormModal } from '@/Components/OrderForm/OrderFormModal';
 import axios from 'axios';
 
 interface IVRData {
@@ -72,6 +73,15 @@ interface IVRDocumentSectionProps {
   isOpen?: boolean;
   onToggle?: () => void;
   userRole?: 'Provider' | 'OM' | 'Admin';
+  orderData?: {
+    order_number?: string;
+    manufacturer_name?: string;
+    manufacturer_id?: number;
+    patient_name?: string;
+    patient_email?: string;
+    integration_email?: string;
+    episode_id?: number;
+  };
 }
 
 const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
@@ -85,6 +95,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   isOpen = true,
   onToggle,
   userRole = 'Admin',
+  orderData = {}
 }) => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [modalType, setModalType] = useState<'ivr' | 'order'>('ivr');
@@ -99,6 +110,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   const [isLoadingSignerUrls, setIsLoadingSignerUrls] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [showOrderFormModal, setShowOrderFormModal] = useState(false);
 
   const getStatusColor = (status: string | null | undefined) => {
     if (!status || typeof status !== 'string') {
@@ -615,6 +627,19 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                       <Eye className="h-4 w-4 mr-2" />
                       View Order Form
                     </Button>
+
+                    {/* Show Order Form Modal Button when IVR is verified */}
+                    {ivrData.status?.toLowerCase() === 'verified' && (
+                      <Button
+                        onClick={() => setShowOrderFormModal(true)}
+                        className="flex-1"
+                        variant="primary"
+                        size="sm"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Complete Order Form
+                      </Button>
+                    )}
                   </div>
 
                   {userRole === 'Admin' && (
@@ -914,6 +939,32 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
           </div>
         </div>
       )}
+
+      {/* Order Form Modal */}
+      <OrderFormModal
+        isOpen={showOrderFormModal}
+        onClose={() => setShowOrderFormModal(false)}
+        orderId={orderId.toString()}
+        orderData={{
+          id: orderId.toString(),
+          order_number: orderData.order_number || `Order #${orderId}`,
+          manufacturer_name: orderData.manufacturer_name || 'Manufacturer',
+          manufacturer_id: orderData.manufacturer_id || 1,
+          patient_name: orderData.patient_name || 'Patient Name',
+          patient_email: orderData.patient_email || 'patient@example.com',
+          integration_email: orderData.integration_email || 'integration@example.com',
+          episode_id: orderData.episode_id || 1,
+          ivr_status: ivrData.status,
+          order_form_status: orderFormData.status,
+          docuseal_submission_id: ivrData.docusealSubmissionId,
+          order_form_submission_id: orderFormData.fileUrl
+        }}
+        onOrderFormComplete={(data) => {
+          console.log('Order form completed:', data);
+          setShowOrderFormModal(false);
+          // You can add additional logic here to update the order form status
+        }}
+      />
     </>
   );
 };

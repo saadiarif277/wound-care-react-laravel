@@ -516,9 +516,9 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             notes: '',
             fileUrl: '',
             files: order.documents || [],
-            carrier: order.carrier,
-            trackingNumber: order.tracking_number,
-            shippingInfo: order.shipping_info,
+            carrier: (order as any).carrier || '',
+            trackingNumber: (order as any).tracking_number || '',
+            shippingInfo: (order as any).shipping_info || {},
             alteredOrderFormFile: order.altered_order_form_file_path ? {
               name: order.altered_order_form_file_name || 'Uploaded Order Form File',
               url: order.altered_order_form_file_url || '',
@@ -534,6 +534,15 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
           isOpen={openSections.ivrDocument}
           onToggle={() => toggleSection('ivrDocument')}
           userRole={userRole}
+          orderData={{
+            order_number: order.order_number,
+            manufacturer_name: order.manufacturer_name,
+            manufacturer_id: order.product?.manufacturerId,
+            patient_name: order.patient_name,
+            patient_email: order.patient?.email,
+            integration_email: 'integration@mscwoundcare.com',
+            episode_id: order.episode_id ? parseInt(order.episode_id) : undefined
+          }}
         />
 
         <ClinicalSection

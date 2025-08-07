@@ -49,6 +49,7 @@ interface Product {
   }>;
   size_unit?: string;
   mue?: number; // Maximum Units of Eligibility from database
+  national_asp?: number; // National ASP for pricing calculation
 }
 
 interface SelectedProduct {
@@ -120,6 +121,30 @@ const parseSizeString = (sizeStr: string): { dimensions: string; area: number } 
     dimensions: sizeStr,
     area: 0
   };
+};
+
+// Helper function to calculate size area for pricing
+const calculateSizeArea = (sizeStr: string): number => {
+  if (!sizeStr) return 0;
+
+  // Handle size strings like "2x3", "2 x 3", "2X3", etc.
+  const dimensionMatch = sizeStr.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/);
+
+  if (dimensionMatch) {
+    const width = parseFloat(dimensionMatch[1] || '0');
+    const height = parseFloat(dimensionMatch[2] || '0');
+    // Calculate (Size x Size) = width × height
+    return width * height;
+  }
+
+  // If it's just a number (area in cm²), use the area directly
+  const area = parseFloat(sizeStr);
+  if (!isNaN(area) && area > 0) {
+    // Use the area directly since it's already in cm²
+    return area;
+  }
+
+  return 0;
 };
 
 const ProductSelectorQuickRequest: React.FC<Props> = ({
@@ -322,16 +347,19 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
     return selectedProductsMemo.reduce((total, item) => {
       const product = item.product || products.find(p => p.id === item.product_id);
       if (!product) return total;
-      const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+
+      // Use national ASP for pricing calculation - check for national_asp first, then price_per_sq_cm
+      const nationalAsp = product.national_asp || product.price_per_sq_cm || 0;
+
       if (item.size) {
-        const sizeValue = parseFloat(item.size);
-        if (!isNaN(sizeValue)) {
-          // Price = size × per unit price × quantity
-          return total + (sizeValue * pricePerUnit * item.quantity);
+        const sizeArea = calculateSizeArea(item.size);
+        if (sizeArea > 0) {
+          // Price = (Size x Size) x quantity x national_asp
+          return total + (sizeArea * nationalAsp * item.quantity);
         }
       }
       // No size selected, fallback to base calculation
-      return total + (pricePerUnit * item.quantity);
+      return total + (nationalAsp * item.quantity);
     }, 0);
   };
 
@@ -593,19 +621,20 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                     const product = item.product || products.find(p => p.id === item.product_id);
                     if (!product) return null;
 
-                    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-                    let unitPrice = pricePerUnit;
-                    let sizeValue = 0;
+                    const nationalAsp = product.national_asp || product.price_per_sq_cm || 0;
+                    let totalPrice = 0;
 
                     if (item.size) {
-                      sizeValue = parseFloat(item.size);
-                      if (!isNaN(sizeValue)) {
-                        // Price = size × per unit price × quantity
-                        unitPrice = pricePerUnit; // Keep the per-unit price, don't multiply by size here
+                      const sizeArea = calculateSizeArea(item.size);
+                      if (sizeArea > 0) {
+                        // Price = (Size x Size) x quantity x national_asp
+                        totalPrice = sizeArea * nationalAsp * item.quantity;
+                      } else {
+                        totalPrice = nationalAsp * item.quantity;
                       }
+                    } else {
+                      totalPrice = nationalAsp * item.quantity;
                     }
-
-                    const totalPrice = sizeValue * unitPrice * item.quantity;
 
                     return (
                       <div key={`${item.product_id}-${item.size || 'no-size'}`} className={`border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} rounded-md p-3`}>
@@ -617,7 +646,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                                   Size: {getSizeLabel(product, item.size)}
                                 </h5>
                                 <p className={`text-xs ${t.text.secondary}`}>
-                                  {sizeValue} cm²{roleRestrictions.can_see_order_totals && ` • ${formatPrice(unitPrice)} per unit`}
+                                  {item.size} cm²{roleRestrictions.can_see_order_totals && ` • (${item.size}) × ${formatPrice(nationalAsp)}`}
                                 </p>
                               </div>
                             ) : (
@@ -627,7 +656,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                                 </h5>
                                 {roleRestrictions.can_see_order_totals && (
                                   <p className={`text-xs ${t.text.secondary}`}>
-                                    {formatPrice(unitPrice)} per unit
+                                    {formatPrice(nationalAsp)} per unit
                                   </p>
                                 )}
                               </div>
@@ -671,7 +700,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                                 {formatPrice(totalPrice)}
                               </p>
                               <p className={`text-xs ${t.text.secondary}`}>
-                                {sizeValue > 0 ? `${sizeValue} cm² × ${formatPrice(unitPrice)} × ${item.quantity}` : `${item.quantity} × ${formatPrice(unitPrice)}`}
+                                {item.size ? `(${item.size}) × ${formatPrice(nationalAsp)} × ${item.quantity}` : `${item.quantity} × ${formatPrice(nationalAsp)}`}
                               </p>
                             </div>
                           )}
@@ -746,39 +775,37 @@ const QuickRequestProductCard: React.FC<{
 
     const calculatePrice = () => {
     if (selectedSize) {
-      const sizeValue = parseFloat(selectedSize);
-      if (isNaN(sizeValue)) {
-        return 0;
-      }
-      if (product.size_specific_pricing) {
-        for (const [label, data] of Object.entries(product.size_specific_pricing)) {
-          if (data.area_cm2 === sizeValue) {
-            // Price = size × per unit price × quantity
-            return sizeValue * data.effective_price * quantity;
+      const sizeArea = calculateSizeArea(selectedSize);
+      if (sizeArea > 0) {
+        if (product.size_specific_pricing) {
+          for (const [label, data] of Object.entries(product.size_specific_pricing)) {
+            if (data.area_cm2 === parseFloat(selectedSize)) {
+              // Price = (Size x Size) x quantity x national_asp
+              return sizeArea * (product.national_asp || product.price_per_sq_cm || 0) * quantity;
+            }
           }
         }
+        // Fallback to calculated price if no size-specific data
+        // Price = (Size x Size) x quantity x national_asp
+        return sizeArea * (product.national_asp || product.price_per_sq_cm || 0) * quantity;
       }
-      // Fallback to calculated price if no size-specific data
-      const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-      // Price = size × per unit price × quantity
-      return sizeValue * pricePerUnit * quantity;
     }
     // No size selected, return base price × quantity
-    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-    return pricePerUnit * quantity;
+    const nationalAsp = product.national_asp || product.price_per_sq_cm || 0;
+    return nationalAsp * quantity;
   };
 
   const getPriceCalculationText = () => {
     if (selectedSize) {
-      const sizeValue = parseFloat(selectedSize);
-      if (isNaN(sizeValue)) {
-        return `${quantity} × ${formatPrice(roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm)}`;
+      const sizeArea = calculateSizeArea(selectedSize);
+      if (sizeArea > 0) {
+        const nationalAsp = product.national_asp || product.price_per_sq_cm || 0;
+        const totalPrice = sizeArea * nationalAsp * quantity;
+        return `(${selectedSize}) × ${formatPrice(nationalAsp)} × ${quantity} = ${formatPrice(totalPrice)}`;
       }
-      const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-      return `${sizeValue} cm² × ${formatPrice(pricePerUnit)} × ${quantity} = ${formatPrice(sizeValue * pricePerUnit * quantity)}`;
     }
-    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-    return `${quantity} × ${formatPrice(pricePerUnit)}`;
+    const nationalAsp = product.national_asp || product.price_per_sq_cm || 0;
+    return `${quantity} × ${formatPrice(nationalAsp)}`;
   };
 
   return (
@@ -819,7 +846,7 @@ const QuickRequestProductCard: React.FC<{
         <PricingDisplay
           roleRestrictions={roleRestrictions}
           product={{
-            nationalAsp: product.price_per_sq_cm,
+            nationalAsp: product.national_asp || product.price_per_sq_cm || 0,
             mscPrice: product.msc_price,
           }}
           showLabel={true}

@@ -8,6 +8,7 @@ import IVRDocumentSection from '@/Pages/Admin/OrderCenter/IVRDocumentSection';
 import ClinicalSection from '@/Pages/Admin/OrderCenter/ClinicalSection';
 import ProviderSection from '@/Pages/Admin/OrderCenter/ProviderSection';
 import AdditionalDocumentsSection from '@/Pages/Admin/OrderCenter/AdditionalDocumentsSection';
+import { OrderFormModal } from '@/Components/OrderForm/OrderFormModal';
 import { ArrowLeft } from 'lucide-react';
 import { formatHumanReadableDate } from '@/utils/dateUtils';
 import axios from 'axios';
@@ -22,10 +23,6 @@ interface ProductRequest {
   expected_service_date: string;
   patient_display: string;
   patient_fhir_id: string;
-  facility: {
-    id: number;
-    name: string;
-  } | null;
   payer_name: string;
   clinical_summary?: any;
   mac_validation_results?: any;
@@ -169,6 +166,7 @@ const ProductRequestShow: React.FC<ProductRequestShowProps> = ({
     type: 'success' | 'error',
     message: string
   } | null>(null);
+  const [showOrderFormModal, setShowOrderFormModal] = useState(false);
 
   const formatDate = (dateString?: string): string => {
     if (!dateString) return 'N/A';
@@ -440,12 +438,21 @@ const ProductRequestShow: React.FC<ProductRequestShowProps> = ({
             files: orderData.documents || []
           }}
           orderId={orderData.id}
-          onUpdateIVRStatus={() => {}}
+          onUpdateIVRStatus={async () => {}}
           onUploadIVRResults={() => {}}
-          onUpdateOrderFormStatus={() => {}}
+          onUpdateOrderFormStatus={async () => {}}
           isOpen={openSections.ivrDocument}
           onToggle={() => toggleSection('ivrDocument')}
           userRole="Provider"
+          orderData={{
+            order_number: orderData.order_number,
+            manufacturer_name: orderData.manufacturer_name,
+            manufacturer_id: orderData.product?.manufacturerId,
+            patient_name: orderData.patient_name,
+            patient_email: orderData.patient?.email,
+            integration_email: 'integration@mscwoundcare.com',
+            episode_id: orderData.episode_id ? parseInt(orderData.episode_id) : undefined
+          }}
         />
 
         <ClinicalSection
@@ -492,6 +499,32 @@ const ProductRequestShow: React.FC<ProductRequestShowProps> = ({
           documents={orderData.documents || []}
           isOpen={openSections.documents}
           onToggle={() => toggleSection('documents')}
+        />
+
+        {/* Order Form Modal */}
+        <OrderFormModal
+          isOpen={showOrderFormModal}
+          onClose={() => setShowOrderFormModal(false)}
+          orderId={orderData.id.toString()}
+          orderData={{
+            id: orderData.id.toString(),
+            order_number: orderData.order_number || `Request #${request.request_number}`,
+            manufacturer_name: orderData.manufacturer_name || 'Manufacturer',
+            manufacturer_id: orderData.product?.manufacturerId || 1,
+            patient_name: orderData.patient_name || orderData.patient?.name,
+            patient_email: orderData.patient?.email || 'patient@example.com',
+            integration_email: 'integration@mscwoundcare.com',
+            episode_id: orderData.episode_id ? parseInt(orderData.episode_id) : undefined,
+            ivr_status: orderData.ivr_status,
+            order_form_status: orderData.order_form_status,
+            docuseal_submission_id: orderData.docuseal_submission_id,
+            order_form_submission_id: ''
+          }}
+          onOrderFormComplete={(data) => {
+            console.log('Order form completed:', data);
+            setShowOrderFormModal(false);
+            // You can add additional logic here to update the order form status
+          }}
         />
       </div>
     </MainLayout>
