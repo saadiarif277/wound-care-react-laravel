@@ -1,0 +1,192 @@
+# Azure DevOps Pipeline for UAT MSC Portal
+# Laravel PHP backend + React TypeScript frontend
+
+trigger:
+- UAT
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  nodeVersion: '18.x'
+  phpVersion: '8.2'
+  buildConfiguration: 'production'
+
+stages:
+- stage: Build
+  displayName: 'Build and Test'
+  jobs:
+  - job: BuildAndTest
+    displayName: 'Build Frontend and Backend'
+    steps:
+    
+    # Setup Node.js for React frontend
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '$(nodeVersion)'
+      displayName: 'Install Node.js $(nodeVersion)'
+    
+    # Setup PHP for Laravel backend
+    - script: |
+        sudo update-alternatives --set php /usr/bin/php$(phpVersion)
+        php -v
+      displayName: 'Setup PHP $(phpVersion)'
+    
+    # Install Composer
+    - script: |
+        php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+        php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+        composer --version
+      displayName: 'Install Composer'
+    
+    # Cache Node modules
+    - task: Cache@2
+      inputs:
+        key: 'npm | "$(Agent.OS)" | package-lock.json'
+        restoreKeys: |
+          npm | "$(Agent.OS)"
+        path: '$(System.DefaultWorkingDirectory)/node_modules'
+      displayName: 'Cache Node modules'
+    
+    # Cache Composer dependencies
+    - task: Cache@2
+      inputs:
+        key: 'composer | "$(Agent.OS)" | composer.lock'
+        restoreKeys: |
+          composer | "$(Agent.OS)"
+        path: '$(System.DefaultWorkingDirectory)/vendor'
+      displayName: 'Cache Composer dependencies'
+    
+    # Install Node dependencies
+    - script: npm ci
+      displayName: 'Install Node dependencies'
+    
+    # Install Composer dependencies
+    - script: |
+        composer install --no-dev --optimize-autoloader --no-interaction
+      displayName: 'Install Composer dependencies'
+    
+    # Create .env file for build
+    - script: |
+        cp .env.example .env
+        echo "APP_ENV=production" >> .env
+        echo "APP_DEBUG=false" >> .env
+        echo "APP_KEY=base64:$(openssl rand -base64 32)" >> .env
+      displayName: 'Create environment file'
+    
+    # Generate Laravel app key
+    - script: php artisan key:generate --force
+      displayName: 'Generate Laravel application key'
+    
+    # TypeScript type checking
+    - script: npm run type-check
+      displayName: 'TypeScript type checking'
+    
+    # ESLint checking
+    - script: npm run lint
+      displayName: 'ESLint checking'
+    
+    # Build React frontend with Vite
+    - script: npm run prod
+      displayName: 'Build React frontend'
+    
+    # Run JavaScript/TypeScript tests
+    - script: npm run test:coverage
+      displayName: 'Run frontend tests'
+    
+    # Publish test results
+    - task: PublishTestResults@2
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/junit.xml'
+        testRunTitle: 'Frontend Tests'
+      displayName: 'Publish frontend test results'
+    
+    # Publish code coverage
+    - task: PublishCodeCoverageResults@2
+      condition: succeededOrFailed()
+      inputs:
+        summaryFileLocation: '**/coverage/cobertura-coverage.xml'
+      displayName: 'Publish code coverage'
+    
+    # Optimize Laravel for production
+    - script: |
+        php artisan config:cache
+        php artisan route:cache
+        php artisan view:cache
+      displayName: 'Optimize Laravel'
+    
+    # Clean up development files
+    - script: |
+        rm -rf node_modules
+        rm -rf tests
+        rm -rf .git
+        rm -f .env.example
+        rm -f webpack.mix.js
+        rm -f package-lock.json
+      displayName: 'Clean development files'
+    
+    # Create deployment package
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/uat-msc-portal.zip'
+        replaceExistingArchive: true
+      displayName: 'Create deployment package'
+    
+    # Publish build artifacts
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifact: 'uat-msc-portal-build'
+      displayName: 'Publish build artifacts'
+
+- stage: Deploy
+  displayName: 'Deploy to UAT'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - deployment: DeployUAT
+    displayName: 'Deploy to UAT App Service'
+    environment: 'UAT'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          
+          # Download build artifacts
+          - task: DownloadPipelineArtifact@1
+            inputs:
+              artifactName: 'uat-msc-portal-build'
+              targetPath: '$(Pipeline.Workspace)/uat-msc-portal-build'
+            displayName: 'Download build artifacts'
+          
+          # Deploy to Azure App Service
+          - task: AzureWebApp@1
+            inputs:
+              azureSubscription: 'Azure-Service-Connection'  # Replace with your service connection name
+              appType: 'webAppLinux'
+              appName: 'uat-msc-portal'  # Replace with your UAT app service name
+              package: '$(Pipeline.Workspace)/uat-msc-portal-build/uat-msc-portal.zip'
+              runtimeStack: 'PHP|8.2'
+              startUpCommand: |
+                cp /home/site/wwwroot/.env.production /home/site/wwwroot/.env
+                php /home/site/wwwroot/artisan migrate --force
+                php /home/site/wwwroot/artisan config:cache
+                php /home/site/wwwroot/artisan route:cache
+                php /home/site/wwwroot/artisan view:cache
+            displayName: 'Deploy to UAT App Service'
+          
+          # Run post-deployment tasks
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'Azure-Service-Connection'  # Replace with your service connection name
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "Deployment completed successfully"
+                echo "UAT Environment: https://uat-msc-portal.azurewebsites.net"
+            displayName: 'Post-deployment tasks'
