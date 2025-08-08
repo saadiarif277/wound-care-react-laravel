@@ -988,12 +988,12 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::middleware(['permission:manage-orders'])->prefix('admin/docuseal')->group(function () {
         // Template management
         Route::get('/templates', function () {
-            return Inertia::render('Admin/Docuseal/Templates');
+            return Inertia::render('Admin/DocuSeal/Templates');
         })->name('admin.docuseal.templates');
 
         // Analytics dashboard
         Route::get('/analytics', function () {
-            return Inertia::render('Admin/Docuseal/Analytics');
+            return Inertia::render('Admin/DocuSeal/Analytics');
         })->name('admin.docuseal.analytics');
     });
 
