@@ -1,4 +1,3 @@
-
 ![](https://web-api.textin.com/ocr_image/external/475e93f37772a141.jpg)
 
 # CENTURION
@@ -12,7 +11,6 @@ INSURANCE VERIFICATION
 New Wound ☐Additional Application ☐Re-verification New Insurance EMAIL TO:hotline@advantagerma.com
 
 FAX TO: 855-729-5758
-
 
 | Patient and Insurance Information  | Patient and Insurance Information  | Patient and Insurance Information  |
 | --- | --- | --- |
@@ -38,10 +36,9 @@ FAX TO: 855-729-5758
 |  | Primary Secondary Tertiary  | Primary Secondary Tertiary  |
 |  | Known Conditions: | Known Conditions: |
 | Anticipated Treatment Start Date: Frequency: Number of Applications: | Anticipated Treatment Start Date: Frequency: Number of Applications: | Anticipated Treatment Start Date: Frequency: Number of Applications: |
-| If the payer requires prior authorization for pre-determination for product applications, would you like assistance?<br>☐Yes □No If yes, please attach a minimum of four weeks of clinical notes  | If the payer requires prior authorization for pre-determination for product applications, would you like assistance?<br>☐Yes □No If yes, please attach a minimum of four weeks of clinical notes  | If the payer requires prior authorization for pre-determination for product applications, would you like assistance?<br>☐Yes □No If yes, please attach a minimum of four weeks of clinical notes  |
+| If the payer requires prior authorization for pre-determination for product applications, would you like assistance? ☐Yes □No If yes, please attach a minimum of four weeks of clinical notes  | If the payer requires prior authorization for pre-determination for product applications, would you like assistance? ☐Yes □No If yes, please attach a minimum of four weeks of clinical notes  | If the payer requires prior authorization for pre-determination for product applications, would you like assistance? ☐Yes □No If yes, please attach a minimum of four weeks of clinical notes  |
 | I certify that I have obtained a valid authorization under applicable law from the patient listed on this form (a) permitting me to release the<br>patient's protected health information (PHI), to EMP and its contractors to research insurance coverage regarding [insert] products, and to<br>provide me with reimbursement assistance services regarding such products; and (b) authorizing the payer to disclose PHI to EMP and its<br>contractors for the purposes of determining benefit coverage.  | I certify that I have obtained a valid authorization under applicable law from the patient listed on this form (a) permitting me to release the<br>patient's protected health information (PHI), to EMP and its contractors to research insurance coverage regarding [insert] products, and to<br>provide me with reimbursement assistance services regarding such products; and (b) authorizing the payer to disclose PHI to EMP and its<br>contractors for the purposes of determining benefit coverage.  | I certify that I have obtained a valid authorization under applicable law from the patient listed on this form (a) permitting me to release the<br>patient's protected health information (PHI), to EMP and its contractors to research insurance coverage regarding [insert] products, and to<br>provide me with reimbursement assistance services regarding such products; and (b) authorizing the payer to disclose PHI to EMP and its<br>contractors for the purposes of determining benefit coverage.  |
 | Provider Signature: Date: Sales Representative: | Provider Signature: Date: Sales Representative: | Provider Signature: Date: Sales Representative: |
 
-
 Please fax this form along with a copy of the front and back of the patient's insurance card. Email:
-
+Please fax this form along with a copy of the front and back of the patient's insurance card. Email:

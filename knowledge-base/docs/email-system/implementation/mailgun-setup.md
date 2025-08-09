@@ -111,13 +111,10 @@ Route::post('/webhooks/mailgun', [MailgunWebhookController::class, 'handle'])
 
 ## Step 6: Testing
 
-### 6.1 Test Email Sending
+### 6.1 Test Email Sending (Artisan)
 
 ```bash
-php artisan tinker
->>> $user = App\Models\User::first();
->>> app(\App\Services\Notifications\MailgunNotificationService::class)
-    ->sendUserInvitation($user, 'TempPass123');
+php artisan mail:test you@example.com --subject="Mailgun test"
 ```
 
 ### 6.2 Test Webhook Reception
@@ -131,19 +128,19 @@ php artisan tinker
 
 ### 7.1 SPF Record
 
-```
+```env
 v=spf1 include:mailgun.org ~all
 ```
 
 ### 7.2 DKIM Record
 
-```
+```env
 k=rsa; p=[YOUR_PUBLIC_KEY_FROM_MAILGUN]
 ```
 
 ### 7.3 DMARC Record (Optional but Recommended)
 
-```
+```env
 v=DMARC1; p=none; rua=mailto:dmarc@mscwoundcare.com
 ```
 
@@ -251,5 +248,5 @@ echo "4. Test with: php artisan tinker"
 
 ---
 
-**Last Updated**: August 4, 2025  
+**Last Updated**: August 8, 2025  
 **Next**: [Service Implementation](service-implementation.md)

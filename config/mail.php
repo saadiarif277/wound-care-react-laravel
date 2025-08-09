@@ -119,6 +119,9 @@ return [
         'name' => env('MAIL_FROM_NAME', 'MSC Wound Care'),
     ],
 
+    // Admin email used for scheduled task failure notifications and ops alerts
+    'admin_email' => env('MAIL_ADMIN_EMAIL', 'admin@example.com'),
+
     /*
     |--------------------------------------------------------------------------
     | Markdown Mail Settings

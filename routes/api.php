@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\AiChatController;
 use App\Http\Controllers\Api\ManufacturerController;
 use App\Http\Controllers\Api\V1\ReferenceDataController;
 use App\Http\Controllers\Api\FileUploadController;
+use App\Http\Controllers\Webhooks\MailgunWebhookController;
 
 // File Upload Routes
 Route::prefix('v1')->group(function () {
@@ -40,6 +41,9 @@ Route::prefix('v1')->group(function () {
         Route::post('validate-file', [FileUploadController::class, 'validateFile'])->name('validate_file');
     });
 });
+
+// Mailgun Webhook (public)
+Route::post('/webhooks/mailgun', [MailgunWebhookController::class, 'handle'])->name('webhooks.mailgun');
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->group(function () {
