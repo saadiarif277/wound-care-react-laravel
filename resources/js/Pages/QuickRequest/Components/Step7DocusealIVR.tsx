@@ -112,7 +112,7 @@ export default function Step7DocusealIVR({
   const [uploadedDocs, setUploadedDocs] = useState<DocumentUpload>({});
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const docusealFormRef = useRef<any>(null);
 
   // Debug logging
@@ -210,12 +210,21 @@ export default function Step7DocusealIVR({
     }
   };
 
-  // Handle IVR form completion
+  // Handle IVR form completion from API
   const handleIvrComplete = (data: any) => {
-    console.log('✅ IVR form completed:', data);
+    console.log('✅ IVR form completed via API:', data);
+    setIsSubmitting(true);
 
     const submissionId = data.slug || data.submission_id || data.id;
 
+    if (!submissionId) {
+      console.error('❌ No submission ID received from DocuSeal API');
+      setIvrError('Invalid submission response - no submission ID received');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Update form data with API submission details
     updateFormData({
       docuseal_submission_id: submissionId,
       ivr_completed: true,
@@ -223,7 +232,13 @@ export default function Step7DocusealIVR({
       final_submission_data: data
     });
 
+    console.log('✅ IVR API submission successful:', {
+      submissionId,
+      timestamp: new Date().toISOString()
+    });
+
     setIvrError(null);
+    setIsSubmitting(false);
   };
 
   // Handle IVR errors
@@ -232,86 +247,34 @@ export default function Step7DocusealIVR({
     setIvrError(error);
   };
 
-  // Auto-submit IVR form if not completed
-  const handleAutoSubmit = async () => {
-    if (isCompleted || !isIvrRequired) {
+  // Handle Next button click - only proceed if IVR is submitted via API
+  const handleNext = () => {
+    // Double-check that we have both submission ID and completion flag from API
+    if (isCompleted && formData.docuseal_submission_id && formData.ivr_completed) {
+      console.log('✅ IVR API submission verified, proceeding to next step');
       onNext?.();
-      return;
-    }
-
-    try {
-      setIsAutoSubmitting(true);
-      setIvrError(null);
-
-      // Check if form is already completed
-      if (formData.docuseal_submission_id) {
-        console.log('✅ IVR form already completed, proceeding to next step');
-        setIsAutoSubmitting(false);
-        onNext?.();
-        return;
-      }
-
-      // Try to submit the form automatically
-      if (docusealFormRef.current) {
-        // Look for the DocuSeal form iframe
-        const iframe = docusealFormRef.current.querySelector('iframe');
-        if (iframe) {
-          // Try to send a message to the iframe to submit the form
-          try {
-            iframe.contentWindow?.postMessage({
-              type: 'docuseal.submit',
-              action: 'submit'
-            }, 'https://docuseal.com');
-
-            // Wait for the form to be submitted
-            setTimeout(() => {
-              setIsAutoSubmitting(false);
-              onNext?.();
-            }, 3000);
-            return;
-          } catch (iframeError) {
-            console.log('Could not submit via iframe message');
-          }
-        }
-
-        // Fallback: Try to find and click the submit button
-        const formElement = docusealFormRef.current.querySelector('form');
-        if (formElement) {
-          const submitButton = formElement.querySelector('button[type="submit"], input[type="submit"], .submit-form-button');
-          if (submitButton) {
-            submitButton.click();
-
-            // Wait a moment for submission to process
-            setTimeout(() => {
-              setIsAutoSubmitting(false);
-              onNext?.();
-            }, 2000);
-            return;
-          }
-        }
-      }
-
-      // If we can't auto-submit, proceed anyway but show a message
-      console.log('⚠️ Could not auto-submit IVR form, proceeding anyway');
-      setIsAutoSubmitting(false);
-
-      // Show a toast or alert that the form wasn't submitted
-      if (typeof window !== 'undefined' && window.toast) {
-        window.toast?.('Form not submitted automatically. Please submit manually if needed.', { type: 'warning' });
-      }
-
-      onNext?.();
-    } catch (error) {
-      console.error('❌ Auto-submit error:', error);
-      setIsAutoSubmitting(false);
-      setIvrError('Failed to auto-submit form. Please submit manually and try again.');
+    } else {
+      console.warn('⚠️ IVR submission not complete:', {
+        isCompleted,
+        docuseal_submission_id: formData.docuseal_submission_id,
+        ivr_completed: formData.ivr_completed
+      });
     }
   };
 
-  // Check if IVR is completed
+  // Check if IVR is completed via API submission
   useEffect(() => {
-    setIsCompleted(!!formData.docuseal_submission_id);
-  }, [formData.docuseal_submission_id]);
+    // IVR is only considered completed when we have a submission ID from the API
+    const hasApiSubmission = !!(formData.docuseal_submission_id && formData.ivr_completed);
+    setIsCompleted(hasApiSubmission);
+
+    // Debug logging for IVR completion status
+    console.log('🔍 IVR Completion Check:', {
+      docuseal_submission_id: formData.docuseal_submission_id,
+      ivr_completed: formData.ivr_completed,
+      isCompleted: hasApiSubmission
+    });
+  }, [formData.docuseal_submission_id, formData.ivr_completed]);
 
   // Loading state
   if (manufacturersLoading) {
@@ -489,7 +452,7 @@ export default function Step7DocusealIVR({
                     useFrontendMapping={true}
                     useBackendEnhancedMapping={true}
                   /> */}
-                  
+
                   {/* Original Component (currently active) */}
                   <DocusealEmbed
                     manufacturerId={String(manufacturerConfig?.id || '')}
@@ -504,41 +467,27 @@ export default function Step7DocusealIVR({
                   />
                 </div>
 
-                {/* Next Button with Auto-Submit */}
+                {/* Next Button - Only enabled when IVR is completed */}
                 <div className="mt-6 flex justify-between items-center">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {isCompleted ? (
-                      <span className="text-green-600 dark:text-green-400">
-                        ✅ IVR form completed successfully
-                      </span>
+                  <div className="flex-1">
+                    {isSubmitting ? (
+                      <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <span>🔄 Processing IVR submission...</span>
+                      </div>
+                    ) : isCompleted ? (
+                      <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>✅ IVR form submitted successfully via API</span>
+                      </div>
                     ) : (
-                      <span className="text-orange-600 dark:text-orange-400">
-                        ⚠️ IVR form must be submitted before proceeding
-                      </span>
+                      <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg border border-red-200 dark:border-red-800">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="font-medium">⚠️ IVR submission is required - Please complete and submit the form above</span>
+                      </div>
                     )}
                   </div>
-                  <Button
-                    onClick={handleAutoSubmit}
-                    disabled={isAutoSubmitting || !isCompleted}
-                    className="inline-flex items-center gap-2"
-                  >
-                    {isAutoSubmitting ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Auto-Submitting...
-                      </>
-                    ) : isCompleted ? (
-                      <>
-                        Next
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    ) : (
-                      <>
-                        Submit IVR First
-                        <AlertCircle className="w-4 h-4" />
-                      </>
-                    )}
-                  </Button>
+
                 </div>
               </>
             )}
@@ -548,7 +497,7 @@ export default function Step7DocusealIVR({
           <div className="p-8 text-center">
             <CheckCircle className="w-16 h-16 text-green-600 dark:text-green-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-green-900 dark:text-green-100 mb-2">
-              IVR Form Completed Successfully!
+              IVR Form Submitted Successfully!
             </h3>
             <p className="text-green-700 dark:text-green-300 mb-2">
               Submission ID: {formData.docuseal_submission_id}

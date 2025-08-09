@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   FiAlertCircle, FiFileText, FiShoppingCart,
   FiDollarSign, FiUser, FiTruck,
-  FiActivity, FiEdit2, FiEye, FiDownload, FiMessageSquare,
+  FiActivity, FiMessageSquare,
   FiShield, FiClock, FiChevronDown, FiChevronRight,
   FiCheckCircle, FiXCircle, FiAlertTriangle
 } from 'react-icons/fi';
@@ -10,7 +10,6 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { themes } from '@/theme/glass-theme';
 import { cn } from '@/lib/utils';
 import { usePage } from '@inertiajs/react';
-import ConfirmationModal from '@/Components/ConfirmationModal';
 import { toast } from 'react-hot-toast';
 
 // Types according to PRD
@@ -208,7 +207,7 @@ interface OrderReviewSummaryProps {
   orderId: string;
   isPreSubmission?: boolean;
   onEdit?: (section: string) => void;
-  onSubmit?: () => Promise<void>;
+  onSubmit?: () => void;
 }
 
 // Section status helper
@@ -255,11 +254,9 @@ export default function OrderReviewSummary({
   const [orderData, setOrderData] = useState<OrderReviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['patient', 'clinical', 'products']));
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmChecked, setConfirmChecked] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [newNote, setNewNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   // Load order data
   useEffect(() => {
@@ -290,39 +287,30 @@ export default function OrderReviewSummary({
     setExpandedSections(newExpanded);
   };
 
-  const handleSubmit = async () => {
-    if (!confirmChecked) return;
-
-    setSubmitting(true);
-    try {
-      await onSubmit?.();
-      toast.success('Order submitted successfully!');
-      setShowConfirmModal(false);
-      // Redirect handled by parent
-    } catch (error) {
-      console.error('Submission error:', error);
-      toast.error('Failed to submit order. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
 
+    setSubmitting(true);
     try {
+      // Add the note first
       await fetch(`/api/v1/orders/${orderId}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note: newNote })
       });
 
-      toast.success('Note added successfully');
+      // Then submit the order (hardcoded as requested)
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+
+      toast.success('Order submitted successfully with note!');
       setNewNote('');
       setShowNoteModal(false);
       loadOrderData(); // Reload to show new note
     } catch (error) {
-      toast.error('Failed to add note');
+      console.error('Submission error:', error);
+      toast.error('Failed to submit order. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -397,7 +385,7 @@ export default function OrderReviewSummary({
               </button>
 
               <button
-                onClick={() => setShowConfirmModal(true)}
+                onClick={() => setShowNoteModal(true)}
                 disabled={!isOrderComplete()}
                 className={cn(
                   "px-6 py-2 rounded-lg font-medium transition-all",
@@ -701,14 +689,6 @@ export default function OrderReviewSummary({
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <button className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.text.secondary)}>
-                        <FiEye className="w-4 h-4" />
-                      </button>
-                      <button className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.text.secondary)}>
-                        <FiDownload className="w-4 h-4" />
-                      </button>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -851,27 +831,15 @@ export default function OrderReviewSummary({
             </dl>
 
             <div className="mt-4 flex space-x-2">
-              {orderData.forms.ivr.status === 'not_started' && isPreSubmission && (
-                <button
-                  onClick={() => onEdit?.('ivr-form')}
-                  className={cn("px-4 py-2 rounded text-sm", t.button.primary.base, t.button.primary.hover)}
-                >
-                  Generate Form
-                </button>
-              )}
-              {orderData.forms.ivr.status === 'in_progress' && isPreSubmission && (
-                <button
-                  onClick={() => onEdit?.('ivr-form')}
-                  className={cn("px-4 py-2 rounded text-sm", t.button.secondary.base, t.button.secondary.hover)}
-                >
-                  Continue Editing
-                </button>
-              )}
               {orderData.forms.ivr.documentUrl && (
-                <button className={cn("px-4 py-2 rounded text-sm flex items-center space-x-1", t.glass.frost, "hover:bg-white/10")}>
-                  <FiEye className="w-4 h-4" />
+                <a
+                  href={orderData.forms.ivr.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn("px-4 py-2 rounded text-sm flex items-center space-x-1", t.glass.frost, "hover:bg-white/10")}
+                >
                   <span>View PDF</span>
-                </button>
+                </a>
               )}
             </div>
           </div>
@@ -895,19 +863,15 @@ export default function OrderReviewSummary({
             </dl>
 
             <div className="mt-4 flex space-x-2">
-              {orderData.forms.order.status === 'not_started' && isPreSubmission && (
-                <button
-                  onClick={() => onEdit?.('order-form')}
-                  className={cn("px-4 py-2 rounded text-sm", t.button.primary.base, t.button.primary.hover)}
-                >
-                  Create Form
-                </button>
-              )}
               {orderData.forms.order.documentUrl && (
-                <button className={cn("px-4 py-2 rounded text-sm flex items-center space-x-1", t.glass.frost, "hover:bg-white/10")}>
-                  <FiEye className="w-4 h-4" />
+                <a
+                  href={orderData.forms.order.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn("px-4 py-2 rounded text-sm flex items-center space-x-1", t.glass.frost, "hover:bg-white/10")}
+                >
                   <span>View PDF</span>
-                </button>
+                </a>
               )}
             </div>
           </div>
@@ -1029,60 +993,67 @@ export default function OrderReviewSummary({
         </SectionCard>
       )}
 
-      {/* Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-        onConfirm={handleSubmit}
-        title="Confirm Order Submission"
-        confirmText="Place Order"
-        cancelText="Go Back"
-        isLoading={submitting}
-      >
-        <div className="space-y-4">
-          <p className={t.text.secondary}>
-            By submitting this order, I confirm that the information provided is accurate and complete.
-            I understand that this order will be sent to the manufacturer for processing and that any
-            changes after submission may require administrative approval.
-          </p>
-
-          <label className="flex items-start space-x-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={confirmChecked}
-              onChange={(e) => setConfirmChecked(e.target.checked)}
-              className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-            />
-            <span className={cn("text-sm", t.text.primary)}>
-              I confirm the information is accurate and complete
-            </span>
-          </label>
-        </div>
-      </ConfirmationModal>
+      {/* Confirmation Modal - Removed since we're using custom note modal */}
 
       {/* Add Note Modal */}
-      <ConfirmationModal
-        isOpen={showNoteModal}
-        onClose={() => {
-          setShowNoteModal(false);
-          setNewNote('');
-        }}
-        onConfirm={handleAddNote}
-        title="Add Internal Note"
-        confirmText="Add Note"
-        cancelText="Cancel"
-      >
-        <textarea
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          placeholder="Enter your note here..."
-          className={cn(
-            "w-full h-32 p-3 rounded-lg resize-none",
-            t.input.base,
-            t.input.focus
-          )}
-        />
-      </ConfirmationModal>
+      {showNoteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className={cn("bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6", t.glass.card)}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={cn("text-lg font-semibold", t.text.primary)}>Add Admin Note & Submit Order</h3>
+              <button
+                onClick={() => {
+                  setShowNoteModal(false);
+                  setNewNote('');
+                }}
+                className={cn("p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700", t.text.secondary)}
+              >
+                <FiXCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className={cn("text-sm mb-4", t.text.secondary)}>
+              Please add an admin note before submitting the order:
+            </p>
+
+            <textarea
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              placeholder="Enter your admin note here..."
+              className={cn(
+                "w-full h-32 p-3 rounded-lg resize-none mb-4",
+                t.input.base,
+                t.input.focus
+              )}
+            />
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowNoteModal(false);
+                  setNewNote('');
+                }}
+                className={cn("px-4 py-2 rounded-lg", t.button.secondary.base, t.button.secondary.hover)}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddNote}
+                disabled={!newNote.trim() || submitting}
+                className={cn(
+                  "px-4 py-2 rounded-lg font-medium",
+                  newNote.trim() && !submitting
+                    ? `${t.button.primary.base} ${t.button.primary.hover}`
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                )}
+              >
+                {submitting ? 'Submitting...' : 'Submit Order with Note'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

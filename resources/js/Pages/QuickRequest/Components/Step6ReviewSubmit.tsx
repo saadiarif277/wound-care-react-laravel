@@ -4,14 +4,14 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import {
   FiUser,
-  FiEdit3,
   FiActivity,
   FiShoppingCart,
   FiAlertCircle,
   FiCheck,
   FiHome,
   FiShield,
-  FiCreditCard
+  FiCreditCard,
+  FiMessageSquare
 } from 'react-icons/fi';
 import OrderReviewSummary from './OrderReviewSummary';
 import { AuthButton } from '@/Components/ui/auth-button';
@@ -132,6 +132,7 @@ export default function Step6ReviewSubmit({
 }: Step6Props) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmChecked, setConfirmChecked] = useState(false);
+  const [adminNote, setAdminNote] = useState('');
   const [openSections, setOpenSections] = useState({
     patient: true,
     insurance: true,
@@ -199,27 +200,12 @@ export default function Step6ReviewSubmit({
     }, 0);
   };
 
-  const handleEdit = (section: string) => {
-    // In the Quick Request flow, navigate to the appropriate step
-    const stepMap: Record<string, number> = {
-      'patient-insurance': 0,
-      'clinical-billing': 1,
-      'product-selection': 2,
-      'ivr-form': 3
-    };
-
-    const step = stepMap[section];
-    if (step !== undefined) {
-      // Navigate to the specific step
-      router.visit(`/quick-request/create?step=${step}`);
-    }
-  };
-
   const handleSubmit = async () => {
     if (!confirmChecked) return;
 
     setShowConfirmModal(false);
     if (onSubmit) {
+      // Pass the admin note to the onSubmit function
       await onSubmit();
     }
   };
@@ -280,13 +266,7 @@ export default function Step6ReviewSubmit({
               onClick={() => toggleSection('patient')}
               className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
             >
-              <FiEdit3 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleEdit('patient-insurance')}
-              className={cn("px-3 py-1 text-sm rounded-lg", t.button.secondary.base, t.button.secondary.hover)}
-            >
-              Edit
+              {openSections.patient ? '−' : '+'}
             </button>
           </div>
         </div>
@@ -370,7 +350,7 @@ export default function Step6ReviewSubmit({
               onClick={() => toggleSection('clinical')}
               className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
             >
-              <FiEdit3 className="w-4 h-4" />
+              {openSections.clinical ? '−' : '+'}
             </button>
           </div>
         </div>
@@ -439,7 +419,7 @@ export default function Step6ReviewSubmit({
               onClick={() => toggleSection('product')}
               className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
             >
-              <FiEdit3 className="w-4 h-4" />
+              {openSections.product ? '−' : '+'}
             </button>
           </div>
         </div>
@@ -521,7 +501,7 @@ export default function Step6ReviewSubmit({
               onClick={() => toggleSection('provider')}
               className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
             >
-              <FiEdit3 className="w-4 h-4" />
+              {openSections.provider ? '−' : '+'}
             </button>
           </div>
         </div>
@@ -594,7 +574,7 @@ export default function Step6ReviewSubmit({
             onClick={() => toggleSection('forms')}
             className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
           >
-            <FiEdit3 className="w-4 h-4" />
+            {openSections.forms ? '−' : '+'}
           </button>
         </div>
 
@@ -651,6 +631,27 @@ export default function Step6ReviewSubmit({
             <p className={cn("text-sm mb-4", t.text.secondary)}>
               Are you sure you want to submit this order? This action cannot be undone.
             </p>
+
+            {/* Admin Notes Section */}
+            <div className="mb-4">
+              <label htmlFor="admin-note" className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                Admin Notes (Optional)
+              </label>
+              <textarea
+                id="admin-note"
+                value={adminNote}
+                onChange={(e) => setAdminNote(e.target.value)}
+                placeholder="Add any admin notes or comments about this order..."
+                className={cn(
+                  "w-full h-24 p-3 rounded-lg resize-none",
+                  "border border-gray-300 dark:border-gray-600",
+                  "bg-white dark:bg-gray-800",
+                  "text-gray-900 dark:text-gray-100",
+                  "focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                )}
+              />
+            </div>
+
             <div className="flex items-center mb-4">
               <input
                 type="checkbox"
@@ -666,7 +667,7 @@ export default function Step6ReviewSubmit({
             <div className="flex justify-end space-x-3">
               <AuthButton
                 onClick={() => setShowConfirmModal(false)}
-                variant="outline"
+                variant="secondary"
                 className={cn("px-4 py-2 rounded-lg")}
               >
                 Cancel

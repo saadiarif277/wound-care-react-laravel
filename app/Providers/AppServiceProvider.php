@@ -18,6 +18,9 @@ use Illuminate\Support\Facades\Response;
 use App\Models\Order\Order;
 use App\Observers\OrderObserver;
 use App\Services\AI\FormFillingOptimizer;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use Exception;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -163,10 +166,55 @@ class AppServiceProvider extends ServiceProvider
         //     $response->headers->set('X-XSS-Protection', '1; mode=block');
         //     return $response;
         // });
+
+        // Add exception handling for mail failures
+        $this->handleMailExceptions();
     }
 
     public function bootRoute(): void
     {
         // Rate limiting is configured in SecurityServiceProvider with comprehensive error handling
+    }
+
+    /**
+     * Handle mail exceptions to prevent application halting
+     */
+    protected function handleMailExceptions(): void
+    {
+        // Override the mail manager to catch exceptions
+        $this->app->singleton('mail.manager', function ($app) {
+            $manager = new \Illuminate\Mail\MailManager($app);
+            
+            // Add exception handling for mail failures
+            $manager->beforeSending(function ($message) {
+                try {
+                    // Log mail attempt
+                    Log::info('Attempting to send email', [
+                        'to' => $message->getTo(),
+                        'subject' => $message->getSubject(),
+                        'from' => $message->getFrom()
+                    ]);
+                } catch (Exception $e) {
+                    Log::warning('Failed to log mail attempt', ['error' => $e->getMessage()]);
+                }
+            });
+
+            return $manager;
+        });
+
+        // Add global exception handler for mail failures
+        $this->app->singleton('mail.exception.handler', function ($app) {
+            return function (Exception $e) {
+                Log::error('Mail sending failed', [
+                    'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+
+                // Don't re-throw the exception - just log it and continue
+                return false;
+            };
+        });
     }
 }

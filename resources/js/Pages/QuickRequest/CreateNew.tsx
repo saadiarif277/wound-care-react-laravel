@@ -166,6 +166,7 @@ interface QuickRequestFormData {
   fhir_questionnaire_response_id?: string;
   fhir_device_request_id?: string;
   docuseal_submission_id?: string;
+  ivr_completed?: boolean;
   final_submission_id?: string;
   final_submission_completed?: boolean;
   final_submission_data?: any;
@@ -295,6 +296,7 @@ function QuickRequestCreateNew({
     selected_products: [],
     manufacturer_fields: {},
     docuseal_submission_id: '',
+    ivr_completed: false,
     // FHIR IDs from providers/orgs
     fhir_practitioner_id: currentUser.role === 'provider' ? currentUser.fhir_practitioner_id : undefined,
     fhir_organization_id: currentUser.organization?.fhir_organization_id,
@@ -524,6 +526,30 @@ function QuickRequestCreateNew({
       return;
     }
     setErrors({});
+
+    // Special validation for Step7DocusealIVR (currentSection === 3)
+    if (currentSection === 3) {
+      // Check if IVR is submitted via API
+      const hasIvrSubmission = !!(formData.docuseal_submission_id && formData.ivr_completed);
+
+      if (!hasIvrSubmission) {
+        console.warn('⚠️ IVR submission required before proceeding:', {
+          docuseal_submission_id: formData.docuseal_submission_id,
+          ivr_completed: formData.ivr_completed
+        });
+
+        setErrors({
+          ivr_submission: 'IVR submission is required. Please complete and submit the IVR form before proceeding to the next step.'
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      console.log('✅ IVR submission verified:', {
+        docuseal_submission_id: formData.docuseal_submission_id,
+        ivr_completed: formData.ivr_completed
+      });
+    }
 
     // Refresh CSRF token before proceeding to next section
     try {
@@ -970,6 +996,34 @@ function QuickRequestCreateNew({
             )}
           </div>
 
+          {/* IVR Submission Warning */}
+          {currentSection === 3 && !(formData.docuseal_submission_id && formData.ivr_completed) && (
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="flex items-start">
+                <FiAlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mr-2 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
+                    IVR Submission Required
+                  </h4>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    Please complete and submit the IVR form above before proceeding to the next step.
+                    The Next button will be enabled once the IVR is successfully submitted via API.
+                  </p>
+                  {formData.docuseal_submission_id && !formData.ivr_completed && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      Submission ID found but completion flag missing. Please ensure the form is fully submitted.
+                    </p>
+                  )}
+                  {!formData.docuseal_submission_id && formData.ivr_completed && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      Completion flag found but no submission ID. Please resubmit the form.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Navigation Buttons */}
           <div className="flex justify-between">
             <AuthButton
@@ -988,14 +1042,28 @@ function QuickRequestCreateNew({
             {currentSection < sections.length - 1 && (
               <AuthButton
                 onClick={handleNext}
-
+                disabled={
+                  currentSection === 3 && // Step7DocusealIVR
+                  !(formData.docuseal_submission_id && formData.ivr_completed)
+                }
                 className={cn(
                   "px-6 py-3 rounded-xl font-medium flex items-center transition-all duration-200",
-                  "bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white hover:shadow-lg"
+                  currentSection === 3 && !(formData.docuseal_submission_id && formData.ivr_completed)
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300"
+                    : "bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white hover:shadow-lg"
                 )}
               >
-                Next
-                <FiArrowRight className="ml-2 h-5 w-5" />
+                {currentSection === 3 && !(formData.docuseal_submission_id && formData.ivr_completed) ? (
+                  <>
+                    Submit IVR Required
+                    <FiAlertCircle className="ml-2 h-5 w-5" />
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <FiArrowRight className="ml-2 h-5 w-5" />
+                  </>
+                )}
               </AuthButton>
             )}
           </div>

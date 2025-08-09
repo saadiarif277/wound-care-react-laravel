@@ -28,12 +28,12 @@ return [
     | sending an e-mail. You will specify which one you are using for your
     | mailers below. You are free to add additional mailers as required.
     |
-    | Supported: "smtp", "sendmail", "mailgun", "ses", "ses-v2",
-    |            "postmark", "log", "array", "failover", "roundrobin"
+    | Supported: "smtp", "sendmail", "mailgun", "ses", "postmark", "log", "array"
     |
     */
 
     'mailers' => [
+
         'smtp' => [
             'transport' => 'smtp',
             'url' => env('MAIL_URL'),
@@ -46,15 +46,8 @@ return [
             'local_domain' => env('MAIL_EHLO_DOMAIN'),
         ],
 
-        'mailtrap' => [
-            'transport' => 'smtp',
-            'host' => env('MAILTRAP_HOST', 'smtp.mailtrap.io'),
-            'port' => env('MAILTRAP_PORT', 2525),
-            'encryption' => env('MAILTRAP_ENCRYPTION', 'tls'),
-            'username' => env('MAILTRAP_USERNAME'),
-            'password' => env('MAILTRAP_PASSWORD'),
-            'timeout' => null,
-            'auth_mode' => null,
+        'ses' => [
+            'transport' => 'ses',
         ],
 
         'mailgun' => [
@@ -62,10 +55,6 @@ return [
             // 'client' => [
             //     'timeout' => 5,
             // ],
-        ],
-
-        'ses' => [
-            'transport' => 'ses',
         ],
 
         'postmark' => [
@@ -94,13 +83,6 @@ return [
             ],
         ],
 
-        'roundrobin' => [
-            'transport' => 'roundrobin',
-            'mailers' => [
-                'ses',
-                'postmark',
-            ],
-        ],
     ],
 
     /*
@@ -116,7 +98,7 @@ return [
 
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', 'MSC Wound Care'),
+        'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
     /*
@@ -131,7 +113,7 @@ return [
     */
 
     'markdown' => [
-        'theme' => env('MAIL_MARKDOWN_THEME', 'default'),
+        'theme' => 'default',
 
         'paths' => [
             resource_path('views/vendor/mail'),
