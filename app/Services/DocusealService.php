@@ -2636,7 +2636,7 @@ class DocusealService
         ]);
 
         // Load the ACZ IVR field mapping configuration
-        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/field-mapping-config.php';
+        $mappingConfig = require base_path('knowledge-base/tasks/docuseal-field-mapping-strategy/field-mapping-config.php');
         $fieldMappings = $mappingConfig['field_mappings'];
         $transformations = $mappingConfig['transformations'];
 
@@ -2745,7 +2745,7 @@ class DocusealService
         $mappedFields = $this->transformACZIVRData($prefillData, $templateId);
 
         // Load configuration for analysis
-        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/field-mapping-config.php';
+        $mappingConfig = require base_path('knowledge-base/tasks/docuseal-field-mapping-strategy/field-mapping-config.php');
         $fieldMappings = $mappingConfig['field_mappings'];
         $validation = $mappingConfig['validation'];
 
@@ -2926,7 +2926,7 @@ class DocusealService
         ]);
 
         // Load the MedLife AMNIO AMP IVR field mapping configuration
-        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/medlife-amnio-amp-ivr-config.php';
+        $mappingConfig = require base_path('knowledge-base/tasks/docuseal-field-mapping-strategy/medlife-amnio-amp-ivr-config.php');
         $fieldMappings = $mappingConfig['field_mappings'];
         $transformations = $mappingConfig['transformations'];
 
@@ -3035,7 +3035,7 @@ class DocusealService
         $mappedFields = $this->transformMedLifeAmnioAmpIVRData($prefillData, $templateId);
 
         // Load configuration for analysis
-        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/medlife-amnio-amp-ivr-config.php';
+        $mappingConfig = require base_path('knowledge-base/tasks/docuseal-field-mapping-strategy/medlife-amnio-amp-ivr-config.php');
         $fieldMappings = $mappingConfig['field_mappings'];
         $validation = $mappingConfig['validation'];
 
@@ -3089,7 +3089,7 @@ class DocusealService
         ]);
 
         // Load the Celularity Biovance IVR field mapping configuration
-        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/celularity-biovance-ivr-config.php';
+        $mappingConfig = require base_path('knowledge-base/tasks/docuseal-field-mapping-strategy/celularity-biovance-ivr-config.php');
         $fieldMappings = $mappingConfig['field_mappings'];
         $transformations = $mappingConfig['transformations'];
 
@@ -3198,7 +3198,7 @@ class DocusealService
         $mappedFields = $this->transformCelularityBiovanceIVRData($prefillData, $templateId);
 
         // Load configuration for analysis
-        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/celularity-biovance-ivr-config.php';
+        $mappingConfig = require base_path('knowledge-base/tasks/docuseal-field-mapping-strategy/celularity-biovance-ivr-config.php');
         $fieldMappings = $mappingConfig['field_mappings'];
         $validation = $mappingConfig['validation'];
 
@@ -3253,7 +3253,7 @@ class DocusealService
         ]);
 
         // Load the Extremity Care Coll-e-Derm IVR field mapping configuration
-        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/extremity-care-coll-e-derm-ivr-config.php';
+        $mappingConfig = require base_path('knowledge-base/tasks/docuseal-field-mapping-strategy/extremity-care-coll-e-derm-ivr-config.php');
         $fieldMappings = $mappingConfig['field_mappings'];
         $transformations = $mappingConfig['transformations'];
 
@@ -3362,7 +3362,7 @@ class DocusealService
         $mappedFields = $this->transformExtremityCareCollEDermIVRData($prefillData, $templateId);
 
         // Load configuration for analysis
-        $mappingConfig = require __DIR__ . '/../../tasks/docuseal-field-mapping-strategy/extremity-care-coll-e-derm-ivr-config.php';
+        $mappingConfig = require base_path('knowledge-base/tasks/docuseal-field-mapping-strategy/extremity-care-coll-e-derm-ivr-config.php');
         $fieldMappings = $mappingConfig['field_mappings'];
         $validation = $mappingConfig['validation'];
 
@@ -3400,6 +3400,118 @@ class DocusealService
         ];
 
         return $analysis;
+    }
+
+    /**
+     * Transform data for ACZ OrderForm template with comprehensive field mapping
+     */
+    private function transformACZOrderFormData(array $prefillData, string $templateId): array
+    {
+        Log::info('Using ACZ OrderForm comprehensive field mapping', [
+            'template_id' => $templateId,
+            'input_data_keys' => array_keys($prefillData),
+            'input_data_count' => count($prefillData)
+        ]);
+
+        // Load the ACZ OrderForm field mapping configuration
+        $mappingConfig = require base_path('knowledge-base/tasks/docuseal-field-mapping-strategy/acz-order-form-config.php');
+        $fieldMappings = $mappingConfig['field_mappings'];
+        $transformations = $mappingConfig['transformations'];
+
+        $mappedFields = [];
+        $missingFields = [];
+        $debugInfo = [];
+
+        foreach ($fieldMappings as $docusealField => $mapping) {
+            $source = $mapping['source'];
+            $value = null;
+
+            // Extract value from form data
+            if (is_array($source)) {
+                // Multiple source fields
+                $values = [];
+                foreach ($source as $field) {
+                    if (isset($prefillData[$field])) {
+                        $values[] = $prefillData[$field];
+                    }
+                }
+                $value = $values;
+            } else {
+                // Single source field
+                $value = $prefillData[$source] ?? null;
+            }
+
+            if ($value !== null && $value !== '' && (!is_array($value) || !empty(array_filter($value)))) {
+                // Apply transformation if specified
+                if (isset($mapping['transform']) && isset($transformations[$mapping['transform']])) {
+                    $transformFunction = $transformations[$mapping['transform']];
+                    if (is_callable($transformFunction)) {
+                        $value = $transformFunction($value);
+                    }
+                }
+
+                $mappedFields[$docusealField] = $value;
+
+                // Handle original value for debugging
+                $originalValue = null;
+                if (is_array($source)) {
+                    $originalValue = [];
+                    foreach ($source as $sourceField) {
+                        if (isset($prefillData[$sourceField])) {
+                            $originalValue[$sourceField] = $prefillData[$sourceField];
+                        }
+                    }
+                } else {
+                    $originalValue = $prefillData[$source] ?? null;
+                }
+
+                $debugInfo[$docusealField] = [
+                    'source' => $source,
+                    'original_value' => $originalValue,
+                    'transformed_value' => $value,
+                    'transform' => $mapping['transform'] ?? null
+                ];
+            } else {
+                $missingFields[] = [
+                    'docuseal_field' => $docusealField,
+                    'source' => $source,
+                    'required' => $mapping['required'] ?? false
+                ];
+            }
+        }
+
+        // Log comprehensive debugging information
+        Log::info('ACZ OrderForm field mapping results', [
+            'template_id' => $templateId,
+            'total_template_fields' => count($fieldMappings),
+            'mapped_fields' => count($mappedFields),
+            'missing_fields' => count($missingFields),
+            'success_rate' => count($mappedFields) / count($fieldMappings) * 100,
+            'mapped_field_names' => array_keys($mappedFields),
+            'missing_field_details' => $missingFields
+        ]);
+
+        // Log detailed debugging for each mapped field
+        foreach ($debugInfo as $fieldName => $info) {
+            Log::debug('ACZ OrderForm field mapping detail', [
+                'field' => $fieldName,
+                'source' => $info['source'],
+                'original_value' => $info['original_value'],
+                'transformed_value' => $info['transformed_value'],
+                'transform' => $info['transform']
+            ]);
+        }
+
+        // Log missing fields for debugging
+        foreach ($missingFields as $missing) {
+            Log::warning('ACZ OrderForm missing field', [
+                'docuseal_field' => $missing['docuseal_field'],
+                'source' => $missing['source'],
+                'required' => $missing['required']
+            ]);
+        }
+
+        return $mappedFields;
     }
 
     /**

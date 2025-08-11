@@ -15,7 +15,7 @@ use GuzzleHttp\Client as HttpClient;
 class DocuSealTemplateController extends Controller
 {
     protected ?DocumentIntelligenceService $azureService = null;
-    
+
     public function __construct(
         protected UnifiedFieldMappingService $mappingService
     ) {
@@ -39,7 +39,7 @@ class DocuSealTemplateController extends Controller
                     'message' => 'Unauthorized',
                 ], 401);
             }
-            
+
             // Allow if user has manage-orders permission OR is msc-admin
             if (!$user->hasPermission('manage-orders') && !$user->hasRole('msc-admin')) {
                 Log::warning('Docuseal access denied', [
@@ -48,17 +48,17 @@ class DocuSealTemplateController extends Controller
                     'roles' => $user->roles->pluck('slug'),
                     'permissions' => $user->roles->flatMap->permissions->pluck('slug')->unique(),
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Access denied. You need manage-orders permission or msc-admin role.',
                 ], 403);
             }
-            
+
             $templates = DocusealTemplate::where('is_active', true)
                 ->orderBy('name')
                 ->paginate(50);
-            
+
             return response()->json([
                 'success' => true,
                 'templates' => $templates,
@@ -68,7 +68,7 @@ class DocuSealTemplateController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -110,7 +110,7 @@ class DocuSealTemplateController extends Controller
             // Apply new mappings
             foreach ($request->mappings as $mapping) {
                 $fieldName = $mapping['ivr_field_name'];
-                
+
                 if (!empty($mapping['system_field'])) {
                     $currentMappings[$fieldName] = [
                         'local_field' => $mapping['system_field'],
@@ -265,7 +265,7 @@ class DocuSealTemplateController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Get template fields for a specific manufacturer
      */
@@ -274,7 +274,7 @@ class DocuSealTemplateController extends Controller
         try {
             // Find manufacturer by name
             $mfr = \App\Models\Order\Manufacturer::where('name', $manufacturer)->first();
-            
+
             if (!$mfr || !$mfr->docuseal_template_id) {
                 // Return empty fields if no template
                 return response()->json([
@@ -283,12 +283,12 @@ class DocuSealTemplateController extends Controller
                     'fields' => []
                 ]);
             }
-            
+
             // Get template from database
             $template = DocusealTemplate::where('docuseal_template_id', $mfr->docuseal_template_id)
                 ->orWhere('id', $mfr->docuseal_template_id)
                 ->first();
-            
+
             if (!$template) {
                 return response()->json([
                     'manufacturer' => $manufacturer,
@@ -296,18 +296,18 @@ class DocuSealTemplateController extends Controller
                     'fields' => []
                 ]);
             }
-            
+
             // Get field mappings
             $fieldMappings = $template->field_mappings ?? [];
             $extractedFields = $template->extraction_metadata['field_suggestions'] ?? [];
-            
+
             // Convert to frontend format
             $fields = [];
             foreach ($fieldMappings as $fieldName => $mapping) {
                 // Skip fields we already collect in other steps
                 $skipFields = ['patientName', 'patientDOB', 'facilityName', 'physicianName', 'selectedProducts'];
                 if (in_array($fieldName, $skipFields)) continue;
-                
+
                 $fields[] = [
                     'slug' => $fieldName,
                     'name' => $this->humanizeFieldName($fieldName),
@@ -318,7 +318,7 @@ class DocuSealTemplateController extends Controller
                     'default_value' => $mapping['default_value'] ?? null,
                 ];
             }
-            
+
             // Add any discovered fields that aren't mapped yet
             foreach ($extractedFields as $suggestion) {
                 $fieldName = $suggestion['ivr_field_name'] ?? '';
@@ -334,19 +334,19 @@ class DocuSealTemplateController extends Controller
                     ];
                 }
             }
-            
+
             return response()->json([
                 'manufacturer' => $manufacturer,
                 'template_id' => $mfr->docuseal_template_id,
                 'fields' => $fields
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Error fetching manufacturer template fields', [
                 'manufacturer' => $manufacturer,
                 'error' => $e->getMessage()
             ]);
-            
+
             return response()->json([
                 'error' => 'Failed to fetch template fields',
                 'manufacturer' => $manufacturer,
@@ -354,7 +354,7 @@ class DocuSealTemplateController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Convert field name to human readable
      */
@@ -362,24 +362,24 @@ class DocuSealTemplateController extends Controller
     {
         // Remove common prefixes
         $fieldName = preg_replace('/^(patient|physician|facility|insurance|wound|procedure)_/', '', $fieldName);
-        
+
         // Convert camelCase to spaces
         $fieldName = preg_replace('/([a-z])([A-Z])/', '$1 $2', $fieldName);
-        
+
         // Convert snake_case to spaces
         $fieldName = str_replace('_', ' ', $fieldName);
-        
+
         // Capitalize words
         return ucwords(strtolower($fieldName));
     }
-    
+
     /**
      * Guess field type based on name
      */
     private function guessFieldType($fieldName)
     {
         $fieldName = strtolower($fieldName);
-        
+
         if (strpos($fieldName, 'date') !== false || strpos($fieldName, 'dob') !== false) {
             return 'date';
         }
@@ -398,10 +398,10 @@ class DocuSealTemplateController extends Controller
         if (strpos($fieldName, 'is_') === 0 || strpos($fieldName, 'has_') === 0 || strpos($fieldName, 'checkbox') !== false) {
             return 'checkbox';
         }
-        
+
         return 'text';
     }
-    
+
 
     /**
      * Upload PDF template with embedded text field tags
@@ -431,30 +431,30 @@ class DocuSealTemplateController extends Controller
             // Store the PDF temporarily for processing
             $tempFileName = 'temp_embedded_' . uniqid() . '.pdf';
             $tempPath = storage_path('app/temp/' . $tempFileName);
-            
+
             // Ensure temp directory exists
             if (!file_exists(dirname($tempPath))) {
                 mkdir(dirname($tempPath), 0755, true);
             }
-            
+
             $pdfFile->move(dirname($tempPath), $tempFileName);
 
             try {
                 // Extract embedded field tags from PDF using multiple methods
                 $embeddedTags = $this->extractEmbeddedTags($tempPath);
-                
+
                 // Enhanced analysis using Azure Document Intelligence
                 $azureAnalysis = $this->analyzeWithAzureDocumentIntelligence($tempPath);
-                
+
                 // Combine and validate embedded tags with Azure insights
                 $enhancedTags = $this->enhanceTagsWithAzureAnalysis($embeddedTags, $azureAnalysis);
-                
+
                 // Upload to Docuseal and create template
                 $docusealResult = $this->uploadToDocuseal($tempPath, $template);
-                
+
                 // Map enhanced tags to Quick Request fields
                 $fieldMappings = $this->mapEmbeddedFieldsToQuickRequest($enhancedTags);
-                
+
                 // Update template record
                 $template->update([
                     'docuseal_template_id' => $docusealResult['template_id'],
@@ -466,7 +466,7 @@ class DocuSealTemplateController extends Controller
                         'auto_mapped' => true
                     ])
                 ]);
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Template uploaded successfully with embedded field tags',
@@ -502,48 +502,48 @@ class DocuSealTemplateController extends Controller
     private function extractEmbeddedTags(string $pdfPath): array
     {
         $embeddedTags = [];
-        
+
         try {
             $pdfText = '';
-            
+
             // Try multiple methods to extract text from PDF
             // Method 1: pdftotext (if available)
             if (function_exists('shell_exec') && shell_exec('which pdftotext')) {
                 $command = "pdftotext " . escapeshellarg($pdfPath) . " -";
                 $pdfText = shell_exec($command);
             }
-            
+
             // Method 2: If pdftotext failed, try reading raw PDF content
             if (!$pdfText) {
                 $pdfText = file_get_contents($pdfPath);
             }
-            
+
             if (!$pdfText) {
                 throw new \Exception('Could not extract text from PDF');
             }
-            
+
             Log::info('Extracting embedded tags from PDF', [
                 'pdf_path' => basename($pdfPath),
                 'text_length' => strlen($pdfText)
             ]);
-            
+
             // Extract all {{field_name}} patterns with improved regex
             $pattern = '/\{\{\s*([^}]+?)\s*\}\}/';
             preg_match_all($pattern, $pdfText, $matches);
-            
+
             $uniqueTags = [];
-            
+
             foreach ($matches[1] as $match) {
                 // Clean up the match
                 $match = trim($match);
                 if (empty($match)) continue;
-                
+
                 // Parse field name and attributes
                 $parts = explode(';', $match);
                 $fieldName = trim($parts[0]);
-                
+
                 if (empty($fieldName)) continue;
-                
+
                 $attributes = [];
                 for ($i = 1; $i < count($parts); $i++) {
                     $attrParts = explode('=', $parts[$i], 2);
@@ -555,9 +555,9 @@ class DocuSealTemplateController extends Controller
                         }
                     }
                 }
-                
+
                 $tagKey = $fieldName . '_' . md5(serialize($attributes));
-                
+
                 if (!isset($uniqueTags[$tagKey])) {
                     $uniqueTags[$tagKey] = [
                         'field_name' => $fieldName,
@@ -568,16 +568,16 @@ class DocuSealTemplateController extends Controller
                     ];
                 }
             }
-            
+
             $embeddedTags = array_values($uniqueTags);
-            
+
             Log::info('Extracted embedded field tags', [
                 'pdf_path' => basename($pdfPath),
                 'total_matches' => count($matches[1]),
                 'unique_tags' => count($embeddedTags),
                 'field_names' => array_column($embeddedTags, 'field_name')
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to extract embedded tags from PDF', [
                 'error' => $e->getMessage(),
@@ -585,7 +585,7 @@ class DocuSealTemplateController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
         }
-        
+
         return $embeddedTags;
     }
 
@@ -666,7 +666,7 @@ class DocuSealTemplateController extends Controller
                 'pdf_path' => $pdfPath,
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             // Return empty array so processing can continue without Azure insights
             return [];
         }
@@ -696,7 +696,7 @@ class DocuSealTemplateController extends Controller
                 // Try to find matching Azure-detected fields
                 foreach ($azureAnalysis['form_fields'] ?? [] as $azureField) {
                     $similarity = $this->calculateFieldNameSimilarity($fieldName, $azureField['name']);
-                    
+
                     if ($similarity > 0.7) { // High similarity threshold
                         $enhanced['azure_match'] = [
                             'detected_name' => $azureField['name'],
@@ -748,7 +748,7 @@ class DocuSealTemplateController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             // Return original tags if enhancement fails
             return $embeddedTags;
         }
@@ -804,17 +804,17 @@ class DocuSealTemplateController extends Controller
     {
         $docusealApiKey = config('services.docuseal.api_key');
         $docusealApiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
-        
+
         if (!$docusealApiKey) {
             throw new \Exception('Docuseal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
         }
-        
+
         // Create template name
         $templateName = $template->template_name . ' (Quick Request IVR)';
-        
+
         // Upload PDF to Docuseal using their API
         $client = new HttpClient();
-        
+
         try {
             $response = $client->post($docusealApiUrl . '/templates', [
                 'headers' => [
@@ -836,19 +836,19 @@ class DocuSealTemplateController extends Controller
                 ],
                 'timeout' => 30
             ]);
-            
+
             $responseData = json_decode($response->getBody()->getContents(), true);
-            
+
             if (!$responseData || !isset($responseData['id'])) {
                 throw new \Exception('Invalid response from Docuseal API: ' . $response->getBody());
             }
-            
+
             Log::info('Successfully uploaded template to Docuseal', [
                 'template_id' => $responseData['id'],
                 'template_name' => $templateName,
                 'local_template_id' => $template->id
             ]);
-            
+
             return [
                 'template_id' => $responseData['id'],
                 'name' => $responseData['name'] ?? $templateName,
@@ -856,17 +856,17 @@ class DocuSealTemplateController extends Controller
                 'created_at' => $responseData['created_at'] ?? now()->toIso8601String(),
                 'documents' => $responseData['documents'] ?? []
             ];
-            
+
         } catch (\GuzzleHttp\Exception\RequestException $e) {
             $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
-            
+
             Log::error('Docuseal API upload failed', [
                 'error' => $e->getMessage(),
                 'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null,
                 'response_body' => $errorBody,
                 'template_name' => $templateName
             ]);
-            
+
             throw new \Exception('Failed to upload template to Docuseal: ' . $e->getMessage() . '. Response: ' . $errorBody);
         }
     }
@@ -877,7 +877,7 @@ class DocuSealTemplateController extends Controller
     private function mapEmbeddedFieldsToQuickRequest(array $embeddedTags): array
     {
         $fieldMappings = [];
-        
+
         // Quick Request field mapping definitions
         $quickRequestFields = [
             // Patient Information
@@ -892,7 +892,7 @@ class DocuSealTemplateController extends Controller
             'patient_city' => ['type' => 'text', 'category' => 'patient'],
             'patient_state' => ['type' => 'text', 'category' => 'patient'],
             'patient_zip' => ['type' => 'text', 'category' => 'patient'],
-            
+
             // Product & Service
             'product_name' => ['type' => 'text', 'category' => 'product'],
             'product_code' => ['type' => 'text', 'category' => 'product'],
@@ -902,25 +902,25 @@ class DocuSealTemplateController extends Controller
             'expected_service_date' => ['type' => 'date', 'category' => 'service'],
             'wound_type' => ['type' => 'select', 'category' => 'clinical'],
             'place_of_service' => ['type' => 'text', 'category' => 'service'],
-            
+
             // Insurance
             'payer_name' => ['type' => 'text', 'category' => 'insurance'],
             'payer_id' => ['type' => 'text', 'category' => 'insurance'],
             'insurance_type' => ['type' => 'text', 'category' => 'insurance'],
-            
+
             // Provider
             'provider_name' => ['type' => 'text', 'category' => 'provider'],
             'provider_npi' => ['type' => 'text', 'category' => 'provider'],
             'facility_name' => ['type' => 'text', 'category' => 'facility'],
             'signature_date' => ['type' => 'date', 'category' => 'provider'],
-            
+
             // Clinical Attestations
             'failed_conservative_treatment' => ['type' => 'checkbox', 'category' => 'clinical'],
             'information_accurate' => ['type' => 'checkbox', 'category' => 'clinical'],
             'medical_necessity_established' => ['type' => 'checkbox', 'category' => 'clinical'],
             'maintain_documentation' => ['type' => 'checkbox', 'category' => 'clinical'],
             'authorize_prior_auth' => ['type' => 'checkbox', 'category' => 'clinical'],
-            
+
             // Manufacturer-specific fields
             'physician_attestation' => ['type' => 'checkbox', 'category' => 'manufacturer'],
             'not_used_previously' => ['type' => 'checkbox', 'category' => 'manufacturer'],
@@ -932,10 +932,10 @@ class DocuSealTemplateController extends Controller
             'shipping_speed_required' => ['type' => 'select', 'category' => 'manufacturer'],
             'temperature_controlled' => ['type' => 'checkbox', 'category' => 'manufacturer'],
         ];
-        
+
         foreach ($embeddedTags as $tag) {
             $fieldName = $tag['field_name'];
-            
+
             if (isset($quickRequestFields[$fieldName])) {
                 $fieldMappings[$fieldName] = [
                     'local_field' => $fieldName,
@@ -961,7 +961,117 @@ class DocuSealTemplateController extends Controller
                 ];
             }
         }
-        
+
         return $fieldMappings;
+    }
+
+    /**
+     * Get OrderForm template for a specific manufacturer
+     */
+    public function getOrderFormTemplate($manufacturerId): JsonResponse
+    {
+        try {
+            // Check permissions - allow providers to access order form templates
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized',
+                ], 401);
+            }
+
+            // Log the search parameters for debugging
+            Log::info('Searching for OrderForm template', [
+                'manufacturer_id' => $manufacturerId,
+                'manufacturer_id_type' => gettype($manufacturerId),
+                'user_id' => $user->id,
+                'user_email' => $user->email
+            ]);
+
+            // Allow if user has create-product-requests permission OR manage-orders permission OR is msc-admin
+            if (!$user->hasPermission('create-product-requests') &&
+                !$user->hasPermission('manage-orders') &&
+                !$user->hasRole('msc-admin')) {
+                Log::warning('Order form template access denied', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'roles' => $user->roles->pluck('slug'),
+                    'permissions' => $user->roles->flatMap->permissions->pluck('slug')->unique(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. You need create-product-requests, manage-orders permission, or msc-admin role.',
+                ], 403);
+            }
+
+                        // Simple approach: directly search for OrderForm template by manufacturer_id
+            // Convert manufacturer_id to string since docuseal_templates.manufacturer_id is uuid type
+            $template = DocusealTemplate::where('manufacturer_id', (string) $manufacturerId)
+                ->where('document_type', 'OrderForm')
+                ->where('is_active', true)
+                ->first();
+
+            Log::info('Direct template search', [
+                'manufacturer_id' => $manufacturerId,
+                'manufacturer_id_as_string' => (string) $manufacturerId,
+                'template_found' => $template ? true : false,
+                'template_id' => $template ? $template->id : null
+            ]);
+
+            // Log what we found
+            if ($template) {
+                Log::info('OrderForm template found', [
+                    'template_id' => $template->id,
+                    'template_name' => $template->template_name,
+                    'manufacturer_id' => $template->manufacturer_id,
+                    'document_type' => $template->document_type
+                ]);
+            } else {
+                // Let's also log what templates exist for debugging
+                $allOrderFormTemplates = DocusealTemplate::where('document_type', 'OrderForm')
+                    ->where('is_active', true)
+                    ->get(['id', 'template_name', 'manufacturer_id', 'document_type']);
+
+                Log::info('No OrderForm template found, available templates', [
+                    'search_manufacturer_id' => $manufacturerId,
+                    'available_templates' => $allOrderFormTemplates->toArray()
+                ]);
+            }
+
+            if (!$template) {
+                // Get all available OrderForm templates for debugging
+                $allOrderFormTemplates = DocusealTemplate::where('document_type', 'OrderForm')
+                    ->where('is_active', true)
+                    ->get(['id', 'template_name', 'manufacturer_id', 'document_type']);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No OrderForm template found for this manufacturer',
+                    'template' => null,
+                    'debug_info' => [
+                        'searched_manufacturer_id' => $manufacturerId,
+                        'available_order_form_templates' => $allOrderFormTemplates->toArray(),
+                        'suggestion' => 'Create an OrderForm template for manufacturer_id: ' . $manufacturerId
+                    ]
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'template' => $template,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Get order form template failed', [
+                'manufacturer_id' => $manufacturerId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

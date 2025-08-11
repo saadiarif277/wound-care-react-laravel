@@ -998,20 +998,75 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // Docuseal API endpoints (within web middleware for session auth)
-    // NOTE: DocusealTemplateController needs to be created
-    /*
     Route::prefix('api/v1/docuseal/templates')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'index']);
         Route::post('/sync', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'sync']);
         Route::post('/extract-fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'extractFields']);
         Route::post('/upload-embedded', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'uploadEmbedded']);
         Route::get('/manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'getManufacturerFields']);
+        Route::get('/order-form/{manufacturerId}', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'getOrderFormTemplate']);
         Route::post('/{templateId}/update-mappings', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'updateMappings']);
         Route::post('/{templateId}/update-metadata', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'updateMetadata']);
         Route::post('/{templateId}/apply-bulk-patterns', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'applyBulkPatterns']);
         Route::post('/{templateId}/sync-fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'syncFields']);
     });
-    */
+
+    // Test route for debugging OrderForm templates
+    Route::get('/test-orderform-templates', function () {
+    try {
+        $templates = \App\Models\Docuseal\DocusealTemplate::where('document_type', 'OrderForm')
+            ->where('is_active', true)
+            ->get(['id', 'template_name', 'manufacturer_id', 'document_type', 'is_active']);
+
+        $manufacturers = \App\Models\Order\Manufacturer::all(['id', 'name']);
+
+        return response()->json([
+            'success' => true,
+            'orderform_templates' => $templates,
+            'manufacturers' => $manufacturers,
+            'tables_exist' => [
+                'docuseal_templates' => \Schema::hasTable('docuseal_templates'),
+                'manufacturer_id' => \Schema::hasTable('manufacturers')
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+    }
+})->name('test.orderform-templates')->middleware('auth');
+
+// Product API endpoint to get manufacturer_id
+Route::get('/api/v1/products/{id}', function ($id) {
+    try {
+        $product = \App\Models\Product::find($id);
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'product' => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'code' => $product->code,
+                'manufacturer_id' => $product->manufacturer_id,
+                'manufacturer_name' => $product->manufacturer ? $product->manufacturer->name : null
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
+    }
+})->middleware('auth');
 
     // Test route for Provider Dashboard functionality
     Route::get('/test-provider-permissions', function () {

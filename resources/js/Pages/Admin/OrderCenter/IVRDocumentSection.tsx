@@ -4,6 +4,7 @@ import { Button } from '@/Components/Button';
 import StatusUpdateModal from './StatusUpdateModal';
 import DocumentViewerPanel from '@/Components/DocumentViewerPanel';
 import { OrderFormModal } from '@/Components/OrderForm/OrderFormModal';
+import { OrderFormEmbed } from '@/Components/OrderForm/OrderFormEmbed';
 import axios from 'axios';
 
 interface IVRData {
@@ -81,6 +82,8 @@ interface IVRDocumentSectionProps {
     patient_email?: string;
     integration_email?: string;
     episode_id?: number;
+    product_id?: number;
+    clinical_summary?: any;
   };
 }
 
@@ -111,6 +114,8 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showOrderFormModal, setShowOrderFormModal] = useState(false);
+  const [showOrderFormEmbed, setShowOrderFormEmbed] = useState(false);
+  const [productManufacturerId, setProductManufacturerId] = useState<string | null>(null);
 
   const getStatusColor = (status: string | null | undefined) => {
     if (!status || typeof status !== 'string') {
@@ -399,6 +404,33 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
     }
   };
 
+  // Function to get manufacturer_id from product
+  const getManufacturerIdFromProduct = async () => {
+    if (!orderData.product_id) {
+      console.error('No product_id available');
+      return null;
+    }
+
+    try {
+      const response = await axios.get(`/api/v1/products/${orderData.product_id}`);
+      if (response.data.success && response.data.product) {
+        const manufacturerId = response.data.product.manufacturer_id;
+        setProductManufacturerId(manufacturerId?.toString() || null);
+        return manufacturerId?.toString();
+      }
+    } catch (error) {
+      console.error('Error fetching product manufacturer:', error);
+    }
+    return null;
+  };
+
+  // Get manufacturer_id when component mounts or product_id changes
+  React.useEffect(() => {
+    if (orderData.product_id && ivrData.status?.toLowerCase() === 'verified') {
+      getManufacturerIdFromProduct();
+    }
+  }, [orderData.product_id, ivrData.status]);
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
@@ -618,15 +650,29 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
 
                 <div className="space-y-3">
                   <div className="flex gap-2">
-                    <Button
-                      onClick={() => handleViewDocument('order-form')}
-                      className="flex-1"
-                      variant="ghost"
-                      size="sm"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Order Form
-                    </Button>
+                    {/* View Order Form Button - only enabled when IVR is verified */}
+                    {ivrData.status?.toLowerCase() === 'verified' ? (
+                      <Button
+                        onClick={() => setShowOrderFormEmbed(true)}
+                        className="flex-1"
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Order Form
+                      </Button>
+                    ) : (
+                      <Button
+                        className="flex-1"
+                        variant="ghost"
+                        size="sm"
+                        disabled
+                        title="Order Form available after IVR verification"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Order Form
+                      </Button>
+                    )}
 
                     {/* Show Order Form Modal Button when IVR is verified */}
                     {ivrData.status?.toLowerCase() === 'verified' && (
@@ -935,6 +981,49 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Form Embed */}
+      {showOrderFormEmbed && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">Order Form</h2>
+              <button
+                onClick={() => setShowOrderFormEmbed(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="flex-1 p-6 overflow-auto">
+              <OrderFormEmbed
+                manufacturerId={productManufacturerId || orderData.manufacturer_id?.toString() || '1'}
+                productCode=""
+                formData={{
+                  order_number: orderData.order_number || `Order #${orderId}`,
+                  manufacturer_name: orderData.manufacturer_name || 'Manufacturer',
+                  patient_name: orderData.patient_name || 'Patient Name',
+                  patient_email: orderData.patient_email || 'patient@example.com',
+                  integration_email: orderData.integration_email || 'integration@example.com',
+                  episode_id: orderData.episode_id
+                }}
+                episodeId={orderData.episode_id}
+                onComplete={(data) => {
+                  console.log('Order form completed:', data);
+                  setShowOrderFormEmbed(false);
+                  // You can add additional logic here to update the order form status
+                }}
+                onError={(error) => {
+                  console.error('Order form error:', error);
+                  // You can add error handling logic here
+                }}
+                className="h-full"
+                debug={false}
+              />
             </div>
           </div>
         </div>
