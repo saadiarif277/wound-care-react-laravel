@@ -406,28 +406,48 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
 
   // Function to get manufacturer_id from product
   const getManufacturerIdFromProduct = async () => {
+    console.log('🔍 getManufacturerIdFromProduct called with:', {
+      product_id: orderData.product_id,
+      orderData: orderData
+    });
+
     if (!orderData.product_id) {
-      console.error('No product_id available');
+      console.error('❌ No product_id available in orderData');
       return null;
     }
 
     try {
+      console.log('📡 Calling API for product:', orderData.product_id);
       const response = await axios.get(`/api/v1/products/${orderData.product_id}`);
+      console.log('📡 API response:', response.data);
+
       if (response.data.success && response.data.product) {
         const manufacturerId = response.data.product.manufacturer_id;
+        console.log('✅ Found manufacturer_id:', manufacturerId);
         setProductManufacturerId(manufacturerId?.toString() || null);
         return manufacturerId?.toString();
+      } else {
+        console.error('❌ API response not successful:', response.data);
       }
     } catch (error) {
-      console.error('Error fetching product manufacturer:', error);
+      console.error('❌ Error fetching product manufacturer:', error);
     }
     return null;
   };
 
   // Get manufacturer_id when component mounts or product_id changes
   React.useEffect(() => {
+    console.log('🔍 useEffect triggered:', {
+      product_id: orderData.product_id,
+      ivr_status: ivrData.status,
+      ivr_verified: ivrData.status?.toLowerCase() === 'verified'
+    });
+
     if (orderData.product_id && ivrData.status?.toLowerCase() === 'verified') {
+      console.log('✅ Conditions met, calling getManufacturerIdFromProduct');
       getManufacturerIdFromProduct();
+    } else {
+      console.log('❌ Conditions not met for manufacturer lookup');
     }
   }, [orderData.product_id, ivrData.status]);
 
@@ -1000,30 +1020,41 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
               </button>
             </div>
             <div className="flex-1 p-6 overflow-auto">
-              <OrderFormEmbed
-                manufacturerId={productManufacturerId || orderData.manufacturer_id?.toString() || '1'}
-                productCode=""
-                formData={{
-                  order_number: orderData.order_number || `Order #${orderId}`,
-                  manufacturer_name: orderData.manufacturer_name || 'Manufacturer',
-                  patient_name: orderData.patient_name || 'Patient Name',
-                  patient_email: orderData.patient_email || 'patient@example.com',
-                  integration_email: orderData.integration_email || 'integration@example.com',
-                  episode_id: orderData.episode_id
-                }}
-                episodeId={orderData.episode_id}
-                onComplete={(data) => {
-                  console.log('Order form completed:', data);
-                  setShowOrderFormEmbed(false);
-                  // You can add additional logic here to update the order form status
-                }}
-                onError={(error) => {
-                  console.error('Order form error:', error);
-                  // You can add error handling logic here
-                }}
-                className="h-full"
-                debug={false}
-              />
+              {(() => {
+                const finalManufacturerId = productManufacturerId || orderData.manufacturer_id?.toString() || '1';
+                console.log('🔍 OrderFormEmbed manufacturerId debug:', {
+                  productManufacturerId,
+                  orderData_manufacturer_id: orderData.manufacturer_id,
+                  finalManufacturerId,
+                  orderData: orderData
+                });
+                return (
+                  <OrderFormEmbed
+                    manufacturerId={finalManufacturerId}
+                    productCode=""
+                    formData={{
+                      order_number: orderData.order_number || `Order #${orderId}`,
+                      manufacturer_name: orderData.manufacturer_name || 'Manufacturer',
+                      patient_name: orderData.patient_name || 'Patient Name',
+                      patient_email: orderData.patient_email || 'patient@example.com',
+                      integration_email: orderData.integration_email || 'integration@example.com',
+                      episode_id: orderData.episode_id
+                    }}
+                    episodeId={orderData.episode_id}
+                    onComplete={(data) => {
+                      console.log('Order form completed:', data);
+                      setShowOrderFormEmbed(false);
+                      // You can add additional logic here to update the order form status
+                    }}
+                    onError={(error) => {
+                      console.error('Order form error:', error);
+                      // You can add error handling logic here
+                    }}
+                    className="h-full"
+                    debug={true}
+                  />
+                );
+              })()}
             </div>
           </div>
         </div>

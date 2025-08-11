@@ -1068,6 +1068,105 @@ Route::get('/api/v1/products/{id}', function ($id) {
     }
 })->middleware('auth');
 
+// OrderForm submission endpoint
+Route::post('/api/v1/docuseal/orderform/create-submission', function (Request $request) {
+    try {
+        $request->validate([
+            'template_id' => 'required|string',
+            'manufacturer_id' => 'required|string',
+            'episode_id' => 'nullable|integer'
+        ]);
+
+        // Get the Docuseal template
+        $template = \App\Models\Docuseal\DocusealTemplate::where('docuseal_template_id', $request->template_id)
+            ->where('manufacturer_id', $request->manufacturer_id)
+            ->where('document_type', 'OrderForm')
+            ->where('is_active', true)
+            ->first();
+
+        if (!$template) {
+            return response()->json([
+                'success' => false,
+                'error' => 'OrderForm template not found'
+            ], 404);
+        }
+
+                        // Create Docuseal submission using the existing service
+        $docusealService = app(\App\Services\DocusealService::class);
+
+        // First, get the template fields to see what's available
+        \Log::info('Getting OrderForm template fields', [
+            'template_id' => $request->template_id,
+            'manufacturer_id' => $request->manufacturer_id
+        ]);
+
+        $templateFields = $docusealService->debugTemplateFields($request->template_id);
+
+        \Log::info('Template fields retrieved', [
+            'success' => $templateFields['success'] ?? false,
+            'available_fields' => $templateFields['template_keys'] ?? []
+        ]);
+
+        \Log::info('OrderForm submission attempt', [
+            'template_id' => $request->template_id,
+            'episode_id' => $request->episode_id
+        ]);
+
+                // Send NO pre-filled data - let user fill everything manually via Docuseal
+        // This avoids all "Unknown field" errors
+        $emptyFormData = [];
+
+        $result = $docusealService->createSubmissionForQuickRequest(
+            $request->template_id,
+            'integration@mscwoundcare.com', // Default integration email
+            'provider@example.com', // Default submitter email
+            'Healthcare Provider', // Default submitter name
+            $emptyFormData, // Empty array - no pre-filled fields
+            $request->episode_id
+        );
+
+        \Log::info('OrderForm submission result', [
+            'result' => $result,
+            'success' => $result['success'] ?? false,
+            'error' => $result['error'] ?? null
+        ]);
+
+        \Log::info('OrderForm submission result', [
+            'success' => $result['success'] ?? false,
+            'error' => $result['error'] ?? null,
+            'data_keys' => $result['data'] ? array_keys($result['data']) : [],
+            'result' => $result
+        ]);
+
+        if (!$result['success']) {
+            throw new \Exception($result['error'] ?? 'Failed to create OrderForm submission');
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'submitter_slug' => $result['data']['slug'] ?? null,
+                'submission_id' => $result['data']['submission_id'] ?? null,
+                'template_id' => $request->template_id,
+                'template_name' => $template->template_name,
+                'manufacturer_id' => $request->manufacturer_id
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('OrderForm submission creation failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'request_data' => $request->all()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
+    }
+})->middleware('auth');
+
     // Test route for Provider Dashboard functionality
     Route::get('/test-provider-permissions', function () {
         $user = Auth::user()->load('roles');

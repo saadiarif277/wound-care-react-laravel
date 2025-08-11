@@ -19,20 +19,25 @@ interface OrderFormEmbedProps {
 }
 
 interface SubmissionResponse {
-  success: boolean;
+  success?: boolean;
   data?: {
-    slug: string;
-    embed_url?: string;
+    submitter_slug?: string;
+    slug?: string;
+    signing_url?: string;
+    submission_id?: string;
+    status?: string;
+    error?: string;
   };
-  slug?: string;
   error?: string;
   message?: string;
-  fields_mapped?: number;
-  mapping_method?: string;
 }
 
 interface TemplateResponse {
   success: boolean;
+  data?: {
+    template?: any;
+    debug_info?: any;
+  };
   template?: any;
   debug_info?: any;
 }
@@ -114,43 +119,76 @@ export const OrderFormEmbed: React.FC<OrderFormEmbedProps> = ({
                   // First, find the OrderForm template for this manufacturer
       const templateResponse = await api.get<TemplateResponse>(`/api/v1/docuseal/templates/order-form/${manufacturerId}`);
 
-      if (!templateResponse.data?.template) {
-        console.error('❌ No OrderForm template found:', templateResponse.data);
+      if (debug) {
+        console.log('🔍 Template API Response:', templateResponse);
+      }
+
+      // Check for template in both possible response structures
+      const template = templateResponse.data?.template || templateResponse.template;
+
+      if (!template) {
+        console.error('❌ No OrderForm template found:', templateResponse);
 
         // If we have debug info, log it
-        if (templateResponse.data?.debug_info) {
-          console.log('🔍 Debug info:', templateResponse.data.debug_info);
+        if (templateResponse.debug_info) {
+          console.log('🔍 Debug info:', templateResponse.debug_info);
         }
 
         dispatch({ type: 'SET_NO_TEMPLATE' });
         return;
       }
 
-      const template = templateResponse.data.template;
-
       dispatch({ type: 'SET_LOADING', payload: 'Creating Order Form submission...' });
 
-      const payload = {
-        manufacturerId,
-        templateId: template.docuseal_template_id,
-        productCode,
-        documentType: 'OrderForm',
-        formData,
-        ...(episodeId && { episode_id: episodeId })
+      // Prepare the submission data for the new OrderForm API endpoint
+      // Send NO pre-filled data - let user fill everything manually via Docuseal
+      // This avoids all "Unknown field" errors
+      const submissionPayload = {
+        template_id: template.docuseal_template_id,
+        manufacturer_id: manufacturerId,
+        form_data: {}, // Empty object - no pre-filled fields
+        episode_id: episodeId || null
       };
 
       if (debug) {
-        console.log('🚀 Creating Order Form submission:', payload);
+        console.log('🚀 Creating Order Form submission:', submissionPayload);
+        console.log('🔍 Template details:', {
+          template_id: template.docuseal_template_id,
+          template_name: template.template_name,
+          manufacturer_id: manufacturerId
+        });
       }
 
       const response = await api.post<SubmissionResponse>(
-        '/api/v1/quick-request/docuseal/test-mapping',
-        payload
+        '/api/v1/docuseal/orderform/create-submission',
+        submissionPayload
       );
+
+      if (debug) {
+        console.log('📡 Submission API Response:', response);
+      }
 
       if (!mountedRef.current) return;
 
-      if (response.success && response.data?.slug) {
+      // Handle the response from the new OrderForm API endpoint
+      if (response.data?.submitter_slug) {
+        dispatch({
+          type: 'SET_READY',
+          payload: {
+            slug: response.data.submitter_slug,
+            templateInfo: {
+              templateId: template.docuseal_template_id,
+              templateName: template.template_name
+            }
+          }
+        });
+
+        if (debug) {
+          console.log('✅ Order Form submission created:', response.data);
+          console.log('Form URL:', `https://docuseal.com/s/${response.data.submitter_slug}`);
+        }
+      } else if (response.data?.slug) {
+        // Alternative response structure
         dispatch({
           type: 'SET_READY',
           payload: {
@@ -161,25 +199,8 @@ export const OrderFormEmbed: React.FC<OrderFormEmbedProps> = ({
             }
           }
         });
-
-        if (debug) {
-          console.log('✅ Order Form submission created:', response.data);
-          console.log('Form URL:', response.data.embed_url);
-        }
-      } else if (response.slug) {
-        // Fallback for different response structure
-        dispatch({
-          type: 'SET_READY',
-          payload: {
-            slug: response.slug,
-            templateInfo: {
-              templateId: template.docuseal_template_id,
-              templateName: template.template_name
-            }
-          }
-        });
       } else {
-        throw new Error(response.error || response.message || 'Failed to create Order Form submission');
+        throw new Error(response.data?.error || response.error || response.message || 'Failed to create Order Form submission');
       }
     } catch (error: any) {
       console.error('❌ Order Form submission error:', error);

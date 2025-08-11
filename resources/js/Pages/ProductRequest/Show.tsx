@@ -273,7 +273,8 @@ const ProductRequestShow: React.FC<ProductRequestShowProps> = ({
       name: 'Unknown Facility',
       address: '',
       phone: ''
-    }
+    },
+    clinical_summary: request.clinical_summary
   };
 
   // Debug: Check if request has the required data
@@ -451,7 +452,9 @@ const ProductRequestShow: React.FC<ProductRequestShowProps> = ({
             patient_name: orderData.patient_name,
             patient_email: orderData.patient?.email,
             integration_email: 'integration@mscwoundcare.com',
-            episode_id: orderData.episode_id ? parseInt(orderData.episode_id) : undefined
+            episode_id: orderData.episode_id ? parseInt(orderData.episode_id) : undefined,
+            product_id: orderData.product?.selectedProducts?.[0]?.product_id,
+            clinical_summary: orderData.clinical_summary
           }}
         />
 
