@@ -1,0 +1,70 @@
+        Route::get('/docuseal/debug', [\App\Http\Controllers\DocusealController::class, 'debugDocusealIntegration'])
+        Route::get('/docuseal/test-count', [\App\Http\Controllers\DocusealController::class, 'testTemplateCount'])
+        Route::post('/docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
+        Route::post('/docuseal/generate-form-token', [\App\Http\Controllers\DocusealController::class, 'generateFormToken'])
+        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\DocusealController::class, 'generateSubmissionSlug'])
+        Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\DocusealController::class, 'prepareDocusealIVR'])
+    Route::delete('users/{user}/roles/{role}', [\App\Http\Controllers\Admin\UsersController::class, 'removeRole'])->name('api.users.roles.remove')
+    Route::get('/user-permissions', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'getUserPermissions'])
+    Route::post('/docuseal/create-submission', [\App\Http\Controllers\DocusealController::class, 'createSubmission'])
+    Route::post('/docuseal/demo/create-submission', [\App\Http\Controllers\DocusealController::class, 'createDemoSubmission'])
+    Route::post('/quickrequest/docuseal/create-final-submission', [\App\Http\Controllers\QuickRequestController::class, 'createFinalSubmission'])
+    Route::post('docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
+    Route::post('users/{user}/roles', [\App\Http\Controllers\Admin\UsersController::class, 'assignRoles'])->name('api.users.roles.assign')
+    Route::put('users/{user}/roles', [\App\Http\Controllers\Admin\UsersController::class, 'syncRoles'])->name('api.users.roles.sync')
+// use App\Http\Controllers\Api\TemplateMappingController; // Commented out - controller doesn't exist
+Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealWebhookController::class, 'handle'])
+Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRequestController::class, 'handleDocusealWebhook'])
+use App\Http\Controllers\Admin\PatientIVRController
+use App\Http\Controllers\Admin\ProviderManagementController
+use App\Http\Controllers\Admin\UsersController as AdminUsersController
+use App\Http\Controllers\Api\AiChatController
+use App\Http\Controllers\Api\AuthTokenController
+use App\Http\Controllers\Api\ClinicalOpportunitiesController
+use App\Http\Controllers\Api\DocumentIntelligenceController
+use App\Http\Controllers\Api\EligibilityController
+use App\Http\Controllers\Api\ManufacturerController
+use App\Http\Controllers\Api\MedicareMacValidationController
+use App\Http\Controllers\Api\OrderReviewController
+use App\Http\Controllers\Api\ProductRequestClinicalAssessmentController
+use App\Http\Controllers\Api\ProductRequestPatientController
+use App\Http\Controllers\Api\V1\ProviderOnboardingController
+use App\Http\Controllers\Api\V1\ProviderProfileController
+use App\Http\Controllers\Api\V1\QuickRequestController
+use App\Http\Controllers\Api\V1\ReferenceDataController
+use App\Http\Controllers\Api\ValidationBuilderController
+use App\Http\Controllers\Auth\LoginController
+use App\Http\Controllers\CommissionPayoutController
+use App\Http\Controllers\CommissionRecordController
+use App\Http\Controllers\CommissionRuleController
+use App\Http\Controllers\Commission\CommissionController
+use App\Http\Controllers\Commission\CommissionPayoutController
+use App\Http\Controllers\Commission\CommissionRecordController
+use App\Http\Controllers\Commission\CommissionRuleController
+use App\Http\Controllers\CustomerController
+use App\Http\Controllers\DashboardController
+use App\Http\Controllers\DocusealWebhookController
+use App\Http\Controllers\EligibilityController
+use App\Http\Controllers\EngineController
+use App\Http\Controllers\FacilityController
+use App\Http\Controllers\FhirController
+use App\Http\Controllers\ImagesController
+use App\Http\Controllers\MACValidationController
+use App\Http\Controllers\NotificationController
+use App\Http\Controllers\OrderController
+use App\Http\Controllers\OrderReviewPageController
+use App\Http\Controllers\OrganizationsController
+use App\Http\Controllers\PermissionController
+use App\Http\Controllers\PreAuthorizationController
+use App\Http\Controllers\ProductController
+use App\Http\Controllers\ProductRequestController
+use App\Http\Controllers\ProviderController
+use App\Http\Controllers\Provider\DashboardController as ProviderDashboardController
+use App\Http\Controllers\RBACController
+use App\Http\Controllers\ReportsController
+use App\Http\Controllers\RequestController
+use App\Http\Controllers\RoleController
+use App\Http\Controllers\RoleManagementController
+use App\Http\Controllers\SystemAdminController
+use App\Http\Controllers\TeamController
+use App\Http\Controllers\UsersController
