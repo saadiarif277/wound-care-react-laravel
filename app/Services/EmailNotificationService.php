@@ -52,7 +52,8 @@ class EmailNotificationService
                 $requestor,
                 $newStatus,
                 $notes,
-                $isIvrStatus ? 'ivr' : 'order'
+                $isIvrStatus ? 'ivr' : 'order',
+                $notificationDocuments
             );
 
         } catch (Exception $e) {
@@ -74,32 +75,24 @@ class EmailNotificationService
         $requestor,
         string $newStatus,
         ?string $comments,
-        string $updateType
+    string $updateType,
+    ?array $notificationDocuments = null
     ): bool {
         try {
-            // Format status for display
+            // Format status for display and build template payload expected by the Blade view
             $displayStatus = $this->formatStatusForDisplay($newStatus);
-            
-            // Send email
-            Mail::send('emails.order.status-update-provider', [
-                'order' => [
-                    'order_number' => $order->request_number,
-                    'id' => $order->id
-                ],
-                'updateType' => $updateType,
-                'newStatus' => $displayStatus,
-                'comments' => $comments,
-                'trackingUrl' => route('orders.track', ['order' => $order->id])
-            ], function ($message) use ($requestor, $order, $displayStatus, $updateType) {
-                $statusType = $updateType === 'ivr' ? 'IVR' : 'Order';
-                $message->to($requestor->email, $requestor->name)
-                    ->subject("Order Update – {$order->request_number} {$statusType} Status: {$displayStatus}");
-            });
-            
-            // Create notification record
-            $this->createNotificationRecord(
+            $statusEmoji = match (true) {
+                str_contains(strtolower($displayStatus), 'denied'), str_contains(strtolower($displayStatus), 'rejected') => '❌',
+                str_contains(strtolower($displayStatus), 'confirmed'), str_contains(strtolower($displayStatus), 'submitted'), str_contains(strtolower($displayStatus), 'verified') => '✅',
+                default => '📋',
+            };
+
+            $orderLink = $this->generateTrackingUrl($order);
+
+            // Create notification record first to embed its id in headers for webhook correlation
+            $notification = $this->createNotificationRecord(
                 $order,
-                'status_update',
+                'status_change',
                 $requestor->email,
                 $requestor->name,
                 '',
@@ -107,6 +100,82 @@ class EmailNotificationService
                 'Admin',
                 $comments
             );
+
+            // Send email with proper variables used by template and Mailgun headers
+            Mail::send('emails.order.status-update-provider', [
+                'order' => $order,
+                'order_id' => $order->id,
+                'provider_name' => $requestor->name ?? 'Provider',
+                'manufacturer_name' => $order->manufacturer->name ?? null,
+                'admin_name' => auth()->user()->name ?? 'MSC Admin',
+                'comments' => $comments,
+                'order_link' => $orderLink,
+                'status_type' => $updateType === 'ivr' ? ($displayStatus === 'Verified' ? 'IVR Verification Complete' : "IVR {$displayStatus}") : "Order {$displayStatus}",
+                'status_emoji' => $statusEmoji,
+            ], function ($message) use ($requestor, $order, $displayStatus, $updateType, $notification, $notificationDocuments) {
+                $statusType = $updateType === 'ivr' ? 'IVR' : 'Order';
+                $message->to($requestor->email, $requestor->name)
+                        ->from(config('mail.from.address'), config('mail.from.name'))
+                        ->subject("{$statusType} Update – {$order->request_number} Status: {$displayStatus}");
+                $this->applyMailgunHeaders($message, 'status_change', $order->id, [
+                    'order_number' => $order->request_number,
+                    'status' => $displayStatus,
+                    'update_type' => $statusType,
+                    'notification_id' => $notification->id,
+                ]);
+
+                // Attach any uploaded notification documents
+                if (is_array($notificationDocuments)) {
+                    foreach ($notificationDocuments as $doc) {
+                        try {
+                            // Support both UploadedFile and array payloads
+                            if (is_object($doc) && method_exists($doc, 'getRealPath')) {
+                                $message->attach($doc->getRealPath(), [
+                                    'as' => method_exists($doc, 'getClientOriginalName') ? $doc->getClientOriginalName() : 'document',
+                                    'mime' => method_exists($doc, 'getClientMimeType') ? $doc->getClientMimeType() : null,
+                                ]);
+                            } elseif (is_array($doc) && isset($doc['path'])) {
+                                $message->attach($doc['path'], [
+                                    'as' => $doc['name'] ?? basename($doc['path']),
+                                    'mime' => $doc['mime'] ?? null,
+                                ]);
+                            }
+                        } catch (\Throwable $e) {
+                            Log::warning('Failed to attach notification document', [
+                                'order_id' => $order->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+                }
+
+                // Try to capture the locally generated Message-ID for correlation
+                try {
+                    $headers = $message->getHeaders();
+                    $msgIdHeader = $headers->get('Message-ID');
+                    if ($msgIdHeader && method_exists($msgIdHeader, 'getBodyAsString')) {
+                        $localMessageId = $msgIdHeader->getBodyAsString();
+                        if ($localMessageId) {
+                            // Optimistically set message_id before Mailgun webhook confirms delivery
+                            $notification->message_id = $localMessageId;
+                            $notification->save();
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Non-fatal
+                }
+            });
+
+            // Mark as sent (we may or may not have the Mailgun id yet)
+            try {
+                $notification->markAsSent($notification->message_id ?? null);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to mark notification as sent', [
+                    'notification_id' => $notification->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             
             Log::info('Status update notification sent to provider/OM', [
                 'order_id' => $order->id,
@@ -447,6 +516,11 @@ class EmailNotificationService
                 $message->to($notification->recipient_email)
                         ->subject($notification->subject)
                         ->from(config('mail.from.address'), config('mail.from.name'));
+                // Add Mailgun headers for tagging and variables
+                $this->applyMailgunHeaders($message, $notification->notification_type, $notification->order_id, [
+                    'notification_id' => $notification->id,
+                    'recipient' => $notification->recipient_email,
+                ]);
             });
 
             $notification->markAsSent('message-id-' . time());
@@ -471,6 +545,43 @@ class EmailNotificationService
             ]);
 
             return false;
+        }
+    }
+
+    /**
+     * Apply common Mailgun headers for tagging and variables
+     */
+    private function applyMailgunHeaders($message, string $tag, ?int $orderId = null, array $variables = []): void
+    {
+        try {
+            $headers = $message->getHeaders();
+            $headers->addTextHeader('X-Mailgun-Tag', $tag);
+            $merged = array_merge([
+                'order_id' => $orderId,
+                'environment' => app()->environment(),
+            ], $variables);
+            $headers->addTextHeader('X-Mailgun-Variables', json_encode($merged));
+
+            // Enable per-message tracking if tracking domain configured
+            if (config('services.mailgun.tracking_domain')) {
+                $headers->addTextHeader('X-Mailgun-Track', 'yes');
+                $headers->addTextHeader('X-Mailgun-Track-Opens', 'yes');
+                $headers->addTextHeader('X-Mailgun-Track-Clicks', 'yes');
+            }
+            // Ensure we always have a tag array compatible with Mailgun
+            try {
+                if (method_exists($headers, 'has')) {
+                    // no-op: Symfony Mailer Mailgun transport already maps X-Mailgun-Tag
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to apply Mailgun headers', [
+                'error' => $e->getMessage(),
+                'tag' => $tag,
+                'order_id' => $orderId,
+            ]);
         }
     }
 
@@ -505,7 +616,11 @@ class EmailNotificationService
                 'login_url' => route('login'),
             ], function ($message) use ($user) {
                 $message->to($user->email, $user->name)
+                        ->from(config('mail.from.address'), config('mail.from.name'))
                         ->subject("🚀 You're Invited to Join the MSC Wound Care Platform 🚀");
+                $this->applyMailgunHeaders($message, 'user_invitation', null, [
+                    'user_id' => $user->id,
+                ]);
             });
 
             Log::info('User invitation sent', [
@@ -543,17 +658,21 @@ class EmailNotificationService
 
             $successCount = 0;
 
-            foreach ($admins as $admin) {
+        foreach ($admins as $admin) {
                 Mail::send('emails.order.new-order-admin', [
                     'order' => $order,
                     'order_id' => $order->id,
                     'provider_name' => $order->provider->name ?? 'Unknown Provider',
                     'date' => $order->created_at->format('F j, Y'),
                     'comment' => $comments,
-                    'order_link' => route('admin.orders.show', $order->id),
+            'order_link' => route('admin.orders.show', $order->id),
                 ], function ($message) use ($admin, $order) {
                     $message->to($admin->email, $admin->name)
-                            ->subject("📝 MSC: New Order Request Submitted by {$order->provider->name}");
+                ->from(config('mail.from.address'), config('mail.from.name'))
+                ->subject("📝 MSC: New Order Request Submitted by {$order->provider->name}");
+            $this->applyMailgunHeaders($message, 'order_submitted_admin', $order->id, [
+            'provider_id' => $order->provider_id,
+            ]);
                 });
 
                 $successCount++;
@@ -596,12 +715,14 @@ class EmailNotificationService
                 'manufacturer_name' => $order->manufacturer->name ?? 'Unknown Manufacturer',
                 'admin_name' => auth()->user()->name ?? 'MSC Admin',
                 'comments' => $comments,
-                'order_link' => route('provider.orders.show', $order->id),
+                'order_link' => $this->generateTrackingUrl($order),
                 'status_type' => 'IVR Verification Complete',
                 'status_emoji' => '✅',
             ], function ($message) use ($provider, $order) {
                 $message->to($provider->email, $provider->name)
+                        ->from(config('mail.from.address'), config('mail.from.name'))
                         ->subject("✅ MSC: IVR Verification Complete for Order #{$order->id}");
+                $this->applyMailgunHeaders($message, 'ivr_verified', $order->id);
             });
 
             Log::info('IVR verified notification sent to provider', [
@@ -635,19 +756,21 @@ class EmailNotificationService
                 return false;
             }
 
-            Mail::send('emails.order.status-update-provider', [
+        Mail::send('emails.order.status-update-provider', [
                 'order' => $order,
                 'order_id' => $order->id,
                 'provider_name' => $provider->name,
                 'manufacturer_name' => $order->manufacturer->name ?? 'Unknown Manufacturer',
                 'denial_reason' => $reason,
                 'comments' => $comments,
-                'order_link' => route('provider.orders.show', $order->id),
+        'order_link' => $this->generateTrackingUrl($order),
                 'status_type' => 'IVR Sent Back',
                 'status_emoji' => '❌',
             ], function ($message) use ($provider, $order) {
                 $message->to($provider->email, $provider->name)
-                        ->subject("❌ MSC: IVR Sent Back - #{$order->id}");
+            ->from(config('mail.from.address'), config('mail.from.name'))
+            ->subject("❌ MSC: IVR Sent Back - #{$order->id}");
+        $this->applyMailgunHeaders($message, 'ivr_sent_back', $order->id);
             });
 
             Log::info('IVR sent back notification sent to provider', [
@@ -684,7 +807,7 @@ class EmailNotificationService
 
             $successCount = 0;
 
-            foreach ($admins as $admin) {
+        foreach ($admins as $admin) {
                 Mail::send('emails.order.new-order-admin', [
                     'order' => $order,
                     'order_id' => $order->id,
@@ -695,7 +818,9 @@ class EmailNotificationService
                     'submission_type' => 'Order Form',
                 ], function ($message) use ($admin, $order) {
                     $message->to($admin->email, $admin->name)
-                            ->subject("📝 MSC: New Order Form Submitted by {$order->provider->name}");
+                ->from(config('mail.from.address'), config('mail.from.name'))
+                ->subject("📝 MSC: New Order Form Submitted by {$order->provider->name}");
+            $this->applyMailgunHeaders($message, 'order_form_submitted_admin', $order->id);
                 });
 
                 $successCount++;
@@ -732,18 +857,20 @@ class EmailNotificationService
                 return false;
             }
 
-            Mail::send('emails.order.status-update-provider', [
+        Mail::send('emails.order.status-update-provider', [
                 'order' => $order,
                 'order_id' => $order->id,
                 'manufacturer_name' => $order->manufacturer->name ?? 'Unknown Manufacturer',
                 'admin_name' => auth()->user()->name ?? 'MSC Admin',
                 'comments' => $comments,
-                'order_link' => route('provider.orders.show', $order->id),
+        'order_link' => $this->generateTrackingUrl($order),
                 'status_type' => 'Order Submitted to Manufacturer',
                 'status_emoji' => '✅',
             ], function ($message) use ($provider, $order) {
                 $message->to($provider->email, $provider->name)
-                        ->subject("✅ MSC: Order Submitted to Manufacturer - Order #{$order->id}");
+            ->from(config('mail.from.address'), config('mail.from.name'))
+            ->subject("✅ MSC: Order Submitted to Manufacturer - Order #{$order->id}");
+        $this->applyMailgunHeaders($message, 'order_submitted_to_manufacturer', $order->id);
             });
 
             Log::info('Order submitted to manufacturer notification sent to provider', [
@@ -777,19 +904,21 @@ class EmailNotificationService
                 return false;
             }
 
-            Mail::send('emails.order.status-update-provider', [
+        Mail::send('emails.order.status-update-provider', [
                 'order' => $order,
                 'order_id' => $order->id,
                 'provider_name' => $provider->name,
                 'manufacturer_name' => $order->manufacturer->name ?? 'Unknown Manufacturer',
                 'admin_name' => auth()->user()->name ?? 'MSC Admin',
                 'comments' => $comments,
-                'order_link' => route('provider.orders.show', $order->id),
+        'order_link' => $this->generateTrackingUrl($order),
                 'status_type' => 'Order Confirmed by Manufacturer',
                 'status_emoji' => '📦',
             ], function ($message) use ($provider, $order) {
                 $message->to($provider->email, $provider->name)
-                        ->subject("📦 MSC: Order Confirmed by Manufacturer - Order #{$order->id}");
+            ->from(config('mail.from.address'), config('mail.from.name'))
+            ->subject("📦 MSC: Order Confirmed by Manufacturer - Order #{$order->id}");
+        $this->applyMailgunHeaders($message, 'manufacturer_confirmed', $order->id);
             });
 
             Log::info('Manufacturer confirmation notification sent to provider', [
@@ -823,16 +952,18 @@ class EmailNotificationService
                 return false;
             }
 
-            Mail::send('emails.order.status-update-provider', [
+        Mail::send('emails.order.status-update-provider', [
                 'order' => $order,
                 'order_id' => $order->id,
                 'denial_reason' => $reason,
-                'order_link' => route('provider.orders.show', $order->id),
+        'order_link' => $this->generateTrackingUrl($order),
                 'status_type' => 'Order Denied',
                 'status_emoji' => '❌',
             ], function ($message) use ($provider, $order) {
                 $message->to($provider->email, $provider->name)
-                        ->subject("❌ MSC Order Denied - #{$order->id}");
+            ->from(config('mail.from.address'), config('mail.from.name'))
+            ->subject("❌ MSC Order Denied - #{$order->id}");
+        $this->applyMailgunHeaders($message, 'order_denied', $order->id);
             });
 
             Log::info('Order denied notification sent to provider', [
@@ -869,7 +1000,7 @@ class EmailNotificationService
 
             $successCount = 0;
 
-            foreach ($admins as $admin) {
+        foreach ($admins as $admin) {
                 Mail::send('emails.admin.help-request', [
                     'provider' => $provider,
                     'provider_name' => $provider->name,
@@ -877,8 +1008,10 @@ class EmailNotificationService
                     'comment' => $comment,
                 ], function ($message) use ($admin, $provider) {
                     $message->to($admin->email, $admin->name)
-                            ->subject("MSC Support Requested by {$provider->name}")
+                ->from(config('mail.from.address'), config('mail.from.name'))
+                ->subject("MSC Support Requested by {$provider->name}")
                             ->replyTo($provider->email, $provider->name);
+            $this->applyMailgunHeaders($message, 'help_request');
                 });
 
                 $successCount++;
@@ -922,6 +1055,7 @@ class EmailNotificationService
                             'user_id' => $user->id,
                             'type' => 'password-reset',
                         ]));
+                $this->applyMailgunHeaders($message, 'password-reset', null, [ 'user_id' => $user->id ]);
             });
             
             $this->logEmail($user->id, 'password-reset', $user->email);
@@ -961,6 +1095,7 @@ class EmailNotificationService
                             'user_id' => $user->id,
                             'type' => 'password-reset-confirmation',
                         ]));
+                $this->applyMailgunHeaders($message, 'password-reset-confirmation', null, [ 'user_id' => $user->id ]);
             });
             
             $this->logEmail($user->id, 'password-reset-confirmation', $user->email);
@@ -990,6 +1125,19 @@ class EmailNotificationService
             'user' => $userId,
             'type' => $type,
             'timestamp' => time()
+        ]);
+    }
+
+    /**
+     * Generate signed tracking URL for provider order access
+     */
+    private function generateTrackingUrl(ProductRequest $order): string
+    {
+        // Token logic mirrors route definition in web.php
+        $token = substr(hash('sha256', $order->id . $order->created_at . config('app.key')), 0, 16);
+        return route('order.track', [
+            'order' => $order->id,
+            'token' => $token,
         ]);
     }
 

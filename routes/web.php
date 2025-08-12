@@ -92,6 +92,20 @@ Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
     return 'No FHIR data found';
 });
 
+// Lightweight email tracking pixel route (no PII stored)
+Route::get('/t/p', function (Request $request) {
+    Log::info('Email tracking pixel hit', [
+        'user' => $request->query('user'),
+        'type' => $request->query('type'),
+        'timestamp' => $request->query('timestamp'),
+        'ip' => $request->ip(),
+        'ua' => $request->userAgent(),
+    ]);
+    // Return 1x1 transparent PNG
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAGyALdQd3MkgAAAABJRU5ErkJggg==');
+    return response($png, 200)->header('Content-Type', 'image/png');
+})->name('email.track');
+
 // Removed debug CSRF routes - security vulnerability fixed
 
 // AI Support Escalation Route
@@ -988,12 +1002,12 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::middleware(['permission:manage-orders'])->prefix('admin/docuseal')->group(function () {
         // Template management
         Route::get('/templates', function () {
-            return Inertia::render('Admin/Docuseal/Templates');
+            return Inertia::render('Admin/DocuSeal/Templates');
         })->name('admin.docuseal.templates');
 
         // Analytics dashboard
         Route::get('/analytics', function () {
-            return Inertia::render('Admin/Docuseal/Analytics');
+            return Inertia::render('Admin/DocuSeal/Analytics');
         })->name('admin.docuseal.analytics');
     });
 

@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from 'react';
 import { FiAlertCircle } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -59,7 +60,6 @@ interface Step4Props {
 export default function Step4ClinicalBilling({
   formData,
   updateFormData,
-  diagnosisCodes,
   woundArea,
   errors
 }: Step4Props) {
@@ -74,6 +74,32 @@ export default function Step4ClinicalBilling({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
+
+  // MCP diagnosis code state
+  const [diagnosisCodes, setDiagnosisCodes] = useState<{ yellow: Array<{ code: string; description: string }>; orange: Array<{ code: string; description: string }> }>({ yellow: [], orange: [] });
+
+  // Fetch diagnosis codes from MCP server when wound_type changes
+  useEffect(() => {
+    async function fetchDiagnosisCodes() {
+      if (!formData.wound_type) {
+        setDiagnosisCodes({ yellow: [], orange: [] });
+        return;
+      }
+      try {
+        // Example MCP server endpoint; adjust as needed
+        const response = await fetch(`/api/icd10/search?woundType=${encodeURIComponent(formData.wound_type)}`);
+        const data = await response.json();
+        // Expecting { yellow: [...], orange: [...] } structure
+        setDiagnosisCodes({
+          yellow: data.yellow || [],
+          orange: data.orange || []
+        });
+      } catch (err) {
+        setDiagnosisCodes({ yellow: [], orange: [] });
+      }
+    }
+    fetchDiagnosisCodes();
+  }, [formData.wound_type]);
 
   // Wound location options
   const woundLocations = [

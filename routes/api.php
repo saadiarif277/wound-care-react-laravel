@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\AiChatController;
 use App\Http\Controllers\Api\ManufacturerController;
 use App\Http\Controllers\Api\V1\ReferenceDataController;
 use App\Http\Controllers\Api\FileUploadController;
+use App\Http\Controllers\Webhooks\MailgunWebhookController;
 
 // File Upload Routes
 Route::prefix('v1')->group(function () {
@@ -40,6 +41,9 @@ Route::prefix('v1')->group(function () {
         Route::post('validate-file', [FileUploadController::class, 'validateFile'])->name('validate_file');
     });
 });
+
+// Mailgun Webhook (public)
+Route::post('/webhooks/mailgun', [MailgunWebhookController::class, 'handle'])->name('webhooks.mailgun');
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->group(function () {
@@ -379,7 +383,14 @@ Route::prefix('fhir')->middleware(['auth:sanctum'])->name('fhir.')->group(functi
 // });
 
 // Field Mapping Management Routes (moved outside deprecated Docuseal group)
-Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->name('docuseal.')->group(function () {
+Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('docuseal.')->group(function () {
+    // Admin Templates Dashboard Endpoints
+    Route::get('templates', [\App\Http\Controllers\Api\V1\DocuSealAdminController::class, 'templates']);
+    Route::get('templates/{id}/mapping-stats', [\App\Http\Controllers\Api\V1\DocuSealAdminController::class, 'mappingStats']);
+    Route::get('canonical-fields', [\App\Http\Controllers\Api\V1\DocuSealAdminController::class, 'canonicalFields']);
+    Route::post('sync', [\App\Http\Controllers\Api\V1\DocuSealAdminController::class, 'sync']);
+    Route::post('test-sync', [\App\Http\Controllers\Api\V1\DocuSealAdminController::class, 'testSync']);
+    Route::post('templates/{id}/field-mappings/validate', [\App\Http\Controllers\Api\V1\DocuSealAdminController::class, 'validateMappings']);
     // Field Mapping Management Routes - COMMENTED OUT - TemplateMappingController doesn't exist
     // Route::get('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getFieldMappings'])->name('mappings.get');
     // Route::post('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'updateFieldMappings'])->name('mappings.update');

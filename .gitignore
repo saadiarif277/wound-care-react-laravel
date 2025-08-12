@@ -18,6 +18,7 @@ npm-debug.log
 /.idea
 /.vscode
 .vercel
+.azure
 
 # Testing
 /tests/Manual/temp/

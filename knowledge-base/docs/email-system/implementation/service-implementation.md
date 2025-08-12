@@ -13,6 +13,7 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 ## Core Features
 
 ### 🔧 Service Infrastructure
+
 - **Queue Integration**: All emails can be queued for asynchronous processing
 - **Error Handling**: Comprehensive try-catch blocks with detailed logging
 - **Template Engine**: Uses Blade templates with consistent variable passing
@@ -20,6 +21,7 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 - **Status Tracking**: Integration with email delivery status monitoring
 
 ### 📧 Email Configuration
+
 - **Provider**: Configured for Mailgun integration
 - **Templates**: Responsive, accessible HTML templates
 - **Personalization**: Dynamic content based on recipient and context
@@ -28,7 +30,9 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 ## Available Notification Methods
 
 ### 1. User Onboarding
+
 #### `sendUserInvitation(User $user, string $role): bool`
+
 **Purpose**: Welcome new users to the platform  
 **Triggers**: New user account creation, role assignment  
 **Recipients**: New user  
@@ -37,7 +41,9 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 **Subject**: "🚀 You're Invited to Join the MSC Wound Care Platform 🚀"
 
 ### 2. Order Submission Notifications
+
 #### `sendOrderSubmittedToAdmin(ProductRequest $order, ?string $comments = null): bool`
+
 **Purpose**: Notify admins of new order submissions  
 **Triggers**: Provider submits new order request  
 **Recipients**: All admin users  
@@ -46,6 +52,7 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 **Subject**: "📝 MSC: New Order Request Submitted by {provider_name}"
 
 #### `sendOrderFormSubmittedToAdmin(ProductRequest $order, ?string $comments = null): bool`
+
 **Purpose**: Notify admins of order form submissions  
 **Triggers**: Provider completes and submits order form  
 **Recipients**: All admin users  
@@ -54,7 +61,9 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 **Subject**: "📝 MSC: New Order Form Submitted by {provider_name}"
 
 ### 3. IVR Status Notifications
+
 #### `sendIvrVerifiedToProvider(ProductRequest $order, ?string $comments = null): bool`
+
 **Purpose**: Notify provider that IVR verification is complete  
 **Triggers**: Admin marks IVR as verified in system  
 **Recipients**: Requesting provider  
@@ -63,6 +72,7 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 **Subject**: "✅ MSC: IVR Verification Complete for Order #{order_id}"
 
 #### `sendIvrSentBackToProvider(ProductRequest $order, string $reason, ?string $comments = null): bool`
+
 **Purpose**: Notify provider that IVR was sent back for revision  
 **Triggers**: Admin marks IVR as requiring revision  
 **Recipients**: Requesting provider  
@@ -71,7 +81,9 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 **Subject**: "❌ MSC: IVR Sent Back - #{order_id}"
 
 ### 4. Order Processing Notifications
+
 #### `sendOrderSubmittedToManufacturerNotification(ProductRequest $order, ?string $comments = null): bool`
+
 **Purpose**: Notify provider that order was submitted to manufacturer  
 **Triggers**: Admin submits order to manufacturer  
 **Recipients**: Requesting provider  
@@ -80,6 +92,7 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 **Subject**: "✅ MSC: Order Submitted to Manufacturer - Order #{order_id}"
 
 #### `sendManufacturerConfirmationToProvider(ProductRequest $order, ?string $comments = null): bool`
+
 **Purpose**: Notify provider that manufacturer confirmed the order  
 **Triggers**: Manufacturer confirms order receipt and processing  
 **Recipients**: Requesting provider  
@@ -88,6 +101,7 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 **Subject**: "📦 MSC: Order Confirmed by Manufacturer - Order #{order_id}"
 
 #### `sendOrderDeniedToProvider(ProductRequest $order, string $reason): bool`
+
 **Purpose**: Notify provider that order was denied  
 **Triggers**: Admin or system denies order request  
 **Recipients**: Requesting provider  
@@ -96,7 +110,9 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 **Subject**: "❌ MSC Order Denied - #{order_id}"
 
 ### 5. Support & Help
+
 #### `sendHelpRequest(Provider $provider, string $comment): bool`
+
 **Purpose**: Notify admins of provider support requests  
 **Triggers**: Provider submits help/support request through portal  
 **Recipients**: All admin users  
@@ -108,11 +124,13 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 ## Helper Methods
 
 ### `getOrderRequestor(ProductRequest $order): ?User`
+
 **Purpose**: Safely retrieve the user who submitted an order  
 **Returns**: User object or null if not found  
 **Usage**: Internal helper for notification methods
 
 ### `getNotificationStats(ProductRequest $order): array`
+
 **Purpose**: Generate notification statistics for an order  
 **Returns**: Array with counts of total, pending, sent, delivered, failed, and recent notifications  
 **Usage**: Dashboard analytics and reporting
@@ -120,6 +138,7 @@ The `EmailNotificationService` is a comprehensive Laravel service that handles a
 ## Error Handling & Logging
 
 ### Logging Strategy
+
 ```php
 // Success logging
 Log::info('Notification sent successfully', [
@@ -137,6 +156,7 @@ Log::error('Failed to send notification', [
 ```
 
 ### Exception Handling
+
 - All notification methods use try-catch blocks
 - Graceful degradation when recipients are not found
 - Boolean return values for easy status checking
@@ -145,6 +165,7 @@ Log::error('Failed to send notification', [
 ## Template Variables Reference
 
 ### Common Variables (Available in Most Templates)
+
 - `order_id`: Unique order identifier
 - `order_link`: Deep link to order details page
 - `provider_name`: Name of the requesting provider
@@ -154,12 +175,14 @@ Log::error('Failed to send notification', [
 - `date`: Formatted submission/update date
 
 ### Status-Specific Variables
+
 - `status_type`: Human-readable status description
 - `status_emoji`: Visual indicator for status
 - `denial_reason`: Reason for order/IVR denial
 - `submission_type`: Type of submission (Order Request vs Order Form)
 
 ### User-Specific Variables
+
 - `user`: Full user object
 - `first_name`: User's first name
 - `role`: User's role in the system
@@ -168,6 +191,7 @@ Log::error('Failed to send notification', [
 ## Usage Examples
 
 ### Basic Notification
+
 ```php
 use App\Services\EmailNotificationService;
 
@@ -182,6 +206,7 @@ if ($success) {
 ```
 
 ### With Error Handling
+
 ```php
 try {
     $emailService = new EmailNotificationService();
@@ -199,6 +224,7 @@ try {
 ```
 
 ### Bulk Notifications
+
 ```php
 $emailService = new EmailNotificationService();
 $results = [];
@@ -217,6 +243,7 @@ Log::info("Sent {$successCount} notifications successfully");
 ## Integration Points
 
 ### Controller Integration
+
 ```php
 // In OrderController
 public function submitToManufacturer(ProductRequest $order, Request $request)
@@ -234,6 +261,7 @@ public function submitToManufacturer(ProductRequest $order, Request $request)
 ```
 
 ### Queue Integration
+
 ```php
 // For high-volume notifications
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -252,6 +280,7 @@ class SendNotificationJob implements ShouldQueue
 ```
 
 ### Event Integration
+
 ```php
 // In EventServiceProvider
 protected $listen = [
@@ -277,6 +306,7 @@ public function handle(OrderStatusChanged $event)
 ## Best Practices
 
 ### 1. **Always Check Return Values**
+
 ```php
 if (!$emailService->sendNotification($order)) {
     // Handle failure case
@@ -285,12 +315,14 @@ if (!$emailService->sendNotification($order)) {
 ```
 
 ### 2. **Use Descriptive Comments**
+
 ```php
 $comments = "Order expedited due to urgent patient need. Priority processing requested.";
 $emailService->sendOrderSubmittedToAdmin($order, $comments);
 ```
 
 ### 3. **Validate Recipients**
+
 ```php
 if (!$provider || !$provider->email) {
     Log::warning('Cannot send notification - invalid recipient');
@@ -299,6 +331,7 @@ if (!$provider || !$provider->email) {
 ```
 
 ### 4. **Consistent Error Handling**
+
 ```php
 try {
     return $emailService->sendNotification($data);
@@ -315,6 +348,7 @@ try {
 ## Testing
 
 ### Unit Tests
+
 ```php
 // Test successful notification
 public function test_sends_ivr_verified_notification()
@@ -344,6 +378,7 @@ public function test_handles_missing_recipient_gracefully()
 ```
 
 ### Manual Testing
+
 1. **Use the email preview system** in the knowledge base
 2. **Test with real email addresses** in development
 3. **Verify deep links** work correctly
@@ -353,6 +388,7 @@ public function test_handles_missing_recipient_gracefully()
 ## Maintenance
 
 ### Adding New Notifications
+
 1. **Add method to EmailNotificationService**
 2. **Create or update Blade template**
 3. **Add to this documentation**
@@ -360,12 +396,14 @@ public function test_handles_missing_recipient_gracefully()
 5. **Update preview system**
 
 ### Template Updates
+
 1. **Maintain accessibility standards**
 2. **Test mobile responsiveness**
 3. **Preserve existing variable contracts**
 4. **Update preview files**
 
 ### Performance Monitoring
+
 - Monitor email delivery rates
 - Track notification success/failure rates
 - Log timing for performance optimization

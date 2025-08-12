@@ -16,10 +16,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 6. Make every task and code change you do as simple as possible. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
 
-7. Finally, add a review section to the [todo.md](http://todo.md/) file with a summary of the changes you made and any other relevant information. 
+7. Finally, add a review section to the [todo.md](http://todo.md/) file with a summary of the changes you made and any other relevant information.
 
 8. Put that todo.md in a new Folder you make under ./tasks/* and name the folder after the subject of the todo.md was
-
 
 ## Project Overview
 
@@ -38,6 +37,7 @@ MSC Wound Portal - A HIPAA-compliant healthcare platform for wound care manageme
 ## Development Commands
 
 ### Setup & Installation
+
 ```bash
 # Install dependencies
 composer install
@@ -54,6 +54,7 @@ php artisan db:seed
 ```
 
 ### Development
+
 ```bash
 # Start Laravel development server
 php artisan serve
@@ -66,6 +67,7 @@ npm run prod
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 npm run test:all
@@ -84,6 +86,7 @@ php artisan test --testsuite=Feature
 ```
 
 ### Code Quality
+
 ```bash
 # Lint TypeScript/React code
 npm run lint
@@ -99,6 +102,7 @@ npm run type-check
 ## Architecture Overview
 
 ### Service Layer Pattern
+
 The application uses a comprehensive service layer for business logic:
 
 - **FhirService**: FHIR data management and Azure Health Data Services integration
@@ -119,12 +123,14 @@ The application uses a comprehensive service layer for business logic:
 ### Data Architecture
 
 **Non-PHI (Azure SQL)**:
+
 - Users, organizations, facilities
 - Product catalogs, pricing
 - Orders, commissions
 - System configuration
 
 **PHI (Azure FHIR)**:
+
 - Patient demographics
 - Clinical documentation
 - Insurance information
@@ -141,6 +147,7 @@ The application uses a comprehensive service layer for business logic:
 ## Key Workflows
 
 ### Quick Request Flow
+
 1. Provider initiates product request
 2. Patient data captured (PHI to FHIR)
 3. Insurance eligibility verification
@@ -150,12 +157,14 @@ The application uses a comprehensive service layer for business logic:
 7. Order fulfillment tracking
 
 ### Episode-Based Orders
+
 - Orders grouped by patient care episodes
 - IVR (Insurance Verification Request) per episode
 - Manufacturer-specific document templates
 - Real-time status tracking via webhooks
 
 ### Commission System
+
 - Hierarchical rule matching (product → manufacturer → category)
 - Role-based commission visibility
 - Automated payout calculations
@@ -164,17 +173,20 @@ The application uses a comprehensive service layer for business logic:
 ## Important Services & Features
 
 ### Docuseal Integration
+
 - Template-based document generation
 - AI-powered field mapping
 - Webhook status updates
 - Per-manufacturer custom fields
 
 ### FHIR Integration
+
 - Currently local storage, Azure FHIR ready
 - Patient, Practitioner, DocumentReference resources
 - Compliant data handling with audit trails
 
 ### Validation Engines
+
 - WoundCareValidationEngine
 - PulmonologyWoundCareValidationEngine
 - Extensible for new care types
@@ -182,12 +194,14 @@ The application uses a comprehensive service layer for business logic:
 ## Common Tasks
 
 ### Adding a New Manufacturer Template
+
 1. Create template in Docuseal
 2. Run sync command: `php artisan docuseal:sync`
 3. Map fields: `php artisan field-mapping:map {templateId}`
 4. Test integration: `php artisan docuseal:test {templateId}`
 
 ### Debugging FHIR Issues
+
 ```bash
 # Check FHIR service status
 php artisan fhir:status
@@ -200,6 +214,7 @@ php artisan fhir:audit --recent
 ```
 
 ### Managing Permissions
+
 - Permissions defined in migration files
 - Assigned to roles via seeders
 - Check user permissions: `php artisan user:permissions {email}`
@@ -212,6 +227,7 @@ php artisan fhir:audit --recent
 - **E2E Tests**: Complete workflows (Quick Request, Orders)
 
 Run specific test files:
+
 ```bash
 php artisan test tests/Feature/QuickRequestTest.php
 php artisan test --filter=Docuseal
@@ -220,6 +236,7 @@ php artisan test --filter=Docuseal
 ## Environment Configuration
 
 Key environment variables:
+
 - `FHIR_BASE_URL`: Azure FHIR endpoint
 - `DOCUSEAL_API_KEY`: Docuseal authentication
 - `AZURE_AI_*`: AI service credentials
@@ -235,6 +252,7 @@ Key environment variables:
 ## Deployment
 
 The application supports Azure deployment with:
+
 - Azure App Service for Laravel
 - Azure SQL Database
 - Azure Health Data Services (FHIR)
