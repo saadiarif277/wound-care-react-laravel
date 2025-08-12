@@ -82,12 +82,69 @@ const mapFormDataToOrderData = (formData: any, providers: Array<any> = [], facil
       woundSize: formData?.wound_size_length && formData?.wound_size_width
         ? `${formData.wound_size_length} x ${formData.wound_size_width}cm`
         : 'N/A',
-      diagnosisCodes: Array.isArray(formData?.diagnosis_codes)
-        ? formData.diagnosis_codes.map((code: any) => ({
-            code: typeof code === 'string' ? code : code?.code || 'N/A',
-            description: typeof code === 'object' ? code?.description || 'N/A' : 'N/A'
-          }))
-        : [],
+      diagnosisCodes: (() => {
+        // Handle multiple diagnosis code formats from different QuickRequest steps
+        const codes = [];
+
+        // Check for new diagnosis code fields
+        if (formData?.primary_diagnosis_code) {
+          codes.push({
+            code: formData.primary_diagnosis_code,
+            description: formData.primary_diagnosis_description || 'Primary Diagnosis'
+          });
+        }
+
+        if (formData?.secondary_diagnosis_code) {
+          codes.push({
+            code: formData.secondary_diagnosis_code,
+            description: formData.secondary_diagnosis_description || 'Secondary Diagnosis'
+          });
+        }
+
+        // Check for old diagnosis code fields
+        if (formData?.yellow_diagnosis_code) {
+          codes.push({
+            code: formData.yellow_diagnosis_code,
+            description: 'Yellow Wound Diagnosis'
+          });
+        }
+
+        if (formData?.orange_diagnosis_code) {
+          codes.push({
+            code: formData.orange_diagnosis_code,
+            description: 'Orange Wound Diagnosis'
+          });
+        }
+
+        if (formData?.pressure_ulcer_diagnosis_code) {
+          codes.push({
+            code: formData.pressure_ulcer_diagnosis_code,
+            description: 'Pressure Ulcer Diagnosis'
+          });
+        }
+
+        // Check for array format
+        if (Array.isArray(formData?.diagnosis_codes)) {
+          formData.diagnosis_codes.forEach((code: any) => {
+            codes.push({
+              code: typeof code === 'string' ? code : code?.code || 'N/A',
+              description: typeof code === 'object' ? code?.description || 'N/A' : 'N/A'
+            });
+          });
+        }
+
+        // Check for icd10_codes
+        if (Array.isArray(formData?.icd10_codes)) {
+          formData.icd10_codes.forEach((code: any) => {
+            codes.push({
+              code: typeof code === 'string' ? code : code?.code || 'N/A',
+              description: typeof code === 'object' ? code?.description || 'N/A' : 'N/A'
+            });
+          });
+        }
+
+        return codes;
+      })(),
       icd10Codes: Array.isArray(formData?.icd10_codes)
         ? formData.icd10_codes.map((code: any) => ({
             code: typeof code === 'string' ? code : code?.code || 'N/A',
@@ -118,6 +175,192 @@ const mapFormDataToOrderData = (formData: any, providers: Array<any> = [], facil
       submissionDate: formData?.order_form_completed_at || 'N/A',
       documentLink: formData?.order_form_link || '',
     },
+    // Comprehensive clinical summary with All_data key for ProductRequest show.tsx compatibility
+    clinical_summary: {
+      All_data: {
+        // Patient Information
+        patient: {
+          first_name: formData?.patient_first_name,
+          last_name: formData?.patient_last_name,
+          full_name: `${formData?.patient_first_name || ''} ${formData?.patient_last_name || ''}`.trim(),
+          date_of_birth: formData?.patient_dob,
+          gender: formData?.patient_gender,
+          member_id: formData?.patient_member_id,
+          display_id: formData?.patient_display_id,
+          address: formData?.patient_address ||
+                   (formData?.patient_address_line1 ?
+                     `${formData.patient_address_line1}${formData.patient_address_line2 ? ', ' + formData.patient_address_line2 : ''}, ${formData.patient_city || ''}, ${formData.patient_state || ''} ${formData.patient_zip || ''}` : ''),
+          phone: formData?.patient_phone,
+          email: formData?.patient_email,
+          is_subscriber: formData?.patient_is_subscriber !== false,
+          caregiver_name: formData?.caregiver_name,
+          caregiver_relationship: formData?.caregiver_relationship,
+          caregiver_phone: formData?.caregiver_phone,
+        },
+
+        // Insurance Information
+        insurance: {
+          primary: {
+            name: formData?.primary_insurance_name,
+            member_id: formData?.primary_member_id,
+            plan_type: formData?.primary_plan_type,
+            payer_phone: formData?.primary_payer_phone,
+          },
+          secondary: formData?.has_secondary_insurance ? {
+            name: formData?.secondary_insurance_name,
+            member_id: formData?.secondary_member_id,
+            subscriber_name: formData?.secondary_subscriber_name,
+            subscriber_dob: formData?.secondary_subscriber_dob,
+            payer_phone: formData?.secondary_payer_phone,
+            plan_type: formData?.secondary_plan_type,
+          } : null,
+          has_secondary: formData?.has_secondary_insurance || false,
+          prior_auth_permission: formData?.prior_auth_permission || false,
+        },
+
+        // Clinical Information
+        clinical: {
+          wound_type: formData?.wound_type,
+          wound_types: formData?.wound_types || [],
+          wound_other_specify: formData?.wound_other_specify,
+          wound_location: formData?.wound_location,
+          wound_location_details: formData?.wound_location_details,
+          wound_size_length: formData?.wound_size_length,
+          wound_size_width: formData?.wound_size_width,
+          wound_size_depth: formData?.wound_size_depth,
+          wound_duration: formData?.wound_duration,
+          wound_duration_days: formData?.wound_duration_days,
+          wound_duration_weeks: formData?.wound_duration_weeks,
+          wound_duration_months: formData?.wound_duration_months,
+          wound_duration_years: formData?.wound_duration_years,
+          previous_treatments: formData?.previous_treatments,
+          previous_treatments_selected: formData?.previous_treatments_selected || {},
+          failed_conservative_treatment: formData?.failed_conservative_treatment || false,
+          information_accurate: formData?.information_accurate || false,
+          medical_necessity_established: formData?.medical_necessity_established || false,
+          maintain_documentation: formData?.maintain_documentation || false,
+
+          // Diagnosis Codes (comprehensive)
+          diagnosis_codes: (() => {
+            const codes = [];
+            if (formData?.primary_diagnosis_code) codes.push(formData.primary_diagnosis_code);
+            if (formData?.secondary_diagnosis_code) codes.push(formData.secondary_diagnosis_code);
+            if (formData?.yellow_diagnosis_code) codes.push(formData.yellow_diagnosis_code);
+            if (formData?.orange_diagnosis_code) codes.push(formData.orange_diagnosis_code);
+            if (formData?.pressure_ulcer_diagnosis_code) codes.push(formData.pressure_ulcer_diagnosis_code);
+            if (Array.isArray(formData?.diagnosis_codes)) codes.push(...formData.diagnosis_codes);
+            if (Array.isArray(formData?.icd10_codes)) codes.push(...formData.icd10_codes);
+            return codes;
+          })(),
+          primary_diagnosis_code: formData?.primary_diagnosis_code,
+          secondary_diagnosis_code: formData?.secondary_diagnosis_code,
+          yellow_diagnosis_code: formData?.yellow_diagnosis_code,
+          orange_diagnosis_code: formData?.orange_diagnosis_code,
+          pressure_ulcer_diagnosis_code: formData?.pressure_ulcer_diagnosis_code,
+
+          // CPT Codes
+          application_cpt_codes: formData?.application_cpt_codes || [],
+          application_cpt_codes_other: formData?.application_cpt_codes_other,
+
+          // Procedure Information
+          prior_applications: formData?.prior_applications,
+          prior_application_product: formData?.prior_application_product,
+          prior_application_within_12_months: formData?.prior_application_within_12_months,
+          anticipated_applications: formData?.anticipated_applications,
+
+          // Billing Status
+          place_of_service: formData?.place_of_service,
+          medicare_part_b_authorized: formData?.medicare_part_b_authorized,
+          snf_days: formData?.snf_days,
+          hospice_status: formData?.hospice_status,
+          hospice_family_consent: formData?.hospice_family_consent,
+          hospice_clinically_necessary: formData?.hospice_clinically_necessary,
+          part_a_status: formData?.part_a_status,
+          global_period_status: formData?.global_period_status,
+          global_period_cpt: formData?.global_period_cpt,
+          global_period_surgery_date: formData?.global_period_surgery_date,
+        },
+
+        // Product Selection
+        product_selection: {
+          selected_products: formData?.selected_products || [],
+          manufacturer_id: formData?.manufacturer_id,
+          manufacturer_name: formData?.manufacturer,
+          product_id: formData?.product_id,
+          product_code: formData?.product_code,
+          product_name: formData?.product_name,
+          size: formData?.size,
+          quantity: formData?.quantity,
+          manufacturer_fields: formData?.manufacturer_fields || {},
+        },
+
+        // Order Preferences
+        order_preferences: {
+          expected_service_date: formData?.expected_service_date,
+          shipping_speed: formData?.shipping_speed,
+          place_of_service: formData?.place_of_service,
+        },
+
+        // Provider Information
+        provider: {
+          id: formData?.provider_id,
+          name: formData?.provider_name,
+          npi: formData?.provider_npi,
+          email: formData?.provider_email,
+          phone: formData?.provider_phone,
+          specialty: formData?.provider_specialty,
+          credentials: formData?.provider_credentials,
+        },
+
+        // Facility Information
+        facility: {
+          id: formData?.facility_id,
+          name: formData?.facility_name,
+          address: formData?.facility_address ||
+                   (formData?.facility_address_line1 ?
+                     `${formData.facility_address_line1}${formData.facility_address_line2 ? ', ' + formData.facility_address_line2 : ''}, ${formData.facility_city || ''}, ${formData.facility_state || ''} ${formData.facility_zip || ''}` : ''),
+          phone: formData?.facility_phone,
+          fax: formData?.facility_fax,
+          email: formData?.facility_email,
+          npi: formData?.facility_npi,
+          tax_id: formData?.facility_tax_id,
+        },
+
+        // Documents and Attachments
+        documents: {
+          insurance_card_front: formData?.insurance_card_front,
+          insurance_card_back: formData?.insurance_card_back,
+          insurance_card_auto_filled: formData?.insurance_card_auto_filled,
+          face_sheet: formData?.face_sheet,
+          clinical_notes: formData?.clinical_notes,
+          wound_photo: formData?.wound_photo,
+        },
+
+        // Attestations
+        attestations: {
+          failed_conservative_treatment: formData?.failed_conservative_treatment || false,
+          information_accurate: formData?.information_accurate || false,
+          medical_necessity_established: formData?.medical_necessity_established || false,
+          maintain_documentation: formData?.maintain_documentation || false,
+          authorize_prior_auth: formData?.authorize_prior_auth || false,
+        },
+
+        // DocuSeal Information
+        docuseal: {
+          submission_id: formData?.docuseal_submission_id,
+          ivr_document_url: formData?.ivr_document_url,
+        },
+
+        // Metadata
+        metadata: {
+          created_at: formData?.created_at || new Date().toISOString(),
+          episode_id: formData?.episode_id,
+          order_status: formData?.order_status || 'draft',
+          step: formData?.step || 6,
+          submission_method: 'quick_request',
+        }
+      }
+    }
   };
 };
 
@@ -186,19 +429,61 @@ export default function Step6ReviewSubmit({
     if (item.product) {
       return item.product;
     }
+
+    // Check if item has direct product properties
+    if (item.product_name || item.product_code) {
+      return {
+        name: item.product_name,
+        code: item.product_code || item.q_code,
+        manufacturer: item.manufacturer,
+        price: item.price || item.unit_price,
+        discounted_price: item.discounted_price,
+        description: item.description
+      };
+    }
+
     // Fallback to products array if needed
-    return products.find(product => product.id === item.product_id);
+    if (item.product_id && products.length > 0) {
+      return products.find(product => product.id === item.product_id);
+    }
+
+    // Last resort - return item itself if it has basic product info
+    return item;
   };
 
-  // Calculate total bill from form data
+    // Calculate total bill from form data
   const calculateTotalBill = () => {
     if (!formData.selected_products) return 0;
     return formData.selected_products.reduce((total: number, item: any) => {
       const product = getSelectedProductDetails(item);
-      const price = product?.price || product?.discounted_price || 0;
+      // Try multiple price fields
+      const price = product?.price ||
+                   product?.discounted_price ||
+                   product?.unit_price ||
+                   item.price ||
+                   item.unit_price ||
+                   0;
       return total + (price * item.quantity);
     }, 0);
   };
+
+  // Debug logging for troubleshooting
+  console.log('Step6ReviewSubmit Debug:', {
+    formData: {
+      selected_products: formData?.selected_products,
+      diagnosis_codes: formData?.diagnosis_codes,
+      primary_diagnosis_code: formData?.primary_diagnosis_code,
+      secondary_diagnosis_code: formData?.secondary_diagnosis_code,
+      wound_type: formData?.wound_type,
+    },
+    products: products,
+    orderData: {
+      clinical: orderData.clinical,
+      product: orderData.product,
+      clinical_summary: orderData.clinical_summary,
+    },
+    calculatedTotal: calculateTotalBill(),
+  });
 
   const handleSubmit = async () => {
     if (!confirmChecked) return;
