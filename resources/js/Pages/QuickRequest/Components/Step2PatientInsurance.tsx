@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { FiCreditCard, FiRefreshCw, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
 import { cn } from '@/theme/glass-theme';
 import GoogleAddressAutocompleteWithFallback, { ParsedAddressComponents } from '@/Components/GoogleAddressAutocompleteWithFallback';
@@ -36,6 +36,7 @@ interface Step2Props {
     role?: string;
     id?: number;
   };
+  onStepComplete?: (stepData: any) => void;
 }
 
 function Step2PatientInsurance({
@@ -44,7 +45,8 @@ function Step2PatientInsurance({
   errors,
   facilities = [],
   providers = [],
-  currentUser
+  currentUser,
+  onStepComplete
 }: Step2Props) {
 
 
@@ -59,6 +61,77 @@ function Step2PatientInsurance({
   const [clinicalDocPreview, setClinicalDocPreview] = useState<string | null>(null);
   const [isProcessingClinicalDoc, setIsProcessingClinicalDoc] = useState(false);
   const [clinicalDocSuccess, setClinicalDocSuccess] = useState(false);
+
+  // Call onStepComplete when step data is complete
+  useEffect(() => {
+    if (onStepComplete) {
+      const stepData = {
+        // Patient Information
+        patient: {
+          name: `${formData.patient_first_name || ''} ${formData.patient_last_name || ''}`.trim(),
+          firstName: formData.patient_first_name,
+          lastName: formData.patient_last_name,
+          dob: formData.patient_dob,
+          gender: formData.patient_gender,
+          phone: formData.patient_phone,
+          email: formData.patient_email,
+          address: formData.patient_address_line1 ?
+            `${formData.patient_address_line1}${formData.patient_address_line2 ? ', ' + formData.patient_address_line2 : ''}, ${formData.patient_city || ''}, ${formData.patient_state || ''} ${formData.patient_zip || ''}` : '',
+          memberId: formData.patient_member_id,
+          displayId: formData.patient_display_id,
+          isSubscriber: formData.patient_is_subscriber,
+          caregiver_name: formData.caregiver_name,
+          caregiver_relationship: formData.caregiver_relationship,
+          caregiver_phone: formData.caregiver_phone,
+        },
+        // Insurance Information
+        insurance: {
+          primary: {
+            name: formData.primary_insurance_name,
+            memberId: formData.primary_member_id,
+            planType: formData.primary_plan_type,
+            payer_phone: formData.primary_payer_phone,
+          },
+          secondary: formData.has_secondary_insurance ? {
+            name: formData.secondary_insurance_name,
+            memberId: formData.secondary_member_id,
+            subscriber_name: formData.secondary_subscriber_name,
+            subscriber_dob: formData.secondary_subscriber_dob,
+            payer_phone: formData.secondary_payer_phone,
+            planType: formData.secondary_plan_type,
+          } : null,
+          hasSecondary: formData.has_secondary_insurance,
+          prior_auth_permission: formData.prior_auth_permission,
+        },
+        // Service & Shipping
+        service: {
+          expected_service_date: formData.expected_service_date,
+          shipping_speed: formData.shipping_speed,
+          delivery_date: formData.delivery_date,
+        },
+        // Provider & Facility
+        provider: {
+          id: formData.provider_id,
+          name: providers.find(p => p.id === formData.provider_id)?.name || '',
+          npi: formData.provider_npi,
+          credentials: providers.find(p => p.id === formData.provider_id)?.credentials || '',
+        },
+        facility: {
+          id: formData.facility_id,
+          name: facilities.find(f => f.id === formData.facility_id)?.name || '',
+          address: facilities.find(f => f.id === formData.facility_id)?.address || '',
+        },
+        // Documents
+        documents: {
+          insurance_card_front: formData.insurance_card_front,
+          insurance_card_back: formData.insurance_card_back,
+          insurance_card_auto_filled: formData.insurance_card_auto_filled,
+        }
+      };
+
+      onStepComplete(stepData);
+    }
+  }, [formData, providers, facilities, onStepComplete]);
 
 
   const states = [

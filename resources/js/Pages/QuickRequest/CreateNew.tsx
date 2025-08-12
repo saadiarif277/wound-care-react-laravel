@@ -250,6 +250,28 @@ function QuickRequestCreateNew({
   // Removed isCreatingDraft state - episode creation now handled during final submission
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Comprehensive data collection object for clinical_summary
+  const [comprehensiveData, setComprehensiveData] = useState<any>({
+    // Step 0: Patient & Insurance
+    step0_data: {},
+    // Step 1: Clinical & Billing
+    step1_data: {},
+    // Step 2: Product Selection
+    step2_data: {},
+    // Step 3: IVR Form
+    step3_data: {},
+    // Step 4: Review & Submit
+    step4_data: {},
+    // Metadata
+    metadata: {
+      created_at: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
+      submission_method: 'quick_request',
+      current_step: 0,
+      steps_completed: []
+    }
+  });
+
   // Get tomorrow's date as default for service date
   const getTomorrowDate = (): string => {
     const tomorrow = new Date();
@@ -306,6 +328,89 @@ function QuickRequestCreateNew({
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
+    // Function to update comprehensive data for each step
+  const updateComprehensiveData = (step: number, stepData: any) => {
+    console.log(`🔄 Updating comprehensive data for step ${step}:`, stepData);
+    setComprehensiveData((prev: any) => {
+      const updated = { ...prev };
+      updated[`step${step}_data`] = stepData;
+      updated.metadata.last_updated = new Date().toISOString();
+      updated.metadata.current_step = step;
+
+      // Add step to completed list if not already there
+      if (!updated.metadata.steps_completed.includes(step)) {
+        updated.metadata.steps_completed.push(step);
+      }
+
+      console.log(`✅ Updated comprehensive data:`, updated);
+      return updated;
+    });
+  };
+
+  // Function to get final comprehensive data for clinical_summary
+  const getFinalComprehensiveData = () => {
+    console.log('🔍 Getting final comprehensive data...');
+    console.log('📊 Current comprehensiveData state:', comprehensiveData);
+
+    const finalData = {
+      // Core Request Information
+      id: undefined, // Will be set by backend
+      request_number: formData.episode_id || `QR-${Date.now()}`,
+      order_status: 'draft',
+      step: 6,
+      step_description: 'Review & Submit',
+      wound_type: formData.wound_type,
+      wound_type_display: formData.wound_type,
+      expected_service_date: formData.expected_service_date,
+      patient_display: `${formData.patient_first_name || ''} ${formData.patient_last_name || ''}`.trim(),
+      patient_fhir_id: formData.patient_fhir_id || formData.episode_id,
+      payer_name: formData.primary_insurance_name,
+      created_at: new Date().toISOString(),
+      episode_id: formData.episode_id,
+      docuseal_submission_id: formData.docuseal_submission_id,
+      ivr_document_url: undefined, // Will be set by backend
+      place_of_service: formData.place_of_service,
+      place_of_service_display: formData.place_of_service,
+      action_required: false,
+
+      // Patient & Insurance Information (from Step2)
+      patient: comprehensiveData?.step2?.patient || {},
+      insurance: comprehensiveData?.step2?.insurance || {},
+      service: comprehensiveData?.step2?.service || {},
+      provider: comprehensiveData?.step2?.provider || {},
+      facility: comprehensiveData?.step2?.facility || {},
+      documents: comprehensiveData?.step2?.documents || {},
+
+      // Clinical & Billing Information (from Step4)
+      clinical: comprehensiveData?.step4?.clinical || {},
+      procedure: comprehensiveData?.step4?.procedure || {},
+      billing: comprehensiveData?.step4?.billing || {},
+
+      // Product & Pricing Information (from Step5) - This contains finalized prices
+      products: comprehensiveData?.step5?.products || [],
+      pricing: comprehensiveData?.step5?.pricing || {},
+      permissions: comprehensiveData?.step5?.permissions || {},
+
+      // IVR & DocuSeal Information (from Step7)
+      ivr: comprehensiveData?.step7?.ivr || {},
+      docuseal: comprehensiveData?.step7?.documents || {},
+      manufacturer: comprehensiveData?.step7?.product || {},
+
+      // Merge any additional step data
+      ...comprehensiveData,
+
+      // Metadata
+      metadata: {
+        ...comprehensiveData?.metadata,
+        final_submission: new Date().toISOString(),
+        total_steps_completed: comprehensiveData?.metadata?.steps_completed?.length || 0
+      }
+    };
+
+    console.log('✅ Final comprehensive data prepared:', finalData);
+    return finalData;
+  };
+
   // Check organization on mount
   useEffect(() => {
     if (!currentUser.organization || !currentUser.organization.id) {
@@ -318,6 +423,17 @@ function QuickRequestCreateNew({
       console.log('✅ Organization found:', currentUser.organization.name);
     }
   }, [currentUser]);
+
+  // Monitor comprehensive data changes
+  useEffect(() => {
+    console.log('📊 Comprehensive data state changed:', comprehensiveData);
+  }, [comprehensiveData]);
+
+  // Debug function to test comprehensive data collection
+  const debugComprehensiveData = () => {
+    console.log('🔍 Debug: Current comprehensive data state:', comprehensiveData);
+    console.log('🔍 Debug: Final comprehensive data:', getFinalComprehensiveData());
+  };
 
   // Simplified sections array - no order form step needed
   const sections = [
@@ -691,6 +807,10 @@ function QuickRequestCreateNew({
         sampleFormData: Object.keys(finalFormData).slice(0, 10) // First 10 keys
       });
 
+      // Get the final comprehensive data for clinical_summary
+      const finalComprehensiveData = getFinalComprehensiveData();
+      console.log('🔍 Final comprehensive data being sent:', finalComprehensiveData);
+
       // Submit order directly
       const response = await axios.post('/quick-requests/submit-order', {
         formData: finalFormData,
@@ -701,6 +821,9 @@ function QuickRequestCreateNew({
           fhir_coverage_ids: formData.fhir_coverage_ids,
           fhir_questionnaire_response_id: formData.fhir_questionnaire_response_id,
           fhir_device_request_id: formData.fhir_device_request_id
+        },
+        clinical_summary: {
+          All_data: finalComprehensiveData
         },
         adminNote: 'Order submitted directly from Quick Request form'
       }, {
@@ -943,14 +1066,18 @@ function QuickRequestCreateNew({
 
             {/* Step content - Inertia handles auth automatically */}
             {currentSection === 0 && (
-              <Step2PatientInsurance
-                formData={formData as any}
-                updateFormData={updateFormData as any}
-                errors={errors}
-                facilities={facilities}
-                providers={providers}
-                currentUser={currentUser}
-              />
+              <>
+                {console.log('🎯 Rendering Step 0 (Patient & Insurance)')}
+                <Step2PatientInsurance
+                  formData={formData as any}
+                  updateFormData={updateFormData as any}
+                  errors={errors}
+                  facilities={facilities}
+                  providers={providers}
+                  currentUser={currentUser}
+                  onStepComplete={(stepData) => updateComprehensiveData(0, stepData)}
+                />
+              </>
             )}
 
             {currentSection === 1 && (
@@ -960,6 +1087,7 @@ function QuickRequestCreateNew({
                 diagnosisCodes={diagnosisCodes}
                 woundArea={woundArea}
                 errors={errors}
+                onStepComplete={(stepData) => updateComprehensiveData(1, stepData)}
               />
             )}
 
@@ -969,6 +1097,7 @@ function QuickRequestCreateNew({
                 updateFormData={updateFormData as any}
                 errors={errors}
                 currentUser={currentUser}
+                onStepComplete={(stepData) => updateComprehensiveData(2, stepData)}
               />
             )}
 
@@ -979,6 +1108,7 @@ function QuickRequestCreateNew({
                 products={products}
                 errors={errors}
                 onNext={handleNext}
+                onStepComplete={(stepData) => updateComprehensiveData(3, stepData)}
               />
             )}
 
@@ -992,6 +1122,7 @@ function QuickRequestCreateNew({
                 errors={errors}
                 onSubmit={handleNext}
                 isSubmitting={isSubmitting}
+                comprehensiveData={getFinalComprehensiveData()}
               />
             )}
           </div>
@@ -1067,6 +1198,8 @@ function QuickRequestCreateNew({
               </AuthButton>
             )}
           </div>
+
+
 
           {/* Status Display */}
           <div className={cn("mt-6 text-center text-sm", t.text.tertiary)}>

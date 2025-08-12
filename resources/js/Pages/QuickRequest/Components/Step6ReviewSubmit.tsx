@@ -25,10 +25,11 @@ interface Step6Props {
   onSubmit: () => void;
   isSubmitting: boolean;
   orderId?: string;
+  comprehensiveData?: any;
 }
 
 // Helper function to safely map form data to order data structure (same as Index.tsx)
-const mapFormDataToOrderData = (formData: any, providers: Array<any> = [], facilities: Array<any> = []): any => {
+const mapFormDataToOrderData = (formData: any, providers: Array<any> = [], facilities: Array<any> = [], comprehensiveData?: any): any => {
   // Helper function to get provider details
   const getProviderDetails = (providerId: any) => {
     if (!providerId) return null;
@@ -175,55 +176,111 @@ const mapFormDataToOrderData = (formData: any, providers: Array<any> = [], facil
       submissionDate: formData?.order_form_completed_at || 'N/A',
       documentLink: formData?.order_form_link || '',
     },
-    // Comprehensive clinical summary with All_data key for ProductRequest show.tsx compatibility
+        // Comprehensive clinical summary with All_data key for ProductRequest show.tsx compatibility
     clinical_summary: {
-      All_data: {
-        // Patient Information
+      All_data: comprehensiveData ? {
+        // Use comprehensive data if available (preferred)
+        ...comprehensiveData,
+        // Override with any additional form data
+        id: undefined, // Will be set by backend
+        request_number: formData?.episode_id || `QR-${Date.now()}`,
+        episode_id: formData?.episode_id,
+        docuseal_submission_id: formData?.docuseal_submission_id,
+        ivr_document_url: undefined, // Will be set by backend
+        metadata: {
+          ...comprehensiveData.metadata,
+          final_submission: new Date().toISOString(),
+          total_steps_completed: comprehensiveData.metadata?.steps_completed?.length || 0
+        }
+      } : {
+        // Fallback to original mapping if no comprehensive data
+        // Core Request Information (matching ProductRequest interface)
+        id: undefined, // Will be set by backend
+        request_number: formData?.episode_id || `QR-${Date.now()}`,
+        order_status: 'draft',
+        step: 6,
+        step_description: 'Review & Submit',
+        wound_type: formData?.wound_type,
+        wound_type_display: formData?.wound_type,
+        expected_service_date: formData?.expected_service_date,
+        patient_display: `${formData?.patient_first_name || ''} ${formData?.patient_last_name || ''}`.trim(),
+        patient_fhir_id: formData?.patient_fhir_id || formData?.episode_id,
+        payer_name: formData?.primary_insurance_name,
+        total_amount: 0, // Will be calculated separately
+        created_at: new Date().toISOString(),
+        episode_id: formData?.episode_id,
+        docuseal_submission_id: formData?.docuseal_submission_id,
+        ivr_document_url: undefined, // Will be set by backend
+        place_of_service: formData?.place_of_service,
+        place_of_service_display: formData?.place_of_service,
+        action_required: false,
+
+        // Patient Information (comprehensive - matching ProductRequest.patient interface)
         patient: {
-          first_name: formData?.patient_first_name,
-          last_name: formData?.patient_last_name,
-          full_name: `${formData?.patient_first_name || ''} ${formData?.patient_last_name || ''}`.trim(),
-          date_of_birth: formData?.patient_dob,
+          name: `${formData?.patient_first_name || ''} ${formData?.patient_last_name || ''}`.trim(),
+          firstName: formData?.patient_first_name,
+          lastName: formData?.patient_last_name,
+          dob: formData?.patient_dob,
           gender: formData?.patient_gender,
-          member_id: formData?.patient_member_id,
-          display_id: formData?.patient_display_id,
+          phone: formData?.patient_phone,
+          email: formData?.patient_email,
           address: formData?.patient_address ||
                    (formData?.patient_address_line1 ?
                      `${formData.patient_address_line1}${formData.patient_address_line2 ? ', ' + formData.patient_address_line2 : ''}, ${formData.patient_city || ''}, ${formData.patient_state || ''} ${formData.patient_zip || ''}` : ''),
-          phone: formData?.patient_phone,
-          email: formData?.patient_email,
-          is_subscriber: formData?.patient_is_subscriber !== false,
+          memberId: formData?.patient_member_id,
+          displayId: formData?.patient_display_id || formData?.episode_id,
+          isSubscriber: formData?.patient_is_subscriber !== false,
+          // Additional patient fields
           caregiver_name: formData?.caregiver_name,
           caregiver_relationship: formData?.caregiver_relationship,
           caregiver_phone: formData?.caregiver_phone,
         },
 
-        // Insurance Information
+        // Insurance Information (comprehensive - matching ProductRequest.insurance interface)
         insurance: {
           primary: {
             name: formData?.primary_insurance_name,
-            member_id: formData?.primary_member_id,
-            plan_type: formData?.primary_plan_type,
+            memberId: formData?.primary_member_id,
+            planType: formData?.primary_plan_type,
             payer_phone: formData?.primary_payer_phone,
           },
           secondary: formData?.has_secondary_insurance ? {
             name: formData?.secondary_insurance_name,
-            member_id: formData?.secondary_member_id,
+            memberId: formData?.secondary_member_id,
             subscriber_name: formData?.secondary_subscriber_name,
             subscriber_dob: formData?.secondary_subscriber_dob,
             payer_phone: formData?.secondary_payer_phone,
-            plan_type: formData?.secondary_plan_type,
+            planType: formData?.secondary_plan_type,
           } : null,
-          has_secondary: formData?.has_secondary_insurance || false,
+          hasSecondary: formData?.has_secondary_insurance || false,
           prior_auth_permission: formData?.prior_auth_permission || false,
         },
 
-        // Clinical Information
+        // Clinical Information (comprehensive - matching ProductRequest.clinical interface)
         clinical: {
-          wound_type: formData?.wound_type,
+          woundType: formData?.wound_type,
+          woundLocation: formData?.wound_location,
+          size: formData?.wound_size_length && formData?.wound_size_width
+            ? `${formData.wound_size_length} x ${formData.wound_size_width}cm`
+            : 'N/A',
+          depth: formData?.wound_size_depth,
+          diagnosisCodes: (() => {
+            const codes = [];
+            if (formData?.primary_diagnosis_code) codes.push(formData.primary_diagnosis_code);
+            if (formData?.secondary_diagnosis_code) codes.push(formData.secondary_diagnosis_code);
+            if (formData?.yellow_diagnosis_code) codes.push(formData.yellow_diagnosis_code);
+            if (formData?.orange_diagnosis_code) codes.push(formData.orange_diagnosis_code);
+            if (formData?.pressure_ulcer_diagnosis_code) codes.push(formData.pressure_ulcer_diagnosis_code);
+            if (Array.isArray(formData?.diagnosis_codes)) codes.push(...formData.diagnosis_codes);
+            if (Array.isArray(formData?.icd10_codes)) codes.push(...formData.icd10_codes);
+            return codes;
+          })(),
+          primaryDiagnosis: formData?.primary_diagnosis_code || formData?.wound_type,
+          clinicalNotes: formData?.clinical_notes || formData?.previous_treatments,
+          failedConservativeTreatment: formData?.failed_conservative_treatment || false,
+          // Additional clinical fields
           wound_types: formData?.wound_types || [],
           wound_other_specify: formData?.wound_other_specify,
-          wound_location: formData?.wound_location,
           wound_location_details: formData?.wound_location_details,
           wound_size_length: formData?.wound_size_length,
           wound_size_width: formData?.wound_size_width,
@@ -235,23 +292,11 @@ const mapFormDataToOrderData = (formData: any, providers: Array<any> = [], facil
           wound_duration_years: formData?.wound_duration_years,
           previous_treatments: formData?.previous_treatments,
           previous_treatments_selected: formData?.previous_treatments_selected || {},
-          failed_conservative_treatment: formData?.failed_conservative_treatment || false,
           information_accurate: formData?.information_accurate || false,
           medical_necessity_established: formData?.medical_necessity_established || false,
           maintain_documentation: formData?.maintain_documentation || false,
 
           // Diagnosis Codes (comprehensive)
-          diagnosis_codes: (() => {
-            const codes = [];
-            if (formData?.primary_diagnosis_code) codes.push(formData.primary_diagnosis_code);
-            if (formData?.secondary_diagnosis_code) codes.push(formData.secondary_diagnosis_code);
-            if (formData?.yellow_diagnosis_code) codes.push(formData.yellow_diagnosis_code);
-            if (formData?.orange_diagnosis_code) codes.push(formData.orange_diagnosis_code);
-            if (formData?.pressure_ulcer_diagnosis_code) codes.push(formData.pressure_ulcer_diagnosis_code);
-            if (Array.isArray(formData?.diagnosis_codes)) codes.push(...formData.diagnosis_codes);
-            if (Array.isArray(formData?.icd10_codes)) codes.push(...formData.icd10_codes);
-            return codes;
-          })(),
           primary_diagnosis_code: formData?.primary_diagnosis_code,
           secondary_diagnosis_code: formData?.secondary_diagnosis_code,
           yellow_diagnosis_code: formData?.yellow_diagnosis_code,
@@ -281,60 +326,81 @@ const mapFormDataToOrderData = (formData: any, providers: Array<any> = [], facil
           global_period_surgery_date: formData?.global_period_surgery_date,
         },
 
-        // Product Selection
-        product_selection: {
-          selected_products: formData?.selected_products || [],
-          manufacturer_id: formData?.manufacturer_id,
-          manufacturer_name: formData?.manufacturer,
-          product_id: formData?.product_id,
-          product_code: formData?.product_code,
-          product_name: formData?.product_name,
-          size: formData?.size,
-          quantity: formData?.quantity,
-          manufacturer_fields: formData?.manufacturer_fields || {},
+        // Product Information (comprehensive - matching ProductRequest.product interface)
+        product: {
+          name: formData?.selected_products?.[0]?.product?.name || formData?.product_name || 'N/A',
+          code: formData?.selected_products?.[0]?.product?.code || formData?.product_code || formData?.selected_products?.[0]?.product?.q_code || 'N/A',
+          quantity: formData?.selected_products?.[0]?.quantity || formData?.quantity || 1,
+          size: formData?.selected_products?.[0]?.size || formData?.size || 'Standard',
+          category: formData?.selected_products?.[0]?.product?.category || 'N/A',
+          manufacturer: formData?.selected_products?.[0]?.product?.manufacturer || formData?.manufacturer || 'N/A',
+          manufacturerId: formData?.manufacturer_id,
+          selectedProducts: formData?.selected_products?.map((item: any) => ({
+            product_id: item.product_id || item.product?.id,
+            quantity: item.quantity
+          })) || [],
+          shippingInfo: {
+            speed: formData?.shipping_speed || 'standard',
+            instructions: formData?.shipping_instructions || '',
+            address: formData?.facility_address ||
+                     (formData?.facility_address_line1 ?
+                       `${formData.facility_address_line1}${formData.facility_address_line2 ? ', ' + formData.facility_address_line2 : ''}, ${formData.facility_city || ''}, ${formData.facility_state || ''} ${formData.facility_zip || ''}` : ''),
+          }
         },
 
-        // Order Preferences
-        order_preferences: {
-          expected_service_date: formData?.expected_service_date,
-          shipping_speed: formData?.shipping_speed,
-          place_of_service: formData?.place_of_service,
-        },
+        // Products Array (matching ProductRequest.products interface)
+        products: formData?.selected_products?.map((item: any) => {
+          // Get product details directly from item or fallback
+          const product = item.product || {};
+          return {
+            id: item.product_id || item.product?.id || item.id,
+            name: product?.name || item.product_name || 'N/A',
+            q_code: product?.code || product?.q_code || item.product_code || 'N/A',
+            quantity: item.quantity,
+            size: item.size || 'Standard',
+            unit_price: product?.price || product?.discounted_price || product?.unit_price || item.price || item.unit_price || 0,
+            total_price: (product?.price || product?.discounted_price || product?.unit_price || item.price || item.unit_price || 0) * item.quantity
+          };
+        }) || [],
 
-        // Provider Information
+        // Provider Information (comprehensive - matching ProductRequest.provider interface)
         provider: {
           id: formData?.provider_id,
-          name: formData?.provider_name,
-          npi: formData?.provider_npi,
-          email: formData?.provider_email,
-          phone: formData?.provider_phone,
-          specialty: formData?.provider_specialty,
-          credentials: formData?.provider_credentials,
+          name: formData?.provider_name || 'N/A',
+          npi: formData?.provider_npi || 'N/A',
+          email: formData?.provider_email || 'N/A',
+          phone: formData?.provider_phone || 'N/A',
+          specialty: formData?.provider_specialty || 'N/A',
+          credentials: formData?.provider_credentials || 'N/A',
         },
 
-        // Facility Information
+        // Facility Information (comprehensive - matching ProductRequest.facility interface)
         facility: {
           id: formData?.facility_id,
-          name: formData?.facility_name,
+          name: formData?.facility_name || 'N/A',
           address: formData?.facility_address ||
                    (formData?.facility_address_line1 ?
                      `${formData.facility_address_line1}${formData.facility_address_line2 ? ', ' + formData.facility_address_line2 : ''}, ${formData.facility_city || ''}, ${formData.facility_state || ''} ${formData.facility_zip || ''}` : ''),
-          phone: formData?.facility_phone,
-          fax: formData?.facility_fax,
-          email: formData?.facility_email,
-          npi: formData?.facility_npi,
-          tax_id: formData?.facility_tax_id,
+          phone: formData?.facility_phone || 'N/A',
+          fax: formData?.facility_fax || 'N/A',
+          email: formData?.facility_email || 'N/A',
+          npi: formData?.facility_npi || 'N/A',
+          tax_id: formData?.facility_tax_id || 'N/A',
         },
 
+        // Order Status and Forms
+        ivr_status: formData?.docuseal_submission_id ? 'completed' : 'pending',
+        order_form_status: formData?.order_form_status || 'pending',
+        total_order_value: 0, // Will be calculated separately
+
         // Documents and Attachments
-        documents: {
-          insurance_card_front: formData?.insurance_card_front,
-          insurance_card_back: formData?.insurance_card_back,
-          insurance_card_auto_filled: formData?.insurance_card_auto_filled,
-          face_sheet: formData?.face_sheet,
-          clinical_notes: formData?.clinical_notes,
-          wound_photo: formData?.wound_photo,
-        },
+        documents: formData?.documents || [],
+        insurance_card_front: formData?.insurance_card_front,
+        insurance_card_back: formData?.insurance_card_back,
+        insurance_card_auto_filled: formData?.insurance_card_auto_filled,
+        face_sheet: formData?.face_sheet,
+        clinical_notes: formData?.clinical_notes,
+        wound_photo: formData?.wound_photo,
 
         // Attestations
         attestations: {
@@ -351,6 +417,14 @@ const mapFormDataToOrderData = (formData: any, providers: Array<any> = [], facil
           ivr_document_url: formData?.ivr_document_url,
         },
 
+        // Additional fields that might be needed
+        mac_validation_results: formData?.mac_validation_results,
+        mac_validation_status: formData?.mac_validation_status,
+        eligibility_results: formData?.eligibility_results,
+        eligibility_status: formData?.eligibility_status,
+        pre_auth_required: formData?.pre_auth_required,
+        clinical_opportunities: formData?.clinical_opportunities,
+
         // Metadata
         metadata: {
           created_at: formData?.created_at || new Date().toISOString(),
@@ -358,6 +432,7 @@ const mapFormDataToOrderData = (formData: any, providers: Array<any> = [], facil
           order_status: formData?.order_status || 'draft',
           step: formData?.step || 6,
           submission_method: 'quick_request',
+          last_updated: new Date().toISOString(),
         }
       }
     }
@@ -371,7 +446,8 @@ export default function Step6ReviewSubmit({
   facilities = [],
   errors,
   onSubmit,
-  isSubmitting
+  isSubmitting,
+  comprehensiveData
 }: Step6Props) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmChecked, setConfirmChecked] = useState(false);
@@ -400,15 +476,7 @@ export default function Step6ReviewSubmit({
   }
 
   // Create order data with proper mapping
-  const orderData = mapFormDataToOrderData(formData, providers, facilities);
-
-  // Toggle section visibility
-  const toggleSection = (section: string) => {
-    setOpenSections(prev => ({
-      ...prev,
-      [section]: !prev[section as keyof typeof prev]
-    }));
-  };
+  const orderData = mapFormDataToOrderData(formData, providers, facilities, comprehensiveData);
 
   // Helper function to check if order is complete
   const isOrderComplete = (): boolean => {
@@ -451,7 +519,7 @@ export default function Step6ReviewSubmit({
     return item;
   };
 
-    // Calculate total bill from form data
+  // Calculate total bill from form data
   const calculateTotalBill = () => {
     if (!formData.selected_products) return 0;
     return formData.selected_products.reduce((total: number, item: any) => {
@@ -477,13 +545,42 @@ export default function Step6ReviewSubmit({
       wound_type: formData?.wound_type,
     },
     products: products,
+    comprehensiveData: comprehensiveData,
     orderData: {
       clinical: orderData.clinical,
       product: orderData.product,
       clinical_summary: orderData.clinical_summary,
     },
     calculatedTotal: calculateTotalBill(),
+    finalizedPricing: orderData.clinical_summary?.All_data?.pricing,
   });
+
+  // Update the clinical summary with calculated totals
+  if (orderData.clinical_summary?.All_data) {
+    // Use finalized prices from Step5ProductSelection if available
+    if (orderData.clinical_summary.All_data.pricing?.total_amount) {
+      console.log('💰 Using finalized total from Step5 pricing:', orderData.clinical_summary.All_data.pricing.total_amount);
+      orderData.clinical_summary.All_data.total_amount = orderData.clinical_summary.All_data.pricing.total_amount;
+      orderData.clinical_summary.All_data.total_order_value = orderData.clinical_summary.All_data.pricing.total_amount;
+    } else if (orderData.clinical_summary.All_data.products?.total_value) {
+      console.log('💰 Using finalized total from Step5 products:', orderData.clinical_summary.All_data.products.total_value);
+      orderData.clinical_summary.All_data.total_amount = orderData.clinical_summary.All_data.products.total_value;
+      orderData.clinical_summary.All_data.total_order_value = orderData.clinical_summary.All_data.products.total_value;
+    } else {
+      // Fallback to calculating total if pricing data not available
+      console.log('💰 Using calculated total (fallback):', calculateTotalBill());
+      orderData.clinical_summary.All_data.total_amount = calculateTotalBill();
+      orderData.clinical_summary.All_data.total_order_value = calculateTotalBill();
+    }
+  }
+
+    // Toggle section visibility
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [section]: !prev[section as keyof typeof prev]
+    }));
+  };
 
   const handleSubmit = async () => {
     if (!confirmChecked) return;
@@ -745,7 +842,14 @@ export default function Step6ReviewSubmit({
                           )}
                           <div className="mt-2">
                             <p className={cn("text-sm", t.text.secondary)}>
-                              Price: ${(product?.price || product?.discounted_price || 0).toFixed(2)}
+                              Price: ${(() => {
+                                // Use finalized price from Step5 if available
+                                if (orderData.clinical_summary?.All_data?.products?.product_details?.[index]?.finalized_price) {
+                                  return orderData.clinical_summary.All_data.products.product_details[index].finalized_price.toFixed(2);
+                                }
+                                // Fallback to product price
+                                return (product?.price || product?.discounted_price || 0).toFixed(2);
+                              })()}
                             </p>
                             {product?.discounted_price && product?.price && product.discounted_price !== product.price && (
                               <p className={cn("text-xs text-green-600", t.text.secondary)}>
@@ -761,7 +865,18 @@ export default function Step6ReviewSubmit({
                 <div className={cn("flex justify-between items-center pt-4 border-t", t.glass.border)}>
                   <span className={cn("font-medium", t.text.primary)}>Total Bill:</span>
                   <span className={cn("text-lg font-bold", t.text.primary)}>
-                    ${calculateTotalBill().toFixed(2)}
+                    ${(() => {
+                      // Use finalized prices from Step5 if available
+                      if (orderData.clinical_summary?.All_data?.pricing?.total_amount) {
+                        return orderData.clinical_summary.All_data.pricing.total_amount.toFixed(2);
+                      }
+                      // Also check Step5 products structure
+                      if (orderData.clinical_summary?.All_data?.products?.total_value) {
+                        return orderData.clinical_summary.All_data.products.total_value.toFixed(2);
+                      }
+                      // Fallback to calculated total
+                      return calculateTotalBill().toFixed(2);
+                    })()}
                   </span>
                 </div>
               </div>

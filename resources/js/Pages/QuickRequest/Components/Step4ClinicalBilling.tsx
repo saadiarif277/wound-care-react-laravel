@@ -55,13 +55,15 @@ interface Step4Props {
   };
   woundArea: string;
   errors: Record<string, string>;
+  onStepComplete?: (stepData: any) => void;
 }
 
 export default function Step4ClinicalBilling({
   formData,
   updateFormData,
   woundArea,
-  errors
+  errors,
+  onStepComplete
 }: Step4Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -100,6 +102,55 @@ export default function Step4ClinicalBilling({
     }
     fetchDiagnosisCodes();
   }, [formData.wound_type]);
+
+  // Call onStepComplete when step data is complete
+  useEffect(() => {
+    if (onStepComplete) {
+      const stepData = {
+        // Clinical Information
+        clinical: {
+          wound_type: formData.wound_type,
+          wound_other_specify: formData.wound_other_specify,
+          wound_location: formData.wound_location,
+          wound_location_details: formData.wound_location_details,
+          primary_diagnosis_code: formData.primary_diagnosis_code,
+          secondary_diagnosis_code: formData.secondary_diagnosis_code,
+          diagnosis_code: formData.diagnosis_code,
+          wound_size_length: formData.wound_size_length,
+          wound_size_width: formData.wound_size_width,
+          wound_size_depth: formData.wound_size_depth,
+          wound_duration_days: formData.wound_duration_days,
+          wound_duration_weeks: formData.wound_duration_weeks,
+          wound_duration_months: formData.wound_duration_months,
+          wound_duration_years: formData.wound_duration_years,
+          previous_treatments: formData.previous_treatments,
+        },
+        // Procedure Information
+        procedure: {
+          application_cpt_codes: formData.application_cpt_codes || [],
+          prior_applications: formData.prior_applications,
+          prior_application_product: formData.prior_application_product,
+          prior_application_within_12_months: formData.prior_application_within_12_months,
+          anticipated_applications: formData.anticipated_applications,
+        },
+        // Facility Information
+        facility: {
+          place_of_service: formData.place_of_service,
+          medicare_part_b_authorized: formData.medicare_part_b_authorized,
+          snf_days: formData.snf_days,
+          hospice_status: formData.hospice_status,
+          hospice_family_consent: formData.hospice_family_consent,
+          hospice_clinically_necessary: formData.hospice_clinically_necessary,
+          part_a_status: formData.part_a_status,
+          global_period_status: formData.global_period_status,
+          global_period_cpt: formData.global_period_cpt,
+          global_period_surgery_date: formData.global_period_surgery_date,
+        }
+      };
+      
+      onStepComplete(stepData);
+    }
+  }, [formData, onStepComplete]);
 
   // Wound location options
   const woundLocations = [
@@ -320,7 +371,7 @@ export default function Step4ClinicalBilling({
                 const isSelected = (formData.application_cpt_codes || []).includes(option.code);
                 const suggestedCodes = getSuggestedCPTCodes();
                 const isSuggested = suggestedCodes.includes(option.code);
-                
+
                 return (
                   <label key={option.code} className="flex items-center space-x-2 cursor-pointer">
                     <input
@@ -341,8 +392,8 @@ export default function Step4ClinicalBilling({
                       {isSuggested && (
                         <span className={cn(
                           "text-xs px-2 py-0.5 rounded-full font-medium",
-                          theme === 'dark' 
-                            ? 'bg-blue-900/50 text-blue-300' 
+                          theme === 'dark'
+                            ? 'bg-blue-900/50 text-blue-300'
                             : 'bg-blue-100 text-blue-700'
                         )}>
                           suggested
@@ -353,7 +404,7 @@ export default function Step4ClinicalBilling({
                 );
               })}
             </div>
-            
+
             {/* Other CPT codes text input */}
             <div className="mt-3">
               <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
@@ -372,7 +423,7 @@ export default function Step4ClinicalBilling({
                 placeholder="Enter additional CPT codes..."
               />
             </div>
-            
+
             {errors.cpt_codes && (
               <p className="mt-1 text-sm text-red-500">{errors.cpt_codes}</p>
             )}

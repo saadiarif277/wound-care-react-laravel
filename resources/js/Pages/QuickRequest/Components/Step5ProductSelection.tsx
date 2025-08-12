@@ -63,6 +63,7 @@ interface Step5Props {
     pricing_access_level: string;
     commission_access_level: string;
   };
+  onStepComplete?: (stepData: any) => void;
 }
 
 
@@ -71,7 +72,8 @@ export default function Step5ProductSelection({
   updateFormData,
   errors,
   currentUser,
-  roleRestrictions: propRoleRestrictions
+  roleRestrictions: propRoleRestrictions,
+  onStepComplete
 }: Step5Props) {
   const [providerOnboardedProducts, setProviderOnboardedProducts] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -95,40 +97,86 @@ export default function Step5ProductSelection({
     // Fallback to dark theme if outside ThemeProvider
   }
 
-  // Compute user permissions from currentUser prop (Inertia pattern)
+    // Compute user permissions from currentUser prop (Inertia pattern)
   useEffect(() => {
     const role = currentUser?.role || 'unknown';
-    
+
     // Define permissions based on user role
     const permissions = {
       can_view_financials: ['admin', 'super_admin', 'sales_rep', 'provider'].includes(role),
       can_see_discounts: ['admin', 'super_admin', 'sales_rep'].includes(role),
       can_see_msc_pricing: ['admin', 'super_admin', 'sales_rep', 'provider'].includes(role),
       can_see_order_totals: ['admin', 'super_admin', 'sales_rep', 'provider'].includes(role),
-      pricing_access_level: ['admin', 'super_admin'].includes(role) ? 'full' : 
+      pricing_access_level: ['admin', 'super_admin'].includes(role) ? 'full' :
                            ['sales_rep'].includes(role) ? 'limited' : 'none',
       commission_access_level: ['admin', 'super_admin', 'sales_rep'].includes(role) ? 'full' : 'none'
     };
-    
+
     setUserPermissions(permissions);
-    
+
     console.log('✅ User permissions computed from props:', {
       role,
       permissions
     });
   }, [currentUser?.role]);
 
+  // Call onStepComplete when step data is complete
+  useEffect(() => {
+    if (onStepComplete) {
+      const stepData = {
+        // Product Selection Information
+        products: {
+          selected_products: formData.selected_products || [],
+          product_details: formData.selected_products?.map((item: any) => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+            size: item.size,
+            product: item.product,
+            price: item.product?.price || item.product?.discounted_price || item.product?.unit_price || 0,
+            total_price: (item.product?.price || item.product?.discounted_price || item.product?.unit_price || 0) * item.quantity,
+            // Finalized pricing for Step6 display
+            finalized_price: item.product?.price || item.product?.discounted_price || item.product?.unit_price || 0,
+            finalized_total: (item.product?.price || item.product?.discounted_price || item.product?.unit_price || 0) * item.quantity
+          })) || [],
+          total_quantity: formData.selected_products?.reduce((total: number, item: any) => total + (item.quantity || 0), 0) || 0,
+          total_value: formData.selected_products?.reduce((total: number, item: any) => {
+            const price = item.product?.price || item.product?.discounted_price || item.product?.unit_price || 0;
+            return total + (price * item.quantity);
+          }, 0) || 0
+        },
+        // Pricing Information
+        pricing: {
+          can_view_financials: userPermissions?.can_view_financials || false,
+          can_see_discounts: userPermissions?.can_see_discounts || false,
+          can_see_msc_pricing: userPermissions?.can_see_msc_pricing || false,
+          can_see_order_totals: userPermissions?.can_see_order_totals || false,
+          pricing_access_level: userPermissions?.pricing_access_level || 'none',
+          commission_access_level: userPermissions?.commission_access_level || 'none',
+          // Actual pricing calculations
+          total_amount: formData.selected_products?.reduce((total: number, item: any) => {
+            const price = item.product?.price || item.product?.discounted_price || item.product?.unit_price || 0;
+            return total + (price * item.quantity);
+          }, 0) || 0,
+          total_quantity: formData.selected_products?.reduce((total: number, item: any) => total + (item.quantity || 0), 0) || 0,
+          product_count: formData.selected_products?.length || 0
+        }
+      };
+
+      onStepComplete(stepData);
+    }
+  }, [formData.selected_products, userPermissions, onStepComplete]);
+
   // Fetch provider's onboarded products when provider_id changes or if current user is a provider
   useEffect(() => {
     const fetchProviderProducts = async () => {
       // Determine which provider ID to use
       let providerId = formData.provider_id;
-      
+
       // If no provider is explicitly selected and current user is a provider, use their ID
       if (!providerId && currentUser?.role === 'provider' && currentUser?.id) {
         providerId = currentUser.id;
       }
-      
+
       if (providerId) {
         setLoading(true);
         try {
@@ -183,7 +231,7 @@ export default function Step5ProductSelection({
   const insuranceType = useMemo(() => {
     const primaryInsurance = formData.primary_insurance_name?.toLowerCase() || '';
     const planType = formData.primary_plan_type?.toLowerCase() || '';
-    
+
     if (primaryInsurance.includes('medicare')) return 'medicare';
     if (primaryInsurance.includes('medicaid')) return 'medicaid';
     if (planType === 'ppo' || planType === 'commercial') return 'ppo';
