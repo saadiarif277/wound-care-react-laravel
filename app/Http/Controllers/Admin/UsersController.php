@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
-use App\Models\ProviderInvitation;
+use App\Models\Users\Provider\ProviderInvitation;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
@@ -27,13 +27,14 @@ class UsersController extends Controller
     {
         // Build users query with eager loading
         $query = User::with(['roles'])
-            ->select('id', 'name', 'email', 'is_active', 'last_login_at', 'created_at');
+            ->select('id', 'first_name', 'last_name', 'email', 'is_verified', 'last_activity', 'created_at');
 
         // Apply filters
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%");
             });
         }
@@ -45,11 +46,12 @@ class UsersController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('is_active', $request->status === 'active');
+            $query->where('is_verified', $request->status === 'active');
         }
 
         // Paginate results
-        $users = $query->orderBy('name')
+        $users = $query->orderBy('first_name')
+            ->orderBy('last_name')
             ->paginate(20)
             ->appends($request->all());
 
@@ -67,8 +69,8 @@ class UsersController extends Controller
                         'slug' => $role->slug,
                     ];
                 }),
-                'is_active' => $user->is_active ?? true,
-                'last_login' => $user->last_login_at,
+                'is_active' => $user->is_verified ?? true,
+                'last_login' => $user->last_activity,
                 'created_at' => $user->created_at,
             ];
         });
@@ -119,19 +121,21 @@ class UsersController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:25',
+            'last_name' => 'required|string|max:25',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
             'roles' => 'required|array',
             'roles.*' => 'exists:roles,id',
-            'is_active' => 'boolean',
+            'is_verified' => 'boolean',
         ]);
 
         $user = User::create([
-            'name' => $validated['name'],
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
             'email' => $validated['email'],
             'password' => bcrypt($validated['password']),
-            'is_active' => $validated['is_active'] ?? true,
+            'is_verified' => $validated['is_verified'] ?? true,
         ]);
 
         $user->roles()->attach($validated['roles']);
@@ -154,12 +158,14 @@ class UsersController extends Controller
         return Inertia::render('Admin/Users/Edit', [
             'user' => [
                 'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
                 'name' => $user->name,
                 'email' => $user->email,
-                'is_active' => $user->is_active ?? true,
+                'is_verified' => $user->is_verified ?? true,
                 'roles' => $user->roles->pluck('id'),
                 'created_at' => $user->created_at,
-                'last_login' => $user->last_login_at,
+                'last_login' => $user->last_activity,
             ],
             'roles' => $roles,
         ]);
@@ -171,18 +177,20 @@ class UsersController extends Controller
     public function update(Request $request, User $user)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:25',
+            'last_name' => 'required|string|max:25',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8|confirmed',
             'roles' => 'required|array',
             'roles.*' => 'exists:roles,id',
-            'is_active' => 'boolean',
+            'is_verified' => 'boolean',
         ]);
 
         $updateData = [
-            'name' => $validated['name'],
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
             'email' => $validated['email'],
-            'is_active' => $validated['is_active'] ?? true,
+            'is_verified' => $validated['is_verified'] ?? true,
         ];
 
         if (!empty($validated['password'])) {
@@ -201,7 +209,7 @@ class UsersController extends Controller
      */
     public function deactivate(User $user): JsonResponse
     {
-        $user->update(['is_active' => false]);
+        $user->update(['is_verified' => false]);
 
         return response()->json([
             'message' => 'User deactivated successfully.',
@@ -213,16 +221,13 @@ class UsersController extends Controller
      */
     public function activate(User $user): JsonResponse
     {
-        $user->update(['is_active' => true]);
+        $user->update(['is_verified' => true]);
 
         return response()->json([
             'message' => 'User activated successfully.',
         ]);
     }
 
-    /**
-     * Get user statistics for dashboard
-     */
     /**
      * Assign roles to a user (API)
      */
@@ -278,9 +283,9 @@ class UsersController extends Controller
     private function getUserStats(): array
     {
         $totalUsers = User::count();
-        $activeUsers = User::where('is_active', true)->count();
+        $activeUsers = User::where('is_verified', true)->count();
         $pendingInvitations = ProviderInvitation::where('status', 'pending')->count();
-        $recentLogins = User::where('last_login_at', '>=', Carbon::now()->subDays(7))->count();
+        $recentLogins = User::where('last_activity', '>=', Carbon::now()->subDays(7))->count();
 
         return [
             'total_users' => $totalUsers,
@@ -289,4 +294,4 @@ class UsersController extends Controller
             'recent_logins' => $recentLogins,
         ];
     }
-} 
+}
