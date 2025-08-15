@@ -130,12 +130,21 @@ class UsersController extends Controller
             'is_verified' => 'boolean',
         ]);
 
+        // Get the current user's account ID
+        $accountId = auth()->user()->account_id;
+
+        if (!$accountId) {
+            return back()->withErrors(['error' => 'Unable to determine account context. Please contact an administrator.']);
+        }
+
         $user = User::create([
+            'account_id' => $accountId,
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'email' => $validated['email'],
             'password' => bcrypt($validated['password']),
             'is_verified' => $validated['is_verified'] ?? true,
+            'owner' => false, // Default to non-owner
         ]);
 
         $user->roles()->attach($validated['roles']);
