@@ -23,7 +23,8 @@ jobs:
      AZURE_FHIR_TENANT_ID: 0cb4abeb-8281-4b8c-8de8-6a7f8c777f0a
      DOCUSEAL_API_BASE_URL: https://api.docuseal.com/v1
      DOCUSEAL_API_KEY: RDiw3DDJVmRqKVYMCeqXVqmZg1zg4WfvReWNnRAmrUD
-     steps:
+
+    steps:
       - uses: actions/checkout@v4
 
       - name: Setup PHP
