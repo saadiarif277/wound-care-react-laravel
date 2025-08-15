@@ -1,7 +1,7 @@
 /bootstrap/ssr
 /node_modules
 /public/hot
-/public/build
+
 /public/storage
 /storage/*.key
 /vendor
@@ -102,7 +102,7 @@ test-*.log
   pip-log.txt
   pip-delete-this-directory.txt
   *.egg-info/
-  
+
   # Python AI service specific
   scripts/__pycache__/
   scripts/*.pyc
@@ -111,7 +111,7 @@ test-*.log
   scripts/.pytest_cache/
   scripts/medical_ai_service.log
   scripts/*.log
-  
+
   # Keep the AI service requirements.txt but ignore others
   requirements.txt
   !scripts/requirements.txt

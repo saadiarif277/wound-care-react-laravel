@@ -1,0 +1,1 @@
+import{D as o,y as s}from"./_defineProperty-DMk3mJnZ.js";var i=o,_=i(Object.getPrototypeOf,Object),p=_,a=s;function g(r,e,t){e=="__proto__"&&a?a(r,e,{configurable:!0,enumerable:!0,value:t,writable:!0}):r[e]=t}var u=g;export{p as _,u as a};
