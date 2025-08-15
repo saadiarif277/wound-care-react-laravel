@@ -15,6 +15,15 @@ jobs:
     permissions:
       contents: read #This is required for actions/checkout
 
+    env:
+     AZURE_FHIR_BASE_URL: "https://medexchangefhir-fhirserver.fhir.azurehealthcareapis.com"
+     AZURE_FHIR_URL: "https://medexchangefhir-fhirserver.fhir.azurehealthcareapis.com"
+     AZURE_FHIR_CLIENT_ID: 032a9600-5750-495b-bb91-122a4faea0da
+     AZURE_FHIR_CLIENT_SECRET: Gqb8Q~dldpP1hlU-SVT8w8Vo_8JpxMjAttHWRdgx
+     AZURE_FHIR_TENANT_ID: 0cb4abeb-8281-4b8c-8de8-6a7f8c777f0a
+     DOCUSEAL_API_BASE_URL: https://api.docuseal.com/v1
+     DOCUSEAL_API_KEY: RDiw3DDJVmRqKVYMCeqXVqmZg1zg4WfvReWNnRAmrUD
+
     steps:
       - uses: actions/checkout@v4
 
@@ -52,7 +61,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: php-app
-      
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -67,4 +76,3 @@ jobs:
           app-name: 'msc-prod'
           slot-name: 'uat'
           package: .
-          
