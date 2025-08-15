@@ -15,6 +15,14 @@ jobs:
     permissions:
       contents: read #This is required for actions/checkout
 
+    env:
+     AZURE_FHIR_BASE_URL: "https://medexchangefhir-fhirserver.fhir.azurehealthcareapis.com"
+     AZURE_FHIR_URL: "https://medexchangefhir-fhirserver.fhir.azurehealthcareapis.com"
+     AZURE_FHIR_CLIENT_ID: 032a9600-5750-495b-bb91-122a4faea0da
+     AZURE_FHIR_CLIENT_SECRET: Gqb8Q~dldpP1hlU-SVT8w8Vo_8JpxMjAttHWRdgx
+     AZURE_FHIR_TENANT_ID: 0cb4abeb-8281-4b8c-8de8-6a7f8c777f0a
+     DOCUSEAL_API_BASE_URL: https://api.docuseal.com/v1
+     DOCUSEAL_API_KEY: RDiw3DDJVmRqKVYMCeqXVqmZg1zg4WfvReWNnRAmrUD
     steps:
       - uses: actions/checkout@v4
 
@@ -43,13 +51,23 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    
+
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: php-app
-      
+
+      - name: Unzip artifact for deployment
+        run: unzip release.zip
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_642CAC2C5D714C05BABC3DD00E2D30D6 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_27574C25F73A4901B7EAC987626FF1BA }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C55B987BA5254B76BC6D5909EFA576F4 }}
+
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
