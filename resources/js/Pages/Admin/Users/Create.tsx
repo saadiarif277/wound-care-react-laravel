@@ -17,6 +17,7 @@ interface UserRole {
   id: number;
   name: string;
   display_name: string;
+  slug: string;
 }
 
 interface Props {
