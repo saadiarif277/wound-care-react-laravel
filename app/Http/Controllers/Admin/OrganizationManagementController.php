@@ -199,7 +199,7 @@ class OrganizationManagementController extends Controller
 
                 // Create the FHIR resource
                 $fhirOrganization = $fhirService->createOrganization($organizationData);
-                
+
                 if ($fhirOrganization && isset($fhirOrganization['id'])) {
                     // Update organization with FHIR organization ID
                     $organization->update(['fhir_organization_id' => $fhirOrganization['id']]);
@@ -320,5 +320,27 @@ class OrganizationManagementController extends Controller
 
         return redirect()->route('admin.organizations.index')
             ->with('success', 'Organization deleted successfully.');
+    }
+
+    /**
+     * Activate the specified organization
+     */
+    public function activate(Organization $organization)
+    {
+        $organization->update(['status' => 'active']);
+
+        return redirect()->route('admin.organizations.show', $organization)
+            ->with('success', 'Organization activated successfully.');
+    }
+
+    /**
+     * Deactivate the specified organization
+     */
+    public function deactivate(Organization $organization)
+    {
+        $organization->update(['status' => 'inactive']);
+
+        return redirect()->route('admin.organizations.show', $organization)
+            ->with('success', 'Organization deactivated successfully.');
     }
 }

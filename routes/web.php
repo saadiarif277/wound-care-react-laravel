@@ -11,6 +11,7 @@ use App\Http\Controllers\OrganizationsController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\Admin\UsersController as AdminUsersController;
+use App\Http\Controllers\Admin\OrganizationManagementController;
 use App\Http\Controllers\Admin\PatientIVRController;
 use App\Http\Controllers\Provider\DashboardController as ProviderDashboardController;
 use App\Http\Controllers\NotificationController;
@@ -859,6 +860,26 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->name('admin.users.deactivate');
         Route::patch('/{user}/activate', [AdminUsersController::class, 'activate'])
             ->name('admin.users.activate');
+    });
+
+    // Admin Organizations Management Routes
+    Route::middleware(['permission:manage-organizations'])->prefix('admin/organizations')->group(function () {
+        Route::get('/', [OrganizationManagementController::class, 'index'])
+            ->name('admin.organizations.index');
+        Route::get('/create', [OrganizationManagementController::class, 'create'])
+            ->name('admin.organizations.create');
+        Route::post('/', [OrganizationManagementController::class, 'store'])
+            ->name('admin.organizations.store');
+        Route::get('/{organization}/edit', [OrganizationManagementController::class, 'edit'])
+            ->name('admin.organizations.edit');
+        Route::put('/{organization}', [OrganizationManagementController::class, 'update'])
+            ->name('admin.organizations.update');
+        Route::delete('/{organization}', [OrganizationManagementController::class, 'destroy'])
+            ->name('admin.organizations.destroy');
+        Route::patch('/{organization}/activate', [OrganizationManagementController::class, 'activate'])
+            ->name('admin.organizations.activate');
+        Route::patch('/{organization}/deactivate', [OrganizationManagementController::class, 'deactivate'])
+            ->name('admin.organizations.deactivate');
     });
 
     // User Invitations Management Routes (General for all roles)

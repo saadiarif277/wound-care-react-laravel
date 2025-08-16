@@ -8,6 +8,7 @@ The admin user management page was throwing a database error: "Column not found:
 2. **Missing Frontend Component**: The `Admin/Users/Create` component was missing, causing the "Add User" modal to not load
 3. **Field Reference Inconsistencies**: The code was mixing `is_active`/`is_verified` and `last_login_at`/`last_activity` field references
 4. **Missing Required Fields**: The `account_id` field was required but not being provided when creating users
+5. **Missing Admin Organizations Routes**: The `/admin/organizations` route was giving 404 errors due to missing route definitions
 
 ## Fixes Applied
 
@@ -37,6 +38,13 @@ The admin user management page was throwing a database error: "Column not found:
 - ✅ Backend sends `last_activity` but transforms to `last_login` for frontend compatibility
 - ✅ Maintains `name` field using User model's `getNameAttribute()` accessor
 
+### 4. Admin Organizations Routes Fix
+- ✅ **NEW**: Added missing admin organizations routes in `routes/web.php`
+- ✅ **NEW**: Added `activate` and `deactivate` methods to `OrganizationManagementController`
+- ✅ **NEW**: Fixed 404 error for `/admin/organizations` endpoint
+- ✅ **NEW**: Added missing import statement for `OrganizationManagementController` in routes file
+- ✅ **NEW**: Cleared Laravel route and config cache to resolve "Target class does not exist" error
+
 ## Testing
 - ✅ Admin users index page should now load without database errors
 - ✅ "Add User" button should now navigate to the create form
@@ -44,10 +52,13 @@ The admin user management page was throwing a database error: "Column not found:
 - ✅ Form validation should work properly
 - ✅ Role assignment should work correctly
 - ✅ **NEW**: User creation should include proper account_id and other required fields
+- ✅ **NEW**: `/admin/organizations` route should now work without 404 errors
 
 ## Files Modified
 1. `app/Http/Controllers/Admin/UsersController.php` - Fixed backend logic, field references, and user creation
 2. `resources/js/Pages/Admin/Users/Create.tsx` - Created missing frontend component
+3. **NEW**: `routes/web.php` - Added missing admin organizations routes
+4. **NEW**: `app/Http/Controllers/Admin/OrganizationManagementController.php` - Added missing methods
 
 ## Notes
 - The User model has a `getNameAttribute()` accessor that combines `first_name` and `last_name`
@@ -56,3 +67,4 @@ The admin user management page was throwing a database error: "Column not found:
 - All database queries now use actual column names instead of non-existent fields
 - **NEW**: Users are now created with proper account_id from the authenticated user's context
 - **NEW**: Default values are provided for required fields like `owner` (set to false)
+- **NEW**: Admin organizations management is now fully functional with proper routes and methods
