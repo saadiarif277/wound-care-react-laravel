@@ -583,6 +583,12 @@ export default function Step6ReviewSubmit({
     finalizedPricing: orderData.clinical_summary?.All_data?.pricing,
     step5Products: orderData.clinical_summary?.All_data?.products,
     step5Pricing: orderData.clinical_summary?.All_data?.pricing,
+    pricingDebug: {
+      total_amount: orderData.clinical_summary?.All_data?.pricing?.total_amount,
+      product_prices: orderData.clinical_summary?.All_data?.pricing?.product_prices,
+      products_total_value: orderData.clinical_summary?.All_data?.products?.total_value,
+      products_items: orderData.clinical_summary?.All_data?.products?.items,
+    }
   });
 
   // Update the clinical summary with calculated totals
