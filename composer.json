@@ -29,6 +29,7 @@
         "league/glide-symfony": "^2.0",
         "mailgun/mailgun-php": "^4.3",
         "sentry/sentry-laravel": "^4.15",
+        "symfony/http-client": "^7.3",
         "symfony/mailgun-mailer": "^7.3",
         "tightenco/ziggy": "^2.2"
     },

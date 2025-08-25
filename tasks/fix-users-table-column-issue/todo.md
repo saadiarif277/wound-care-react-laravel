@@ -45,6 +45,17 @@ The admin user management page was throwing a database error: "Column not found:
 - ✅ **NEW**: Added missing import statement for `OrganizationManagementController` in routes file
 - ✅ **NEW**: Cleared Laravel route and config cache to resolve "Target class does not exist" error
 
+### 5. Provider Invitations Field Mapping Fix
+- ✅ **NEW**: Fixed field name mismatch in provider invitations route (`invited_email` → `email`)
+- ✅ **NEW**: Fixed field name mismatch in invitation creation (`invited_by` → `invited_by_user_id`)
+- ✅ **NEW**: Fixed field name mismatch in role assignment (`invited_role` → `assigned_roles`)
+- ✅ **NEW**: Removed manual UUID ID assignment (table uses auto-incrementing IDs)
+- ✅ **NEW**: Added missing `invitation_type` field for proper invitation categorization
+- ✅ **NEW**: Fixed route name in mail class (`auth.provider-invitation` → `auth.provider-invitation.show`)
+- ✅ **NEW**: Fixed parameter name in mail class (`token` → `invitation_token`)
+- ✅ **NEW**: Fixed invitation status workflow (`pending` → `sent`) to match route expectations
+- ✅ **NEW**: Added `sent_at` timestamp when creating invitations
+
 ## Testing
 - ✅ Admin users index page should now load without database errors
 - ✅ "Add User" button should now navigate to the create form
@@ -53,6 +64,7 @@ The admin user management page was throwing a database error: "Column not found:
 - ✅ Role assignment should work correctly
 - ✅ **NEW**: User creation should include proper account_id and other required fields
 - ✅ **NEW**: `/admin/organizations` route should now work without 404 errors
+- ✅ **NEW**: Provider invitations should now work without database field errors
 
 ## Files Modified
 1. `app/Http/Controllers/Admin/UsersController.php` - Fixed backend logic, field references, and user creation

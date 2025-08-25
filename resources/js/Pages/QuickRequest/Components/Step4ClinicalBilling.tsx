@@ -147,7 +147,7 @@ export default function Step4ClinicalBilling({
           global_period_surgery_date: formData.global_period_surgery_date,
         }
       };
-      
+
       onStepComplete(stepData);
     }
   }, [formData, onStepComplete]);

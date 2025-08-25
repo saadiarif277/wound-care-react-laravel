@@ -7,8 +7,8 @@ use App\Models\Users\Organization\Organization;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Illuminate\Support\Str;
 use App\Services\FhirService;
 use Illuminate\Support\Facades\Log;
 
@@ -110,17 +110,27 @@ class OrganizationManagementController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|in:healthcare,clinic,hospital,other',
-            'contact_email' => 'required|email|unique:organizations',
+            'contact_email' => 'required|email|unique:organizations,contact_email',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:2',
             'zip_code' => 'nullable|string|max:10',
+            'billing_address' => 'nullable|string|max:255',
+            'billing_city' => 'nullable|string|max:100',
+            'billing_state' => 'nullable|string|max:2',
+            'billing_zip' => 'nullable|string|max:10',
+            'ap_contact_name' => 'nullable|string|max:255',
+            'ap_contact_phone' => 'nullable|string|max:20',
+            'ap_contact_email' => 'nullable|email',
         ]);
 
         DB::transaction(function () use ($validated, $fhirService) {
+            // Use account ID 1 as default
+            $accountId = \App\Models\Account::first()?->id ?? 1;
+
             $organization = Organization::create([
-                'id' => Str::uuid(),
+                'account_id' => $accountId,
                 'name' => $validated['name'],
                 'type' => $validated['type'],
                 'status' => 'active',
@@ -128,8 +138,15 @@ class OrganizationManagementController extends Controller
                 'phone' => $validated['phone'],
                 'address' => $validated['address'],
                 'city' => $validated['city'] ?? null,
-                'state' => $validated['state'] ?? null,
-                'zip_code' => $validated['zip_code'] ?? null,
+                'region' => $validated['state'] ?? null,
+                'postal_code' => $validated['zip_code'] ?? null,
+                'billing_address' => $validated['billing_address'] ?? null,
+                'billing_city' => $validated['billing_city'] ?? null,
+                'billing_state' => $validated['billing_state'] ?? null,
+                'billing_zip' => $validated['billing_zip'] ?? null,
+                'ap_contact_name' => $validated['ap_contact_name'] ?? null,
+                'ap_contact_phone' => $validated['ap_contact_phone'] ?? null,
+                'ap_contact_email' => $validated['ap_contact_email'] ?? null,
             ]);
 
             // Create FHIR Organization resource

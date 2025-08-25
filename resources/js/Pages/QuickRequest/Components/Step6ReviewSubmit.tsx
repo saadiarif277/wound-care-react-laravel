@@ -522,6 +522,34 @@ export default function Step6ReviewSubmit({
   // Calculate total bill from form data
   const calculateTotalBill = () => {
     if (!formData.selected_products) return 0;
+
+    // First try to get finalized pricing from Step5
+    if (orderData.clinical_summary?.All_data?.pricing?.total_amount) {
+      return orderData.clinical_summary.All_data.pricing.total_amount;
+    }
+
+    // Check Step5 products structure
+    if (orderData.clinical_summary?.All_data?.products?.total_value) {
+      return orderData.clinical_summary.All_data.products.total_value;
+    }
+
+    // Check Step5 products items total
+    if (orderData.clinical_summary?.All_data?.products?.items) {
+      const total = orderData.clinical_summary.All_data.products.items.reduce((sum: number, item: any) => {
+        return sum + (item.finalized_price || item.price || 0);
+      }, 0);
+      if (total > 0) return total;
+    }
+
+    // Check Step5 pricing product_prices array
+    if (orderData.clinical_summary?.All_data?.pricing?.product_prices) {
+      const total = orderData.clinical_summary.All_data.pricing.product_prices.reduce((sum: number, price: number) => {
+        return sum + (price || 0);
+      }, 0);
+      if (total > 0) return total;
+    }
+
+    // Fallback to calculating from form data
     return formData.selected_products.reduce((total: number, item: any) => {
       const product = getSelectedProductDetails(item);
       // Try multiple price fields
@@ -553,6 +581,8 @@ export default function Step6ReviewSubmit({
     },
     calculatedTotal: calculateTotalBill(),
     finalizedPricing: orderData.clinical_summary?.All_data?.pricing,
+    step5Products: orderData.clinical_summary?.All_data?.products,
+    step5Pricing: orderData.clinical_summary?.All_data?.pricing,
   });
 
   // Update the clinical summary with calculated totals
@@ -566,11 +596,32 @@ export default function Step6ReviewSubmit({
       console.log('💰 Using finalized total from Step5 products:', orderData.clinical_summary.All_data.products.total_value);
       orderData.clinical_summary.All_data.total_amount = orderData.clinical_summary.All_data.products.total_value;
       orderData.clinical_summary.All_data.total_order_value = orderData.clinical_summary.All_data.products.total_value;
+    } else if (orderData.clinical_summary.All_data.products?.items) {
+      // Calculate total from Step5 products items
+      const total = orderData.clinical_summary.All_data.products.items.reduce((sum: number, item: any) => {
+        return sum + (item.finalized_price || item.price || 0);
+      }, 0);
+      if (total > 0) {
+        console.log('💰 Using calculated total from Step5 products items:', total);
+        orderData.clinical_summary.All_data.total_amount = total;
+        orderData.clinical_summary.All_data.total_order_value = total;
+      }
+    } else if (orderData.clinical_summary.All_data.pricing?.product_prices) {
+      // Calculate total from Step5 pricing product_prices array
+      const total = orderData.clinical_summary.All_data.pricing.product_prices.reduce((sum: number, price: number) => {
+        return sum + (price || 0);
+      }, 0);
+      if (total > 0) {
+        console.log('💰 Using calculated total from Step5 pricing product_prices:', total);
+        orderData.clinical_summary.All_data.total_amount = total;
+        orderData.clinical_summary.All_data.total_order_value = total;
+      }
     } else {
       // Fallback to calculating total if pricing data not available
-      console.log('💰 Using calculated total (fallback):', calculateTotalBill());
-      orderData.clinical_summary.All_data.total_amount = calculateTotalBill();
-      orderData.clinical_summary.All_data.total_order_value = calculateTotalBill();
+      const fallbackTotal = calculateTotalBill();
+      console.log('💰 Using calculated total (fallback):', fallbackTotal);
+      orderData.clinical_summary.All_data.total_amount = fallbackTotal;
+      orderData.clinical_summary.All_data.total_order_value = fallbackTotal;
     }
   }
 
@@ -847,8 +898,17 @@ export default function Step6ReviewSubmit({
                                 if (orderData.clinical_summary?.All_data?.products?.product_details?.[index]?.finalized_price) {
                                   return orderData.clinical_summary.All_data.products.product_details[index].finalized_price.toFixed(2);
                                 }
+                                // Check for Step5 pricing structure
+                                if (orderData.clinical_summary?.All_data?.pricing?.product_prices?.[index]) {
+                                  return orderData.clinical_summary.All_data.pricing.product_prices[index].toFixed(2);
+                                }
+                                // Check for Step5 products structure
+                                if (orderData.clinical_summary?.All_data?.products?.items?.[index]?.finalized_price) {
+                                  return orderData.clinical_summary.All_data.products.items[index].finalized_price.toFixed(2);
+                                }
                                 // Fallback to product price
-                                return (product?.price || product?.discounted_price || 0).toFixed(2);
+                                const price = product?.price || product?.discounted_price || product?.unit_price || item.price || item.unit_price || 0;
+                                return price.toFixed(2);
                               })()}
                             </p>
                             {product?.discounted_price && product?.price && product.discounted_price !== product.price && (
@@ -863,16 +923,30 @@ export default function Step6ReviewSubmit({
                   );
                 })}
                 <div className={cn("flex justify-between items-center pt-4 border-t", t.glass.border)}>
-                  <span className={cn("font-medium", t.text.primary)}>Total Bill:</span>
+                  <span className={cn("font-medium", t.text.primary)}>Total ASP:</span>
                   <span className={cn("text-lg font-bold", t.text.primary)}>
                     ${(() => {
                       // Use finalized prices from Step5 if available
                       if (orderData.clinical_summary?.All_data?.pricing?.total_amount) {
                         return orderData.clinical_summary.All_data.pricing.total_amount.toFixed(2);
                       }
-                      // Also check Step5 products structure
+                      // Check Step5 products structure
                       if (orderData.clinical_summary?.All_data?.products?.total_value) {
                         return orderData.clinical_summary.All_data.products.total_value.toFixed(2);
+                      }
+                      // Check Step5 products items total
+                      if (orderData.clinical_summary?.All_data?.products?.items) {
+                        const total = orderData.clinical_summary.All_data.products.items.reduce((sum: number, item: any) => {
+                          return sum + (item.finalized_price || item.price || 0);
+                        }, 0);
+                        if (total > 0) return total.toFixed(2);
+                      }
+                      // Check Step5 pricing product_prices array
+                      if (orderData.clinical_summary?.All_data?.pricing?.product_prices) {
+                        const total = orderData.clinical_summary.All_data.pricing.product_prices.reduce((sum: number, price: number) => {
+                          return sum + (price || 0);
+                        }, 0);
+                        if (total > 0) return total.toFixed(2);
                       }
                       // Fallback to calculated total
                       return calculateTotalBill().toFixed(2);

@@ -25,6 +25,7 @@ class TestOrderSeeder extends Seeder
             'account_id' => $account->id,
             'name' => 'Test Medical Center',
             'email' => 'info@testmedical.com',
+            'contact_email' => 'info@testmedical.com',
             'phone' => '555-000-1234',
             'address' => '456 Medical Center Way',
             'city' => 'Test City',

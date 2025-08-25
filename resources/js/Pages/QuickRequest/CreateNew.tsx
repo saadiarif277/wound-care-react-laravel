@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { FiArrowRight, FiCheck, FiAlertCircle, FiUser, FiActivity, FiShoppingCart, FiFileText, FiZap } from 'react-icons/fi';
@@ -10,6 +10,7 @@ import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
 import Step7DocusealIVR from './Components/Step7DocusealIVR';
 import axios from 'axios';
+import api from '@/lib/api';
 import { AuthButton } from '@/Components/ui/auth-button';
 // Removed useAuthState import - Inertia handles authentication automatically
 
@@ -231,6 +232,7 @@ function QuickRequestCreateNew({
   diagnosisCodes,
   currentUser,
 }: Props) {
+  console.log('🔄 QuickRequestCreateNew component rendering');
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
@@ -271,6 +273,14 @@ function QuickRequestCreateNew({
       steps_completed: []
     }
   });
+
+  // Store step getter functions in refs to avoid re-renders
+  const stepGettersRef = useRef<{
+    step2_getter?: () => any;
+    step4_getter?: () => any;
+    step5_getter?: () => any;
+    step7_getter?: () => any;
+  }>({});
 
   // Get tomorrow's date as default for service date
   const getTomorrowDate = (): string => {
@@ -333,7 +343,17 @@ function QuickRequestCreateNew({
     console.log(`🔄 Updating comprehensive data for step ${step}:`, stepData);
     setComprehensiveData((prev: any) => {
       const updated = { ...prev };
+
+      // Store step-specific data
       updated[`step${step}_data`] = stepData;
+
+      // Store all data in the "All_data" key for complete record
+      if (!updated.All_data) {
+        updated.All_data = {};
+      }
+      updated.All_data[`step${step}`] = stepData;
+
+      // Update metadata
       updated.metadata.last_updated = new Date().toISOString();
       updated.metadata.current_step = step;
 
@@ -343,8 +363,81 @@ function QuickRequestCreateNew({
       }
 
       console.log(`✅ Updated comprehensive data:`, updated);
+
+      // Don't save to backend automatically - only save when explicitly requested
+      // saveComprehensiveDataToBackend(step, stepData);
+
       return updated;
     });
+  };
+
+  // Function to save comprehensive data incrementally to backend
+  const saveComprehensiveDataToBackend = async (stepNumber: number, stepData: any) => {
+    try {
+      const response = await api.post('/quick-requests/save-comprehensive-data', {
+        episode_id: formData.episode_id || `QR-${Date.now()}`,
+        step_data: stepData,
+        step_number: stepNumber,
+        comprehensive_data: comprehensiveData
+      }) as any;
+
+      if (response.success) {
+        console.log(`✅ Comprehensive data saved for step ${stepNumber}:`, response);
+        // Update formData with episode_id if it was created
+        if (response.episode_id && !formData.episode_id) {
+          updateFormData({ episode_id: response.episode_id });
+        }
+      } else {
+        console.error(`❌ Failed to save comprehensive data for step ${stepNumber}:`, response);
+      }
+    } catch (error) {
+      console.error(`❌ Error saving comprehensive data for step ${stepNumber}:`, error);
+    }
+  };
+
+    // Function to save current step data before moving to next step
+  const saveCurrentStepData = async () => {
+    try {
+      // Get the current step data using the stored getter function from ref
+      let stepData = null;
+
+      switch (currentSection) {
+        case 0: // Step 2 Patient Insurance
+          if (stepGettersRef.current.step2_getter) {
+            stepData = stepGettersRef.current.step2_getter();
+            // Update comprehensive data with the current step data
+            updateComprehensiveData(0, stepData);
+          }
+          break;
+        case 1: // Step 4 Clinical Billing
+          if (stepGettersRef.current.step4_getter) {
+            stepData = stepGettersRef.current.step4_getter();
+            updateComprehensiveData(1, stepData);
+          }
+          break;
+        case 2: // Step 5 Product Selection
+          if (stepGettersRef.current.step5_getter) {
+            stepData = stepGettersRef.current.step5_getter();
+            updateComprehensiveData(2, stepData);
+          }
+          break;
+        case 3: // Step 7 DocuSeal IVR
+          if (stepGettersRef.current.step7_getter) {
+            stepData = stepGettersRef.current.step7_getter();
+            updateComprehensiveData(3, stepData);
+          }
+          break;
+      }
+
+      // If we have step data, save it to the backend
+      if (stepData) {
+        await saveComprehensiveDataToBackend(currentSection, stepData);
+        console.log(`✅ Step ${currentSection} data saved before moving to next step`);
+      }
+    } catch (error) {
+      console.error(`❌ Error saving current step data:`, error);
+      // Don't block navigation if saving fails
+    }
   };
 
   // Function to get final comprehensive data for clinical_summary
@@ -396,6 +489,9 @@ function QuickRequestCreateNew({
       docuseal: comprehensiveData?.step7?.documents || {},
       manufacturer: comprehensiveData?.step7?.product || {},
 
+      // All Data - Complete record of all steps
+      All_data: comprehensiveData?.All_data || {},
+
       // Merge any additional step data
       ...comprehensiveData,
 
@@ -424,9 +520,12 @@ function QuickRequestCreateNew({
     }
   }, [currentUser]);
 
-  // Monitor comprehensive data changes
+  // Monitor comprehensive data changes (only in development)
   useEffect(() => {
-    console.log('📊 Comprehensive data state changed:', comprehensiveData);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📊 Comprehensive data state changed:', comprehensiveData);
+      console.trace('📊 Stack trace for comprehensive data change');
+    }
   }, [comprehensiveData]);
 
   // Debug function to test comprehensive data collection
@@ -666,6 +765,9 @@ function QuickRequestCreateNew({
         ivr_completed: formData.ivr_completed
       });
     }
+
+    // Save comprehensive data before moving to next step
+    await saveCurrentStepData();
 
     // Refresh CSRF token before proceeding to next section
     try {
@@ -1066,18 +1168,19 @@ function QuickRequestCreateNew({
 
             {/* Step content - Inertia handles auth automatically */}
             {currentSection === 0 && (
-              <>
-                {console.log('🎯 Rendering Step 0 (Patient & Insurance)')}
-                <Step2PatientInsurance
-                  formData={formData as any}
-                  updateFormData={updateFormData as any}
-                  errors={errors}
-                  facilities={facilities}
-                  providers={providers}
-                  currentUser={currentUser}
-                  onStepComplete={(stepData) => updateComprehensiveData(0, stepData)}
-                />
-              </>
+              <Step2PatientInsurance
+                formData={formData as any}
+                updateFormData={updateFormData as any}
+                errors={errors}
+                facilities={facilities}
+                providers={providers}
+                currentUser={currentUser}
+                                  onStepComplete={(stepData) => {
+                    console.log('🔄 Step2 onStepComplete called');
+                    // Store the getStepData function in ref to avoid re-renders
+                    stepGettersRef.current.step2_getter = stepData.getStepData;
+                  }}
+              />
             )}
 
             {currentSection === 1 && (
@@ -1087,7 +1190,10 @@ function QuickRequestCreateNew({
                 diagnosisCodes={diagnosisCodes}
                 woundArea={woundArea}
                 errors={errors}
-                onStepComplete={(stepData) => updateComprehensiveData(1, stepData)}
+                onStepComplete={(stepData) => {
+                  // Store the getStepData function in ref to avoid re-renders
+                  stepGettersRef.current.step4_getter = stepData.getStepData;
+                }}
               />
             )}
 
@@ -1097,7 +1203,10 @@ function QuickRequestCreateNew({
                 updateFormData={updateFormData as any}
                 errors={errors}
                 currentUser={currentUser}
-                onStepComplete={(stepData) => updateComprehensiveData(2, stepData)}
+                onStepComplete={(stepData) => {
+                  // Store the getStepData function in ref to avoid re-renders
+                  stepGettersRef.current.step5_getter = stepData.getStepData;
+                }}
               />
             )}
 
@@ -1108,7 +1217,10 @@ function QuickRequestCreateNew({
                 products={products}
                 errors={errors}
                 onNext={handleNext}
-                onStepComplete={(stepData) => updateComprehensiveData(3, stepData)}
+                onStepComplete={(stepData) => {
+                  // Store the getStepData function in ref to avoid re-renders
+                  stepGettersRef.current.step7_getter = stepData.getStepData;
+                }}
               />
             )}
 

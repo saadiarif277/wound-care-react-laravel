@@ -31,12 +31,17 @@ interface Step2Props {
     name: string;
     credentials?: string;
     npi?: string;
+    facilities?: Array<{
+      id: number;
+      name: string;
+      address?: string;
+    }>;
   }>;
   currentUser?: {
     role?: string;
     id?: number;
   };
-  onStepComplete?: (stepData: any) => void;
+  onStepComplete?: (stepData: { getStepData: () => any }) => void;
 }
 
 function Step2PatientInsurance({
@@ -62,76 +67,139 @@ function Step2PatientInsurance({
   const [isProcessingClinicalDoc, setIsProcessingClinicalDoc] = useState(false);
   const [clinicalDocSuccess, setClinicalDocSuccess] = useState(false);
 
-  // Call onStepComplete when step data is complete
+  // New state for filtered facilities based on selected provider
+  const [filteredFacilities, setFilteredFacilities] = useState<Array<{
+    id: number;
+    name: string;
+    address?: string;
+  }>>([]);
+
+  // Filter facilities based on selected provider using facility_user relationship
+  useEffect(() => {
+    if (formData.provider_id) {
+      // Find the selected provider
+      const selectedProvider = providers.find(p => p.id === formData.provider_id);
+
+      if (selectedProvider) {
+        // Filter facilities based on the facility_user relationship
+        // The backend should load providers with their facilities
+        let providerFacilities: Array<{
+          id: number;
+          name: string;
+          address?: string;
+        }> = [];
+
+        if (selectedProvider.facilities && selectedProvider.facilities.length > 0) {
+          // Provider has facilities loaded, use those
+          providerFacilities = selectedProvider.facilities;
+        } else {
+          // No facilities found for this provider - show empty list
+          console.warn('Provider has no facilities loaded. Backend should load providers with facilities relationship.');
+        }
+
+        setFilteredFacilities(providerFacilities);
+
+        console.log('Provider facilities filtered:', {
+          provider: selectedProvider.name,
+          providerId: selectedProvider.id,
+          facilitiesCount: providerFacilities.length,
+          facilities: providerFacilities
+        });
+      } else {
+        setFilteredFacilities([]);
+      }
+    } else {
+      // No provider selected, show empty list (don't show all facilities)
+      setFilteredFacilities([]);
+    }
+  }, [formData.provider_id, providers, facilities]);
+
+  // Reset facility selection when provider changes
+  useEffect(() => {
+    if (formData.provider_id && formData.facility_id) {
+      const providerHasFacility = filteredFacilities.some(f => f.id === formData.facility_id);
+      if (!providerHasFacility) {
+        // Provider doesn't have access to the currently selected facility, reset it
+        updateFormData({ facility_id: null });
+      }
+    }
+  }, [filteredFacilities, formData.provider_id, formData.facility_id, updateFormData]);
+
+  // Function to get step data when needed (called by parent component)
+  const getStepData = () => {
+    return {
+      // Patient Information
+      patient: {
+        name: `${formData.patient_first_name || ''} ${formData.patient_last_name || ''}`.trim(),
+        firstName: formData.patient_first_name,
+        lastName: formData.patient_last_name,
+        dob: formData.patient_dob,
+        gender: formData.patient_gender,
+        phone: formData.patient_phone,
+        email: formData.patient_email,
+        address: formData.patient?.address || null,
+        memberId: formData.patient_member_id,
+        displayId: formData.patient_display_id,
+        isSubscriber: formData.patient_is_subscriber,
+        caregiver_name: formData.caregiver_name,
+        caregiver_relationship: formData.caregiver_relationship,
+        caregiver_phone: formData.caregiver_phone,
+      },
+      // Insurance Information
+      insurance: {
+        primary: {
+          name: formData.primary_insurance_name,
+          memberId: formData.primary_member_id,
+          planType: formData.primary_plan_type,
+          payer_phone: formData.primary_payer_phone,
+        },
+        secondary: formData.has_secondary_insurance ? {
+          name: formData.secondary_insurance_name,
+          memberId: formData.secondary_member_id,
+          subscriber_name: formData.secondary_subscriber_name,
+          subscriber_dob: formData.secondary_subscriber_dob,
+          payer_phone: formData.secondary_payer_phone,
+          planType: formData.secondary_plan_type,
+        } : null,
+        hasSecondary: formData.has_secondary_insurance,
+        prior_auth_permission: formData.prior_auth_permission,
+      },
+      // Service & Shipping
+      service: {
+        expected_service_date: formData.expected_service_date,
+        shipping_speed: formData.shipping_speed,
+        delivery_date: formData.delivery_date,
+      },
+      // Provider & Facility
+      provider: {
+        id: formData.provider_id,
+        name: providers.find(p => p.id === formData.provider_id)?.name || '',
+        npi: formData.provider_npi,
+        credentials: providers.find(p => p.id === formData.provider_id)?.credentials || '',
+      },
+      facility: {
+        id: formData.facility_id,
+        name: filteredFacilities.find(f => f.id === formData.facility_id)?.name || '',
+        address: filteredFacilities.find(f => f.id === formData.facility_id)?.address || '',
+      },
+      // Documents
+      documents: {
+        insurance_card_front: formData.insurance_card_front,
+        insurance_card_back: formData.insurance_card_back,
+        insurance_card_auto_filled: formData.insurance_card_auto_filled,
+      }
+    };
+  };
+
+  // Expose getStepData to parent component via ref or callback
   useEffect(() => {
     if (onStepComplete) {
-      const stepData = {
-        // Patient Information
-        patient: {
-          name: `${formData.patient_first_name || ''} ${formData.patient_last_name || ''}`.trim(),
-          firstName: formData.patient_first_name,
-          lastName: formData.patient_last_name,
-          dob: formData.patient_dob,
-          gender: formData.patient_gender,
-          phone: formData.patient_phone,
-          email: formData.patient_email,
-          address: formData.patient_address_line1 ?
-            `${formData.patient_address_line1}${formData.patient_address_line2 ? ', ' + formData.patient_address_line2 : ''}, ${formData.patient_city || ''}, ${formData.patient_state || ''} ${formData.patient_zip || ''}` : '',
-          memberId: formData.patient_member_id,
-          displayId: formData.patient_display_id,
-          isSubscriber: formData.patient_is_subscriber,
-          caregiver_name: formData.caregiver_name,
-          caregiver_relationship: formData.caregiver_relationship,
-          caregiver_phone: formData.caregiver_phone,
-        },
-        // Insurance Information
-        insurance: {
-          primary: {
-            name: formData.primary_insurance_name,
-            memberId: formData.primary_member_id,
-            planType: formData.primary_plan_type,
-            payer_phone: formData.primary_payer_phone,
-          },
-          secondary: formData.has_secondary_insurance ? {
-            name: formData.secondary_insurance_name,
-            memberId: formData.secondary_member_id,
-            subscriber_name: formData.secondary_subscriber_name,
-            subscriber_dob: formData.secondary_subscriber_dob,
-            payer_phone: formData.secondary_payer_phone,
-            planType: formData.secondary_plan_type,
-          } : null,
-          hasSecondary: formData.has_secondary_insurance,
-          prior_auth_permission: formData.prior_auth_permission,
-        },
-        // Service & Shipping
-        service: {
-          expected_service_date: formData.expected_service_date,
-          shipping_speed: formData.shipping_speed,
-          delivery_date: formData.delivery_date,
-        },
-        // Provider & Facility
-        provider: {
-          id: formData.provider_id,
-          name: providers.find(p => p.id === formData.provider_id)?.name || '',
-          npi: formData.provider_npi,
-          credentials: providers.find(p => p.id === formData.provider_id)?.credentials || '',
-        },
-        facility: {
-          id: formData.facility_id,
-          name: facilities.find(f => f.id === formData.facility_id)?.name || '',
-          address: facilities.find(f => f.id === formData.facility_id)?.address || '',
-        },
-        // Documents
-        documents: {
-          insurance_card_front: formData.insurance_card_front,
-          insurance_card_back: formData.insurance_card_back,
-          insurance_card_auto_filled: formData.insurance_card_auto_filled,
-        }
-      };
-
+      // Store the getStepData function in the parent component
+      // Only call this once when the component mounts, not on every render
+      const stepData = { getStepData };
       onStepComplete(stepData);
     }
-  }, [formData, providers, facilities, onStepComplete]);
+  }, []); // Empty dependency array - only run once on mount
 
 
   const states = [
@@ -218,7 +286,7 @@ function Step2PatientInsurance({
 
         if (response.data.success) {
           const updates: any = {};
-          const { data } = response.data;
+          const { data } = response.data as any;
 
           // Patient information
           if (data.patient_first_name) updates.patient_first_name = data.patient_first_name;
@@ -280,7 +348,7 @@ function Step2PatientInsurance({
         });
 
         if (response.data.success) {
-            const updates: any = { ...response.data.structured_data };
+            const updates: any = { ...(response.data as any).structured_data };
 
             // Map clinical document fields to form fields for ACZ & Associates
             const mappedUpdates: any = {};
@@ -369,6 +437,8 @@ function Step2PatientInsurance({
   };
 
 
+
+
   const handleAddressSelect = (place: any, parsedAddress?: ParsedAddressComponents) => {
     if (!parsedAddress) return;
 
@@ -379,7 +449,7 @@ function Step2PatientInsurance({
       city: parsedAddress.city || '',
       state: parsedAddress.stateAbbreviation || '',
       postalCode: parsedAddress.zipCode || '',
-      country: parsedAddress.countryCode || 'US'
+      country: 'US'
     };
 
     // Build address line array
@@ -406,6 +476,42 @@ function Step2PatientInsurance({
       'Aetna': '1-800-872-3862',
       'United Healthcare': '1-866-414-1959',
       'Humana': '1-800-457-4708',
+      'Medicare Part A': '1-800-MEDICARE',
+      'Medicare Part C (Medicare Advantage)': '1-800-MEDICARE',
+      'Medicare Part D': '1-800-MEDICARE',
+      'Medicaid': '1-877-267-2323',
+      'CHIP (Children\'s Health Insurance Program)': '1-877-543-7669',
+      'TRICARE': '1-800-538-9552',
+      'VA Health Care (Veterans Affairs)': '1-800-827-1000',
+      'Kaiser Permanente': '1-800-464-4000',
+      'Cigna': '1-800-244-6224',
+      'Anthem': '1-800-542-9402',
+      'Molina Healthcare': '1-866-440-2442',
+      'WellCare Health Plans': '1-866-799-5319',
+      'Centene Corporation': '1-800-225-2573',
+      'Ambetter': '1-877-687-1169',
+      'Bright Health': '1-800-709-5515',
+      'Oscar Health': '1-855-672-2755',
+      'Clover Health': '1-855-548-0527',
+      'Devoted Health': '1-800-338-6833',
+      'Alignment Healthcare': '1-866-396-7104',
+      'GoHealth': '1-855-792-0098',
+      'eHealth': '1-800-977-8860',
+      'HealthMarkets': '1-800-360-1403',
+      'SelectHealth': '1-800-538-5038',
+      'Premera Blue Cross': '1-800-842-7937',
+      'Regence Blue Cross Blue Shield': '1-888-427-4422',
+      'Highmark Blue Cross Blue Shield': '1-800-544-6659',
+      'Independence Blue Cross': '1-800-ASK-BLUE',
+      'Empire Blue Cross Blue Shield': '1-800-527-7314',
+      'CareFirst Blue Cross Blue Shield': '1-800-810-2583',
+      'EmblemHealth': '1-877-444-7989',
+      'Healthfirst': '1-866-986-0353',
+      'Fidelis Care': '1-888-343-3547',
+      'Affinity Health Plan': '1-866-247-5678',
+      'MetroPlus Health Plan': '1-855-809-4073',
+      'VNS Choice': '1-855-469-8664',
+      'AARP Medicare Advantage': '1-888-687-2277',
     };
     return phoneMap[insuranceName] || '';
   };
@@ -441,16 +547,26 @@ function Step2PatientInsurance({
               label="Facility"
               value={formData.facility_id || ''}
               onChange={(e) => updateFormData({ facility_id: parseInt(e.target.value) })}
-              options={facilities.map(f => ({
+              options={filteredFacilities.map(f => ({
                 value: f.id,
                 label: `${f.name} ${f.address ? `(${f.address})` : ''}`
               }))}
-              placeholder="Please Select Facility"
+              placeholder={
+                filteredFacilities.length === 0
+                  ? "No facilities available for selected provider"
+                  : "Please Select Facility"
+              }
               error={errors.facility_id}
               required
+              disabled={filteredFacilities.length === 0}
             />
             {errors.facility_id && (
               <p className="mt-1 text-sm text-red-500">{errors.facility_id}</p>
+            )}
+            {filteredFacilities.length === 0 && formData.provider_id && (
+              <p className="mt-1 text-sm text-amber-600 dark:text-blue-400">
+                No facilities available for the selected provider. Please select a different provider.
+              </p>
             )}
           </div>
         </div>
@@ -566,7 +682,7 @@ function Step2PatientInsurance({
                   }
                 }
               })}
-              defaultValue={formData.patient?.address?.text || ''}
+
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               placeholder="Start typing address..."
               required
@@ -608,6 +724,9 @@ function Step2PatientInsurance({
                 })}
                 placeholder="patient@email.com"
               />
+              <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                💡 Can be auto-filled from insurance card or clinical document, or type manually
+              </p>
             </div>
           </div>
         </div>
@@ -833,10 +952,15 @@ function Step2PatientInsurance({
                   id: formData.primary_payer_id || ''
                 }}
                 onChange={(payer) => {
+                  // Only auto-fill phone if it hasn't been manually edited
+                  const currentPhone = formData.primary_payer_phone;
+                  const isPhoneManuallyEdited = currentPhone && currentPhone !== getPayerPhone(formData.primary_insurance_name);
+
                   updateFormData({
                     primary_insurance_name: payer.name,
                     primary_payer_id: payer.id,
-                    primary_payer_phone: getPayerPhone(payer.name)
+                    // Keep manually edited phone, otherwise auto-fill
+                    primary_payer_phone: isPhoneManuallyEdited ? currentPhone : getPayerPhone(payer.name)
                   });
                 }}
                 error={errors.primary_insurance_name}
@@ -863,21 +987,21 @@ function Step2PatientInsurance({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Payer Phone <span className="text-gray-500">(Optional)</span> {formData.primary_payer_phone && '(Auto-filled)'}
+                Payer Phone <span className="text-gray-500">(Optional)</span>
+                {formData.primary_payer_phone && formData.primary_payer_phone === getPayerPhone(formData.primary_insurance_name) && (
+                  <span className="text-blue-600 dark:text-blue-400 text-xs ml-2">(Auto-filled)</span>
+                )}
               </label>
               <input
                 type="tel"
-                className={cn(
-                  "w-full p-2 border rounded focus:ring-2 focus:ring-blue-500",
-                  formData.primary_payer_phone
-                    ? "bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:border-blue-500"
-                )}
+                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                 value={formData.primary_payer_phone || ''}
                 onChange={(e) => updateFormData({ primary_payer_phone: e.target.value })}
-                readOnly={!!formData.primary_payer_phone}
                 placeholder="1-800-555-0100"
               />
+              <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                💡 Phone number will be auto-filled when selecting insurance, but you can edit it manually
+              </p>
             </div>
           </div>
 
@@ -1019,11 +1143,18 @@ function Step2PatientInsurance({
                       name: formData.secondary_insurance_name || '',
                       id: formData.secondary_payer_id || ''
                     }}
-                    onChange={(payer) => updateFormData({
-                      secondary_insurance_name: payer.name,
-                      secondary_payer_id: payer.id,
-                      secondary_payer_phone: getPayerPhone(payer.name)
-                    })}
+                    onChange={(payer) => {
+                      // Only auto-fill phone if it hasn't been manually edited
+                      const currentPhone = formData.secondary_payer_phone;
+                      const isPhoneManuallyEdited = currentPhone && currentPhone !== getPayerPhone(formData.secondary_insurance_name);
+
+                      updateFormData({
+                        secondary_insurance_name: payer.name,
+                        secondary_payer_id: payer.id,
+                        // Keep manually edited phone, otherwise auto-fill
+                        secondary_payer_phone: isPhoneManuallyEdited ? currentPhone : getPayerPhone(payer.name)
+                      });
+                    }}
                     error={errors.secondary_insurance}
                     placeholder="Search for insurance..."
                   />
@@ -1045,6 +1176,9 @@ function Step2PatientInsurance({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Payer Phone <span className="text-gray-500">(Optional)</span>
+                    {formData.secondary_payer_phone && formData.secondary_payer_phone === getPayerPhone(formData.secondary_insurance_name) && (
+                      <span className="text-blue-600 dark:text-blue-400 text-xs ml-2">(Auto-filled)</span>
+                    )}
                   </label>
                   <input
                     type="tel"
@@ -1053,6 +1187,9 @@ function Step2PatientInsurance({
                     onChange={(e) => updateFormData({ secondary_payer_phone: e.target.value })}
                     placeholder="(800) 555-0100"
                   />
+                  <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                    💡 Phone number will be auto-filled when selecting insurance, but you can edit it manually
+                  </p>
                 </div>
               </div>
 

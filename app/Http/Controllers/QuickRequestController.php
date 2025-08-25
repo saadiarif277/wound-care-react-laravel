@@ -263,6 +263,21 @@ class QuickRequestController extends Controller
         // Create comprehensive clinical summary with all data for admin order details
         $clinicalSummary = $data->toArray();
 
+        // Preserve existing clinical summary data if available
+        if (isset($validated['formData']['episode_id'])) {
+            $existingEpisode = PatientManufacturerIVREpisode::find($validated['formData']['episode_id']);
+            if ($existingEpisode && $existingEpisode->metadata && isset($existingEpisode->metadata['comprehensive_data'])) {
+                $existingData = $existingEpisode->metadata['comprehensive_data'];
+                // Merge existing data with new data, preserving existing data
+                $clinicalSummary = array_merge($existingData, $clinicalSummary);
+                Log::info('Merged existing comprehensive data with new data', [
+                    'existing_keys' => array_keys($existingData),
+                    'new_keys' => array_keys($data->toArray()),
+                    'merged_keys' => array_keys($clinicalSummary),
+                ]);
+            }
+        }
+
         // Add additional metadata and ensure all data is properly structured
         $clinicalSummary['metadata'] = [
             'created_at' => now()->toISOString(),
@@ -1080,6 +1095,93 @@ class QuickRequestController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create draft episode: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Save comprehensive data incrementally during quick request flow
+     */
+    public function saveComprehensiveData(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'episode_id' => 'required|string',
+            'step_data' => 'required|array',
+            'step_number' => 'required|integer|min:0|max:7',
+            'comprehensive_data' => 'required|array',
+        ]);
+
+        try {
+            // Find or create episode
+            $episode = PatientManufacturerIVREpisode::where('id', $validated['episode_id'])
+                ->where('created_by', Auth::id())
+                ->first();
+
+            if (!$episode) {
+                // Create new episode if it doesn't exist
+                $episode = PatientManufacturerIVREpisode::create([
+                    'id' => $validated['episode_id'],
+                    'created_by' => Auth::id(),
+                    'status' => PatientManufacturerIVREpisode::STATUS_DRAFT,
+                    'ivr_status' => 'pending',
+                    'metadata' => [
+                        'comprehensive_data' => $validated['comprehensive_data'],
+                        'last_step_completed' => $validated['step_number'],
+                        'last_updated' => now()->toISOString(),
+                    ]
+                ]);
+            } else {
+                // Update existing episode with new comprehensive data
+                $existingMetadata = $episode->metadata ?? [];
+                $existingComprehensiveData = $existingMetadata['comprehensive_data'] ?? [];
+                
+                // Merge existing comprehensive data with new data, preserving existing data
+                $mergedComprehensiveData = array_merge($existingComprehensiveData, $validated['comprehensive_data']);
+                
+                $existingMetadata['comprehensive_data'] = $mergedComprehensiveData;
+                $existingMetadata['last_step_completed'] = $validated['step_number'];
+                $existingMetadata['last_updated'] = now()->toISOString();
+
+                $episode->update([
+                    'metadata' => $existingMetadata
+                ]);
+
+                Log::info('Updated existing episode with merged comprehensive data', [
+                    'episode_id' => $episode->id,
+                    'existing_data_keys' => array_keys($existingComprehensiveData),
+                    'new_data_keys' => array_keys($validated['comprehensive_data']),
+                    'merged_data_keys' => array_keys($mergedComprehensiveData),
+                ]);
+            }
+
+            // Log the comprehensive data saving
+            Log::info('QuickRequest saveComprehensiveData - Data saved incrementally', [
+                'episode_id' => $episode->id,
+                'step_number' => $validated['step_number'],
+                'comprehensive_data_keys' => array_keys($validated['comprehensive_data']),
+                'comprehensive_data_size' => strlen(json_encode($validated['comprehensive_data'])),
+                'user_id' => Auth::id(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Comprehensive data saved successfully',
+                'episode_id' => $episode->id,
+                'step_completed' => $validated['step_number'],
+                'data_saved_at' => now()->toISOString(),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('QuickRequest saveComprehensiveData - Error saving data', [
+                'error' => $e->getMessage(),
+                'episode_id' => $validated['episode_id'] ?? null,
+                'step_number' => $validated['step_number'] ?? null,
+                'user_id' => Auth::id(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save comprehensive data: ' . $e->getMessage(),
             ], 500);
         }
     }

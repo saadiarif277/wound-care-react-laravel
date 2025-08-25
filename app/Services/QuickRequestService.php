@@ -64,7 +64,9 @@ final class QuickRequestService
             'providerProfile',
             'providerCredentials',
             'organizations' => fn($q) => $q->where('organization_users.is_active', true),
-            'facilities'
+            'facilities' => function($query) {
+                $query->withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class);
+            }
         ]);
     }
 
@@ -75,9 +77,14 @@ final class QuickRequestService
     {
         $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
 
+        // Load user facilities bypassing organization scope
+        $userWithFacilities = $user->load(['facilities' => function($query) {
+            $query->withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class);
+        }]);
+
         // Office managers should only see their assigned facility
         if ($userRole === 'office-manager') {
-            $userFacilities = $user->facilities->map(function($facility) {
+            $userFacilities = $userWithFacilities->facilities->map(function($facility) {
                 return [
                     'id' => $facility->id,
                     'name' => $facility->name,
@@ -90,7 +97,7 @@ final class QuickRequestService
         }
 
         // Providers can select from multiple facilities
-        $userFacilities = $user->facilities->map(function($facility) {
+        $userFacilities = $userWithFacilities->facilities->map(function($facility) {
             return [
                 'id' => $facility->id,
                 'name' => $facility->name,
@@ -128,11 +135,22 @@ final class QuickRequestService
 
         if ($userRole === 'provider') {
             // Providers can only see themselves - they cannot order for other providers
+            // Load the user with facilities relationship, bypassing organization scope
+            $userWithFacilities = $user->load(['facilities' => function($query) {
+                $query->withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class);
+            }]);
             $providers[] = [
                 'id' => $user->id,
                 'name' => $user->first_name . ' ' . $user->last_name,
                 'credentials' => $user->providerProfile?->credentials ?? $user->providerCredentials->pluck('credential_number')->implode(', ') ?? null,
                 'npi' => $user->npi_number ?? $user->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
+                'facilities' => $userWithFacilities->facilities->map(function($facility) {
+                    return [
+                        'id' => $facility->id,
+                        'name' => $facility->name,
+                        'address' => $facility->full_address ?? $facility->address,
+                    ];
+                })->toArray(),
             ];
         } elseif ($userRole === 'office-manager') {
             // Office managers can order for multiple providers at their facility
@@ -143,6 +161,9 @@ final class QuickRequestService
                     ->whereHas('roles', function($q) {
                         $q->where('slug', 'provider');
                     })
+                    ->with(['facilities' => function($query) {
+                        $query->withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class);
+                    }]) // Load facilities relationship, bypassing organization scope
                     ->get(['id', 'first_name', 'last_name', 'npi_number'])
                     ->map(function($provider) {
                         return [
@@ -150,6 +171,13 @@ final class QuickRequestService
                             'name' => $provider->first_name . ' ' . $provider->last_name,
                             'credentials' => $provider->providerProfile?->credentials ?? $provider->provider_credentials ?? null,
                             'npi' => $provider->npi_number,
+                            'facilities' => $provider->facilities->map(function($facility) {
+                                return [
+                                    'id' => $facility->id,
+                                    'name' => $facility->name,
+                                    'address' => $facility->full_address ?? $facility->address,
+                                ];
+                            })->toArray(),
                         ];
                     })
                     ->toArray();
@@ -1045,10 +1073,10 @@ final class QuickRequestService
         try {
             // Define required fields for each section
             $requiredFields = $this->getRequiredFieldsBySection($section);
-            
+
             // Validate each section
-            $sectionsToValidate = $section === 'all' 
-                ? ['patient', 'provider', 'insurance', 'clinical'] 
+            $sectionsToValidate = $section === 'all'
+                ? ['patient', 'provider', 'insurance', 'clinical']
                 : [$section];
 
             $totalFields = 0;
@@ -1057,21 +1085,21 @@ final class QuickRequestService
             foreach ($sectionsToValidate as $sectionName) {
                 $sectionData = $formData[$sectionName] ?? [];
                 $sectionRequired = $requiredFields[$sectionName] ?? [];
-                
+
                 $sectionValidation = $this->validateSection($sectionName, $sectionData, $sectionRequired);
-                
+
                 $validation['results'][$sectionName] = $sectionValidation;
                 $validation['errors'] = array_merge($validation['errors'], $sectionValidation['errors']);
                 $validation['warnings'] = array_merge($validation['warnings'], $sectionValidation['warnings']);
                 $validation['missing_required'] = array_merge($validation['missing_required'], $sectionValidation['missing_required']);
-                
+
                 $totalFields += count($sectionRequired);
                 $completedFields += count(array_filter($sectionData, fn($value) => !empty($value)));
             }
 
             // Calculate completeness percentage
-            $validation['completeness_percentage'] = $totalFields > 0 
-                ? round(($completedFields / $totalFields) * 100, 2) 
+            $validation['completeness_percentage'] = $totalFields > 0
+                ? round(($completedFields / $totalFields) * 100, 2)
                 : 0;
 
             // Add suggestions for improvement
@@ -1090,7 +1118,7 @@ final class QuickRequestService
                 'section' => $section,
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             $validation['errors'][] = 'Validation process failed: ' . $e->getMessage();
         }
 

@@ -38,6 +38,7 @@ class Organization extends Model
         'status',       // e.g., 'active', 'pending', 'inactive'
         'sales_rep_id', // Foreign key to User model
         'email',
+        'contact_email',
         'phone',
         'address',
         'city',

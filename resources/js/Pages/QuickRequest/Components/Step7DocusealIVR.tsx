@@ -63,6 +63,7 @@ interface Step7Props {
   }>;
   errors: Record<string, string>;
   onNext?: () => void;
+  onStepComplete?: (stepData: any) => void;
 }
 
 interface DocumentUpload {
@@ -103,7 +104,8 @@ export default function Step7DocusealIVR({
   updateFormData,
   products,
   errors,
-  onNext
+  onNext,
+  onStepComplete
 }: Step7Props) {
   const { manufacturers, loading: manufacturersLoading, getManufacturerByName } = useManufacturers();
   const [showDocUpload, setShowDocUpload] = useState(false);
@@ -114,18 +116,6 @@ export default function Step7DocusealIVR({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const docusealFormRef = useRef<any>(null);
-
-  // Debug logging
-  useEffect(() => {
-    console.log('🔍 Step7DocuSealIVR Debug:', {
-      formData: formData,
-      products: products,
-      manufacturers: manufacturers,
-      isIvrRequired: formData.ivr_required,
-      ivr_bypass_reason: formData.ivr_bypass_reason,
-      uploadedDocs: uploadedDocs
-    });
-  }, [formData, products, manufacturers, uploadedDocs]);
 
   // Get selected product and manufacturer config
   const selectedProduct = useMemo(() => {
@@ -157,6 +147,26 @@ export default function Step7DocusealIVR({
     // Default: IVR is required
     return true;
   }, [formData.ivr_required, formData.ivr_bypass_reason]);
+
+
+
+
+
+
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 Step7DocuSealIVR Debug:', {
+      formData: formData,
+      products: products,
+      manufacturers: manufacturers,
+      isIvrRequired: isIvrRequired,
+      ivr_bypass_reason: formData.ivr_bypass_reason,
+      uploadedDocs: uploadedDocs
+    });
+  }, [formData, products, manufacturers, isIvrRequired, uploadedDocs]);
+
+
 
   // Handle clinical documents upload
   const handleClinicalDocumentsChange = (files: Array<{
@@ -505,10 +515,7 @@ export default function Step7DocusealIVR({
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
               Your insurance verification request has been submitted and saved.
             </p>
-            <Button onClick={() => onNext?.()} className="inline-flex items-center gap-2">
-              Continue to Final Review
-              <ArrowRight className="w-4 h-4" />
-            </Button>
+
           </div>
         )}
       </div>

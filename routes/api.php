@@ -17,6 +17,7 @@ use App\Http\Controllers\RBACController;
 use App\Http\Controllers\Api\V1\ProviderOnboardingController;
 use App\Http\Controllers\Api\V1\ProviderProfileController;
 use App\Http\Controllers\Api\V1\QuickRequestController;
+use App\Http\Controllers\Api\V1\ProviderFacilityController;
 use App\Http\Controllers\Api\ProductRequestPatientController;
 use App\Http\Controllers\Api\ProductRequestClinicalAssessmentController;
 use Illuminate\Support\Facades\Route;
@@ -1184,3 +1185,10 @@ Route::post('/debug/medlife-amnio-amp-ivr-mapping', function (\Illuminate\Http\R
 
     return response()->json($result);
 })->middleware('auth');
+
+// Provider Facility Routes
+Route::prefix('v1')->group(function () {
+    Route::get('/providers/{providerId}/facilities', [ProviderFacilityController::class, 'getProviderFacilities'])
+        ->name('api.providers.facilities')
+        ->middleware('auth');
+});

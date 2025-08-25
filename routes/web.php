@@ -63,6 +63,7 @@ use App\Services\FhirService;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\OrderReviewPageController;
 use App\Models\Order\Order;
+use App\Http\Controllers\QuickRequestController;
 
 Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
     $service = app(DocusealService::class);
@@ -623,69 +624,15 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // Quick Request Routes
-    Route::prefix('quick-requests')->middleware('auth')->group(function () {
-        Route::get('/create', [\App\Http\Controllers\QuickRequestController::class, 'create'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.create');
-        Route::get('/create-new', [\App\Http\Controllers\QuickRequestController::class, 'create'])
-            ->middleware('permission:create-product-requests')
+    Route::middleware(['auth'])->prefix('quick-requests')->group(function () {
+        Route::get('/create-new', [QuickRequestController::class, 'create'])
             ->name('quick-requests.create-new');
-
-        // Order Review and Submission Routes
-        Route::get('/review', [\App\Http\Controllers\QuickRequestController::class, 'reviewOrder'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.review');
-        Route::post('/submit-order', [\App\Http\Controllers\QuickRequestController::class, 'submitOrder'])
-            ->middleware('permission:create-product-requests')
+        Route::post('/save-comprehensive-data', [QuickRequestController::class, 'saveComprehensiveData'])
+            ->name('quick-requests.save-comprehensive-data');
+        Route::get('/review-order', [QuickRequestController::class, 'reviewOrder'])
+            ->name('quick-requests.review-order');
+        Route::post('/submit-order', [QuickRequestController::class, 'submitOrder'])
             ->name('quick-requests.submit-order');
-
-        // Main store route
-        Route::post('/', [\App\Http\Controllers\QuickRequestController::class, 'store'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.store');
-
-        // DocuSeal Quick Request Integration - using QuickRequest\DocusealController
-        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'generateSubmissionSlug'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.generate-submission-slug');
-
-        Route::post('/docuseal/test-mapping', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'testFieldMapping'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.test-mapping');
-
-        Route::post('/docuseal/create-episode', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'createEpisode'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.create-episode');
-
-        Route::post('/docuseal/finalize-episode', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'finalizeEpisode'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.finalize-episode');
-
-        // Docuseal Builder Token Generation (web auth)
-        Route::post('/docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.generate-builder-token');
-
-        // Episode-centric workflow with document processing
-        Route::post('/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.create-episode-with-documents');
-
-        // Remove routes for methods that don't exist anymore
-        // Order Summary Route - temporarily commented out until we implement it
-        // Route::get('/order-summary/{order_id}', [\App\Http\Controllers\QuickRequestController::class, 'showOrderSummary'])
-        //     ->middleware('permission:create-product-requests')
-        //     ->name('quick-requests.order-summary');
-
-        // My Orders Page - temporarily commented out until we implement it
-        // Route::get('/my-orders', [\App\Http\Controllers\QuickRequestController::class, 'myOrders'])
-        //     ->middleware('permission:view-product-requests')
-        //     ->name('quick-requests.my-orders');
-
-        // Debug routes - temporarily commented out
-        // Route::get('/debug-facilities', [\App\Http\Controllers\QuickRequestController::class, 'debugFacilities'])
-        //     ->middleware('permission:create-product-requests')
-        //     ->name('quick-requests.debug-facilities');
     });
 
     // Insurance Card Analysis API - moved to api.php
@@ -870,6 +817,8 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->name('admin.organizations.create');
         Route::post('/', [OrganizationManagementController::class, 'store'])
             ->name('admin.organizations.store');
+        Route::get('/{organization}', [OrganizationManagementController::class, 'show'])
+            ->name('admin.organizations.show');
         Route::get('/{organization}/edit', [OrganizationManagementController::class, 'edit'])
             ->name('admin.organizations.edit');
         Route::put('/{organization}', [OrganizationManagementController::class, 'update'])
@@ -896,7 +845,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
         Route::post('/', function (Request $request) {
             $request->validate([
-                'email' => 'required|email|unique:users,email|unique:provider_invitations,invited_email',
+                'email' => 'required|email|unique:users,email|unique:provider_invitations,email',
                 'role' => 'required|in:provider,office-manager,msc-rep,msc-subrep,msc-admin',
                 'organization_id' => 'nullable|uuid|exists:organizations,id',
                 'message' => 'nullable|string|max:500'
@@ -904,12 +853,13 @@ Route::middleware(['web', 'auth'])->group(function () {
 
             // Create the invitation
             $invitation = App\Models\Users\Provider\ProviderInvitation::create([
-                'id' => Str::uuid(),
-                'invited_email' => $request->email,
-                'invited_role' => $request->role,
+                'email' => $request->email,
+                'assigned_roles' => [$request->role],
                 'organization_id' => $request->organization_id,
-                'invited_by' => Auth::id(),
-                'status' => 'pending',
+                'invited_by_user_id' => Auth::id(),
+                'invitation_type' => 'provider',
+                'status' => 'sent',
+                'sent_at' => now(),
                 'expires_at' => now()->addDays(7),
                 'metadata' => [
                     'custom_message' => $request->message,
@@ -1496,3 +1446,15 @@ Route::get('/docuseal-templates', function () {
         return 'Error: ' . $e->getMessage();
     }
 })->middleware('auth');
+
+    // Quick Request Routes
+    Route::middleware(['auth'])->prefix('quick-requests')->group(function () {
+        Route::get('/create-new', [QuickRequestController::class, 'create'])
+            ->name('quick-requests.create-new');
+        Route::post('/save-comprehensive-data', [QuickRequestController::class, 'saveComprehensiveData'])
+            ->name('quick-requests.save-comprehensive-data');
+        Route::get('/review-order', [QuickRequestController::class, 'reviewOrder'])
+            ->name('quick-requests.review-order');
+        Route::post('/submit-order', [QuickRequestController::class, 'submitOrder'])
+            ->name('quick-requests.submit-order');
+    });

@@ -38,8 +38,8 @@ class ProviderInvitationEmail extends Mailable
         return new Content(
             view: 'emails.provider-invitation',
             with: [
-                'invitationUrl' => route('auth.provider-invitation', [
-                    'token' => $this->invitation->token
+                'invitationUrl' => route('auth.provider-invitation.show', [
+                    'token' => $this->invitation->invitation_token
                 ]),
                 'inviterName' => $this->invitation->metadata['invited_by_name'] ?? 'MSC Team',
                 'expiresAt' => $this->invitation->expires_at->format('F j, Y'),
