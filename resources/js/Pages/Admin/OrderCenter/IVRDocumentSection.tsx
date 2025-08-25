@@ -695,17 +695,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                     )}
 
                     {/* Show Order Form Modal Button when IVR is verified */}
-                    {ivrData.status?.toLowerCase() === 'verified' && (
-                      <Button
-                        onClick={() => setShowOrderFormModal(true)}
-                        className="flex-1"
-                        variant="primary"
-                        size="sm"
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Complete Order Form
-                      </Button>
-                    )}
+
                   </div>
 
                   {userRole === 'Admin' && (

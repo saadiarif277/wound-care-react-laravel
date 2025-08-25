@@ -47,6 +47,10 @@ interface OnboardingFormData {
     payment_method: string;
     billing_contact_email: string;
     net_terms: number;
+    
+    // Biller Contact Information
+    biller_contact_name: string;
+    biller_contact_phone: string;
 
     // Integration
     ehr_system: string;
@@ -377,9 +381,47 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                     </select>
                 </div>
 
+                {/* Biller Contact Information Section */}
+                <div className="border-t pt-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Biller Contact Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="biller-name" className="block text-sm font-medium text-gray-700 mb-2">
+                                Biller Contact Name *
+                            </label>
+                            <input
+                                id="biller-name"
+                                type="text"
+                                value={data.biller_contact_name || ''}
+                                onChange={(e) => setData('biller_contact_name', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="John Doe"
+                                aria-label="Biller contact name"
+                                required
+                            />
+                        </div>
+                        
+                        <div>
+                            <label htmlFor="biller-phone" className="block text-sm font-medium text-gray-700 mb-2">
+                                Biller Contact Phone *
+                            </label>
+                            <input
+                                id="biller-phone"
+                                type="tel"
+                                value={data.biller_contact_phone || ''}
+                                onChange={(e) => setData('biller_contact_phone', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="(555) 123-4567"
+                                aria-label="Biller contact phone"
+                                required
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 <div>
                     <label htmlFor="billing-email" className="block text-sm font-medium text-gray-700 mb-2">
-                        Billing Contact Email
+                        Billing Contact Email *
                     </label>
                     <input
                         id="billing-email"
@@ -389,6 +431,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="billing@organization.com"
                         aria-label="Billing contact email"
+                        required
                     />
                 </div>
 

@@ -220,7 +220,7 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
             {sendNotification && (
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
-                  Upload Documents (Optional)
+                  Upload Documents to Sent Via Email (Optional)
                 </label>
                 <input
                   type="file"
@@ -244,7 +244,7 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
           {/* Status Update Documents */}
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-700">
-              Upload Documents for Status Update (Optional)
+              Upload Documents for Saving to the Order Details
             </label>
             <input
               type="file"
