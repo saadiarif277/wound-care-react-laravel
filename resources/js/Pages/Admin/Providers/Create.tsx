@@ -26,10 +26,7 @@ export default function CreateProvider({ organizations, states }: CreateProvider
     password_confirmation: '',
     phone: '',
     npi_number: '',
-    dea_number: '',
-    license_number: '',
-    license_state: '',
-    license_expiry: '',
+    tax_id: '',
     current_organization_id: '',
     is_verified: false,
   });
@@ -188,63 +185,19 @@ export default function CreateProvider({ organizations, states }: CreateProvider
 
               <div className="space-y-2">
                 <TextInput
-                  label="DEA Number"
-                  value={data.dea_number}
-                  onChange={(e) => setData('dea_number', e.target.value)}
-                  error={errors.dea_number}
-                  placeholder="AB1234567"
+                  label="Tax ID"
+                  value={data.tax_id}
+                  onChange={(e) => setData('tax_id', e.target.value)}
+                  error={errors.tax_id}
+                  placeholder="12-3456789"
                   className={cn(t.input.base, t.input.focus)}
                 />
                 <p className={cn("text-xs", t.text.tertiary)}>
-                  Drug Enforcement Administration registration for prescribing controlled substances
+                  Tax Identification Number (EIN) for the provider or practice
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <TextInput
-                  label="Medical License Number"
-                  value={data.license_number}
-                  onChange={(e) => setData('license_number', e.target.value)}
-                  error={errors.license_number}
-                  placeholder="12345"
-                  className={cn(t.input.base, t.input.focus)}
-                />
-                <p className={cn("text-xs", t.text.tertiary)}>
-                  State medical board license number for practicing medicine
-                </p>
-              </div>
 
-              <div className="space-y-2">
-                <SelectInput
-                  label="License Issuing State"
-                  value={data.license_state}
-                  onChange={(e) => setData('license_state', e.target.value)}
-                  error={errors.license_state}
-                  className={cn(t.input.select || t.input.base, t.input.focus)}
-                >
-                  <option value="">Select a state...</option>
-                  {states.map(state => (
-                    <option key={state.code} value={state.code}>{state.name}</option>
-                  ))}
-                </SelectInput>
-                <p className={cn("text-xs", t.text.tertiary)}>
-                  State where medical license was issued
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <TextInput
-                  label="License Expiration Date"
-                  type="date"
-                  value={data.license_expiry}
-                  onChange={(e) => setData('license_expiry', e.target.value)}
-                  error={errors.license_expiry}
-                  className={cn(t.input.base, t.input.focus)}
-                />
-                <p className={cn("text-xs", t.text.tertiary)}>
-                  Date when medical license expires and needs renewal
-                </p>
-              </div>
             </div>
 
             <div className={cn("mt-6 p-4 rounded-xl", t.glass.frost)}>

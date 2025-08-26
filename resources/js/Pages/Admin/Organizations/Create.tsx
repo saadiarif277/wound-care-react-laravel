@@ -35,6 +35,8 @@ export default function OrganizationsCreate() {
     ap_contact_name: '',
     ap_contact_phone: '',
     ap_contact_email: '',
+    biller_contact_name: '',
+    biller_contact_phone: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -483,6 +485,62 @@ export default function OrganizationsCreate() {
                 />
                 {errors.ap_contact_email && (
                   <p className="mt-1 text-sm text-red-600">{errors.ap_contact_email}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Biller Contact Information */}
+          <div className={cn("p-6 rounded-2xl", t.glass.card, t.shadows.glass)}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center", t.text.primary)}>
+              <div className="p-2 rounded-xl bg-indigo-500/20 mr-3">
+                <User className="w-5 h-5 text-indigo-400" />
+              </div>
+              Biller Contact Information
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="biller_contact_name" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Biller Contact Name
+                </label>
+                <input
+                  type="text"
+                  id="biller_contact_name"
+                  name="biller_contact_name"
+                  value={formData.biller_contact_name}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.biller_contact_name ? "border-red-500" : ""
+                  )}
+                  placeholder="Jane Smith"
+                />
+                {errors.biller_contact_name && (
+                  <p className="mt-1 text-sm text-red-600">{errors.biller_contact_name}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="biller_contact_phone" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Biller Contact Phone
+                </label>
+                <input
+                  type="tel"
+                  id="biller_contact_phone"
+                  name="biller_contact_phone"
+                  value={formData.biller_contact_phone}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.biller_contact_phone ? "border-red-500" : ""
+                  )}
+                  placeholder="(555) 987-6543"
+                />
+                {errors.biller_contact_phone && (
+                  <p className="mt-1 text-sm text-red-600">{errors.biller_contact_phone}</p>
                 )}
               </div>
             </div>

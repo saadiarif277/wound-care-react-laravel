@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('organizations', function (Blueprint $table) {
-            //
+            $table->string('biller_contact_name')->nullable()->after('ap_contact_email');
+            $table->string('biller_contact_phone')->nullable()->after('biller_contact_name');
         });
     }
 
@@ -22,7 +23,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('organizations', function (Blueprint $table) {
-            //
+            $table->dropColumn([
+                'biller_contact_name',
+                'biller_contact_phone'
+            ]);
         });
     }
 };

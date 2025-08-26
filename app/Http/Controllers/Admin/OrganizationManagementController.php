@@ -123,6 +123,8 @@ class OrganizationManagementController extends Controller
             'ap_contact_name' => 'nullable|string|max:255',
             'ap_contact_phone' => 'nullable|string|max:20',
             'ap_contact_email' => 'nullable|email',
+            'biller_contact_name' => 'nullable|string|max:255',
+            'biller_contact_phone' => 'nullable|string|max:20',
         ]);
 
         DB::transaction(function () use ($validated, $fhirService) {
@@ -147,6 +149,8 @@ class OrganizationManagementController extends Controller
                 'ap_contact_name' => $validated['ap_contact_name'] ?? null,
                 'ap_contact_phone' => $validated['ap_contact_phone'] ?? null,
                 'ap_contact_email' => $validated['ap_contact_email'] ?? null,
+                'biller_contact_name' => $validated['biller_contact_name'] ?? null,
+                'biller_contact_phone' => $validated['biller_contact_phone'] ?? null,
             ]);
 
             // Create FHIR Organization resource
@@ -308,6 +312,8 @@ class OrganizationManagementController extends Controller
             'ap_contact_name' => 'nullable|string|max:255',
             'ap_contact_phone' => 'nullable|string|max:20',
             'ap_contact_email' => 'nullable|email|max:255',
+            'biller_contact_name' => 'nullable|string|max:255',
+            'biller_contact_phone' => 'nullable|string|max:20',
         ]);
 
         $organization->update($validated);

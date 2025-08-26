@@ -71,35 +71,18 @@ export default function CredentialsStep({
           />
         </div>
 
-        {/* License Information */}
+        {/* Tax Information */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Medical License</h3>
+          <h3 className="text-lg font-medium text-gray-900">Tax Information</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <TextInput
-              label="License Number"
-              name="license_number"
-              value={data.license_number || ''}
-              onChange={(e) => onChange('license_number', e.target.value)}
-              error={errors.license_number}
-              placeholder="e.g., MD123456"
-            />
-
-            <SelectInput
-              label="License State"
-              name="license_state"
-              value={data.license_state || ''}
-              onChange={(e) => onChange('license_state', e.target.value)}
-              error={errors.license_state}
-            >
-              <option value="">Select state</option>
-              {states.map((state) => (
-                <option key={state.code} value={state.code}>
-                  {state.name}
-                </option>
-              ))}
-            </SelectInput>
-          </div>
+          <TextInput
+            label="Tax ID / EIN"
+            name="tax_id"
+            value={data.tax_id || ''}
+            onChange={(e) => onChange('tax_id', e.target.value)}
+            error={errors.tax_id}
+            placeholder="12-3456789"
+          />
         </div>
 
         {/* Additional Identifiers */}

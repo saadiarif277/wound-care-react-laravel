@@ -52,6 +52,8 @@ class Organization extends Model
         'ap_contact_name',
         'ap_contact_phone',
         'ap_contact_email',
+        'biller_contact_name',
+        'biller_contact_phone',
         'fhir_id', // Added Organization FHIR ID
     ];
 

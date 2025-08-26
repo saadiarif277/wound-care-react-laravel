@@ -3,11 +3,8 @@ import { useForm, Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/Components/ui/card';
-import { Button } from '@/Components/ui/Button';
-import { Input } from '@/Components/ui/input';
-import { Label } from '@/Components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Button } from '@/Components/ui/button';
 import { ArrowLeft, Building, MapPin, User, CreditCard, Save, X } from 'lucide-react';
 
 interface Organization {
@@ -28,6 +25,8 @@ interface Organization {
   ap_contact_name?: string;
   ap_contact_phone?: string;
   ap_contact_email?: string;
+  biller_contact_name?: string;
+  biller_contact_phone?: string;
 }
 
 interface Props {
@@ -55,6 +54,8 @@ export default function OrganizationEdit({ organization }: Props) {
     ap_contact_name: organization.ap_contact_name || '',
     ap_contact_phone: organization.ap_contact_phone || '',
     ap_contact_email: organization.ap_contact_email || '',
+    biller_contact_name: organization.biller_contact_name || '',
+    biller_contact_phone: organization.biller_contact_phone || '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -446,6 +447,56 @@ export default function OrganizationEdit({ organization }: Props) {
                   placeholder="ap@organization.com"
                 />
                 {errors.ap_contact_email && <p className="text-red-500 text-xs mt-1">{errors.ap_contact_email}</p>}
+              </div>
+            </div>
+          </div>
+
+          {/* Biller Contact Information */}
+          <div className={cn("p-6 rounded-2xl", t.glass.card, t.shadows.glass)}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center", t.text.primary)}>
+              <div className="p-2 rounded-xl bg-indigo-500/20 mr-3">
+                <User className="w-5 h-5 text-indigo-400" />
+              </div>
+              Biller Contact Information
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="biller_contact_name" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Biller Contact Name
+                </label>
+                <input
+                  id="biller_contact_name"
+                  type="text"
+                  value={data.biller_contact_name}
+                  onChange={(e) => setData('biller_contact_name', e.target.value)}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.biller_contact_name ? "border-red-500" : ""
+                  )}
+                  placeholder="Jane Smith"
+                />
+                {errors.biller_contact_name && <p className="text-red-500 text-xs mt-1">{errors.biller_contact_name}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="biller_contact_phone" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Biller Contact Phone
+                </label>
+                <input
+                  id="biller_contact_phone"
+                  type="tel"
+                  value={data.biller_contact_phone}
+                  onChange={(e) => setData('biller_contact_phone', e.target.value)}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.biller_contact_phone ? "border-red-500" : ""
+                  )}
+                  placeholder="(555) 987-6543"
+                />
+                {errors.biller_contact_phone && <p className="text-red-500 text-xs mt-1">{errors.biller_contact_phone}</p>}
               </div>
             </div>
           </div>

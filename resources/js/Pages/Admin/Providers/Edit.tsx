@@ -34,9 +34,6 @@ export default function EditProvider({ provider, organizations, states }: EditPr
 
     // Professional Info
     npi_number: provider.npi_number || '',
-    license_number: provider.license_number || '',
-    license_state: provider.license_state || '',
-    license_expiry: provider.license_expiry || '',
 
     // Provider Profile Info (including new fields)
     specialty: provider.provider_profile?.specialty || '',
@@ -58,7 +55,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
     try {
       // First, refresh the CSRF token
       await axios.get('/sanctum/csrf-cookie');
-      
+
       // Then submit the form
       put(`/admin/providers/${provider.id}`, {
         preserveScroll: true,
@@ -348,70 +345,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                 </p>
               </div>
 
-              <div>
-                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  Medical License Number
-                </label>
-                <input
-                  type="text"
-                  value={data.license_number}
-                  onChange={(e) => setData('license_number', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    t.input.border,
-                    errors.license_number && t.input.error
-                  )}
-                  placeholder="12345"
-                />
-                {errors.license_number && (
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.license_number}</p>
-                )}
-              </div>
 
-              <div>
-                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  License Issuing State
-                </label>
-                <select
-                  value={data.license_state}
-                  onChange={(e) => setData('license_state', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    t.input.border,
-                    errors.license_state && t.input.error
-                  )}
-                >
-                  <option value="">Select a state...</option>
-                  {states.map(state => (
-                    <option key={state.code} value={state.code}>{state.name}</option>
-                  ))}
-                </select>
-                {errors.license_state && (
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.license_state}</p>
-                )}
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  License Expiration Date
-                </label>
-                <input
-                  type="date"
-                  value={data.license_expiry}
-                  onChange={(e) => setData('license_expiry', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    t.input.border,
-                    errors.license_expiry && t.input.error
-                  )}
-                />
-                {errors.license_expiry && (
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.license_expiry}</p>
-                )}
-              </div>
             </div>
           </div>
 

@@ -582,10 +582,7 @@ class ProviderManagementController extends Controller
             'email' => 'required|email|unique:users',
             'password' => 'required|min:8|confirmed',
             'npi_number' => 'nullable|string|max:20',
-            'dea_number' => 'nullable|string|max:20',
-            'license_number' => 'nullable|string|max:50',
-            'license_state' => 'nullable|string|max:2',
-            'license_expiry' => 'nullable|date',
+            'tax_id' => 'nullable|string|max:20',
             'current_organization_id' => 'nullable|exists:organizations,id',
             'is_verified' => 'boolean',
         ]);
@@ -598,10 +595,7 @@ class ProviderManagementController extends Controller
                 'email' => $validated['email'],
                 'password' => bcrypt($validated['password']),
                 'npi_number' => $validated['npi_number'] ?? null,
-                'dea_number' => $validated['dea_number'] ?? null,
-                'license_number' => $validated['license_number'] ?? null,
-                'license_state' => $validated['license_state'] ?? null,
-                'license_expiry' => $validated['license_expiry'] ?? null,
+                'tax_id' => $validated['tax_id'] ?? null,
                 'current_organization_id' => $validated['current_organization_id'] ?? null,
                 'is_verified' => $validated['is_verified'] ?? false,
                 'account_id' => 1, // Default account
@@ -638,19 +632,11 @@ class ProviderManagementController extends Controller
                     ];
                 }
 
-                // Add DEA identifier if available
-                if (!empty($validated['dea_number'])) {
+                // Add Tax ID identifier if available
+                if (!empty($validated['tax_id'])) {
                     $practitionerData['identifier'][] = [
-                        'system' => 'http://hl7.org/fhir/sid/dea',
-                        'value' => $validated['dea_number']
-                    ];
-                }
-
-                // Add license identifier if available
-                if (!empty($validated['license_number']) && !empty($validated['license_state'])) {
-                    $practitionerData['identifier'][] = [
-                        'system' => 'https://mscwoundcare.com/license/' . strtolower($validated['license_state']),
-                        'value' => $validated['license_number']
+                        'system' => 'https://mscwoundcare.com/tax-id',
+                        'value' => $validated['tax_id']
                     ];
                 }
 
