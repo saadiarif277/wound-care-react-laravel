@@ -180,6 +180,20 @@ export default function Step7DocusealIVR({
   }>) => {
     setUploadedDocs(prev => ({ ...prev, clinical_documents: files }));
     updateFormData({ clinical_documents: files });
+    
+    // Notify parent component of step completion with document data
+    if (onStepComplete) {
+      onStepComplete({
+        step7_data: {
+          clinical_documents: files,
+          demographics_documents: uploadedDocs.demographics_documents || [],
+          documents: [
+            ...(files || []),
+            ...(uploadedDocs.demographics_documents || [])
+          ]
+        }
+      });
+    }
   };
 
   // Handle clinical documents removal
@@ -577,6 +591,20 @@ export default function Step7DocusealIVR({
                 // Handle demographics and supporting documents
                 setUploadedDocs(prev => ({ ...prev, demographics_documents: files }));
                 updateFormData({ demographics_documents: files });
+                
+                // Notify parent component of step completion with document data
+                if (onStepComplete) {
+                  onStepComplete({
+                    step7_data: {
+                      clinical_documents: uploadedDocs.clinical_documents || [],
+                      demographics_documents: files,
+                      documents: [
+                        ...(uploadedDocs.clinical_documents || []),
+                        ...(files || [])
+                      ]
+                    }
+                  });
+                }
               }}
               onFileRemove={(fileId) => {
                 console.log('🗑️ Demographics file removed:', fileId);
