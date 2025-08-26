@@ -16,6 +16,8 @@ use App\Services\QuickRequest\QuickRequestCalculationService;
 use App\Services\QuickRequest\QuickRequestFileService;
 use App\Services\QuickRequest\QuickRequestOrchestrator;
 use App\Services\QuickRequestService;
+use App\Services\FileStorageService;
+use App\Models\Document;
 use App\Mail\OrderSubmissionNotification;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\JsonResponse;
@@ -43,6 +45,7 @@ class QuickRequestController extends Controller
         protected QuickRequestFileService $fileService,
         protected CurrentOrganization $currentOrganization,
         protected DocusealService $docusealService,
+        protected FileStorageService $fileStorageService,
     ) {}
 
     /**
@@ -458,7 +461,99 @@ class QuickRequestController extends Controller
             'manufacturer_name' => $manufacturerName,
         ]);
 
+        // Process and save documents if they exist
+        if (!empty($data->clinicalDocuments) || !empty($data->demographicsDocuments)) {
+            $this->processAndSaveDocuments($productRequest, $data);
+        }
+
         return $productRequest;
+    }
+
+    /**
+     * Process and save uploaded documents
+     */
+    private function processAndSaveDocuments(ProductRequest $productRequest, QuickRequestData $data): void
+    {
+        try {
+            // Process clinical documents
+            if (!empty($data->clinicalDocuments)) {
+                foreach ($data->clinicalDocuments as $documentData) {
+                    if (isset($documentData['file']) && $documentData['file'] instanceof \Illuminate\Http\UploadedFile) {
+                        $storedFile = $this->fileStorageService->storeFile(
+                            $documentData['file'], 
+                            'clinical_documents'
+                        );
+                        
+                        Document::create([
+                            'filename' => $storedFile['filename'],
+                            'original_name' => $storedFile['original_name'],
+                            'path' => $storedFile['path'],
+                            'url' => $storedFile['url'],
+                            'size' => $storedFile['size'],
+                            'mime_type' => $storedFile['mime_type'],
+                            'extension' => $storedFile['extension'],
+                            'document_type' => 'clinical_document',
+                            'documentable_type' => ProductRequest::class,
+                            'documentable_id' => $productRequest->id,
+                            'uploaded_by_user_id' => Auth::id(),
+                            'notes' => 'Uploaded during Quick Request submission',
+                            'metadata' => [
+                                'step' => 'step7',
+                                'upload_source' => 'quick_request',
+                                'original_data' => $documentData
+                            ]
+                        ]);
+                    }
+                }
+            }
+
+            // Process demographics documents
+            if (!empty($data->demographicsDocuments)) {
+                foreach ($data->demographicsDocuments as $documentData) {
+                    if (isset($documentData['file']) && $documentData['file'] instanceof \Illuminate\Http\UploadedFile) {
+                        $storedFile = $this->fileStorageService->storeFile(
+                            $documentData['file'], 
+                            'demographics_documents'
+                        );
+                        
+                        Document::create([
+                            'filename' => $storedFile['filename'],
+                            'original_name' => $storedFile['original_name'],
+                            'path' => $storedFile['path'],
+                            'url' => $storedFile['url'],
+                            'size' => $storedFile['size'],
+                            'mime_type' => $storedFile['mime_type'],
+                            'extension' => $storedFile['extension'],
+                            'document_type' => 'demographics_document',
+                            'documentable_type' => ProductRequest::class,
+                            'documentable_id' => $productRequest->id,
+                            'uploaded_by_user_id' => Auth::id(),
+                            'notes' => 'Uploaded during Quick Request submission',
+                            'metadata' => [
+                                'step' => 'step7',
+                                'upload_source' => 'quick_request',
+                                'original_data' => $documentData
+                            ]
+                        ]);
+                    }
+                }
+            }
+
+            Log::info('Documents processed and saved for product request', [
+                'product_request_id' => $productRequest->id,
+                'clinical_documents_count' => count($data->clinicalDocuments ?? []),
+                'demographics_documents_count' => count($data->demographicsDocuments ?? []),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to process and save documents', [
+                'product_request_id' => $productRequest->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Don't throw the exception - we want the order to be created even if document processing fails
+        }
     }
 
     /**

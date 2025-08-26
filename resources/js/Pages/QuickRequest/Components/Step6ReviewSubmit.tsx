@@ -1,19 +1,13 @@
-import React, { useState } from 'react';
-import { router } from '@inertiajs/react';
+import { useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import {
   FiUser,
   FiActivity,
   FiShoppingCart,
-  FiAlertCircle,
-  FiCheck,
   FiHome,
-  FiShield,
-  FiCreditCard,
-  FiMessageSquare
+  FiShield
 } from 'react-icons/fi';
-import OrderReviewSummary from './OrderReviewSummary';
 import { AuthButton } from '@/Components/ui/auth-button';
 
 interface Step6Props {
@@ -21,7 +15,6 @@ interface Step6Props {
   products: Array<any>;
   providers: Array<any>;
   facilities: Array<any>;
-  errors: Record<string, string>;
   onSubmit: () => void;
   isSubmitting: boolean;
   orderId?: string;
@@ -444,7 +437,6 @@ export default function Step6ReviewSubmit({
   products,
   providers = [],
   facilities = [],
-  errors,
   onSubmit,
   isSubmitting,
   comprehensiveData
@@ -545,7 +537,31 @@ export default function Step6ReviewSubmit({
     return item;
   };
 
-      // Calculate total bill from form data using the same logic as Step5
+  // Helper function to calculate size area for pricing (same as ProductSelectorQuickRequest)
+  const calculateSizeArea = (sizeStr: string): number => {
+    if (!sizeStr) return 0;
+
+    // Handle size strings like "2x3", "2 x 3", "2X3", etc.
+    const dimensionMatch = sizeStr.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/);
+
+    if (dimensionMatch) {
+      const width = parseFloat(dimensionMatch[1] || '0');
+      const height = parseFloat(dimensionMatch[2] || '0');
+      // Calculate (Size x Size) = width × height
+      return width * height;
+    }
+
+    // If it's just a number (area in cm²), use the area directly
+    const area = parseFloat(sizeStr);
+    if (!isNaN(area) && area > 0) {
+      // Use the area directly since it's already in cm²
+      return area;
+    }
+
+    return 0;
+  };
+
+  // Calculate total bill from form data using the same logic as ProductSelectorQuickRequest
   const calculateTotalBill = () => {
     if (!formData.selected_products) {
       console.log('❌ No selected_products in formData');
@@ -554,39 +570,42 @@ export default function Step6ReviewSubmit({
 
     console.log('🔍 formData.selected_products:', formData.selected_products);
 
-    // Use the same calculation logic as Step5ProductSelection
+    // Use the same calculation logic as ProductSelectorQuickRequest
     const total = formData.selected_products.reduce((total: number, item: any, index: number) => {
       console.log(`🔍 Processing product ${index}:`, item);
 
       const product = getSelectedProductDetails(item);
       console.log(`🔍 getSelectedProductDetails result for product ${index}:`, product);
 
-      // Use the same price logic as Step5
-      const price = item.product?.price ||
-                   item.product?.discounted_price ||
-                   item.product?.unit_price ||
-                   product?.price ||
-                   product?.discounted_price ||
-                   product?.unit_price ||
-                   item.price ||
-                   item.unit_price ||
-                   0;
+      // Use national ASP for pricing calculation - same as ProductSelectorQuickRequest
+      const nationalAsp = product?.national_asp || product?.price_per_sq_cm || 0;
+      let lineTotal = 0;
+
+      if (item.size) {
+        const sizeArea = calculateSizeArea(item.size);
+        if (sizeArea > 0) {
+          // Price = (Size x Size) x quantity x national_asp
+          lineTotal = sizeArea * nationalAsp * item.quantity;
+        } else {
+          // No size selected, fallback to base calculation
+          lineTotal = nationalAsp * item.quantity;
+        }
+      } else {
+        // No size selected, fallback to base calculation
+        lineTotal = nationalAsp * item.quantity;
+      }
 
       console.log(`💰 Price calculation for product ${index}:`, {
-        item_product_price: item.product?.price,
-        item_product_discounted_price: item.product?.discounted_price,
-        item_product_unit_price: item.product?.unit_price,
-        product_price: product?.price,
-        product_discounted_price: product?.discounted_price,
-        product_unit_price: product?.unit_price,
-        item_price: item.price,
-        item_unit_price: item.unit_price,
-        final_price: price,
+        product_national_asp: product?.national_asp,
+        product_price_per_sq_cm: product?.price_per_sq_cm,
+        national_asp_used: nationalAsp,
+        item_size: item.size,
+        size_area: item.size ? calculateSizeArea(item.size) : 0,
         quantity: item.quantity,
-        line_total: price * item.quantity
+        line_total: lineTotal
       });
 
-      return total + (price * item.quantity);
+      return total + lineTotal;
     }, 0);
 
     console.log('💰 Final calculated total:', total);
@@ -902,38 +921,40 @@ export default function Step6ReviewSubmit({
                             </p>
                           )}
                           <div className="mt-2">
-                                                        <p className={cn("text-sm", t.text.secondary)}>
+                            <p className={cn("text-sm", t.text.secondary)}>
                               Price: ${(() => {
-                                // Use the same price logic as Step5ProductSelection
-                                const price = item.product?.price ||
-                                           item.product?.discounted_price ||
-                                           item.product?.unit_price ||
-                                           product?.price ||
-                                           product?.discounted_price ||
-                                           product?.unit_price ||
-                                           item.price ||
-                                           item.unit_price ||
-                                           0;
+                                // Use the same price logic as ProductSelectorQuickRequest
+                                const nationalAsp = product?.national_asp || product?.price_per_sq_cm || 0;
+                                let unitPrice = 0;
+
+                                if (item.size) {
+                                  const sizeArea = calculateSizeArea(item.size);
+                                  if (sizeArea > 0) {
+                                    // Price = (Size x Size) x national_asp
+                                    unitPrice = sizeArea * nationalAsp;
+                                  } else {
+                                    unitPrice = nationalAsp;
+                                  }
+                                } else {
+                                  unitPrice = nationalAsp;
+                                }
 
                                 // Debug logging for this specific product
                                 console.log(`🔍 Product ${index} price display:`, {
-                                  item_product_price: item.product?.price,
-                                  item_product_discounted_price: item.product?.discounted_price,
-                                  item_product_unit_price: item.product?.unit_price,
-                                  product_price: product?.price,
-                                  product_discounted_price: product?.discounted_price,
-                                  product_unit_price: product?.unit_price,
-                                  item_price: item.price,
-                                  item_unit_price: item.unit_price,
-                                  final_price: price
+                                  product_national_asp: product?.national_asp,
+                                  product_price_per_sq_cm: product?.price_per_sq_cm,
+                                  national_asp_used: nationalAsp,
+                                  item_size: item.size,
+                                  size_area: item.size ? calculateSizeArea(item.size) : 0,
+                                  unit_price: unitPrice
                                 });
 
-                                return price.toFixed(2);
+                                return unitPrice.toFixed(2);
                               })()}
                             </p>
-                            {product?.discounted_price && product?.price && product.discounted_price !== product.price && (
-                              <p className={cn("text-xs text-green-600", t.text.secondary)}>
-                                Original: ${product.price.toFixed(2)}
+                            {item.size && (
+                              <p className={cn("text-xs", t.text.secondary)}>
+                                {item.size} cm² × ${(Number(product?.national_asp || product?.price_per_sq_cm || 0)).toFixed(2)}/cm²
                               </p>
                             )}
                           </div>

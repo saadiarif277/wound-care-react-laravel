@@ -19,6 +19,8 @@ class QuickRequestData
         public readonly ?string $ivrDocumentUrl = null,
         public readonly array $attestations = [],
         public readonly ?string $adminNote = null,
+        public readonly array $clinicalDocuments = [],
+        public readonly array $demographicsDocuments = [],
     ) {}
 
     public function toArray(): array
@@ -121,6 +123,8 @@ class QuickRequestData
             manufacturerFields: $formData['manufacturer_fields'] ?? [],
             docusealSubmissionId: $formData['docuseal_submission_id'] ?? null,
             ivrDocumentUrl: $formData['ivr_document_url'] ?? null,
+            clinicalDocuments: $formData['clinical_documents'] ?? [],
+            demographicsDocuments: $formData['demographics_documents'] ?? [],
             attestations: [
                 'failed_conservative_treatment' => $formData['failed_conservative_treatment'] ?? false,
                 'information_accurate' => $formData['information_accurate'] ?? false,

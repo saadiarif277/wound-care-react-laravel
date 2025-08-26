@@ -114,7 +114,7 @@ class OrderCenterController extends Controller
                 'order_status' => $order->order_status,
                 'ivr_status' => $order->ivr_status ?? 'N/A',
                 'order_form_status' => $order->order_status ?? 'Not Started',
-                'total_order_value' => (float) ($order->total_order_value ?? 0),
+                'total_order_value' => (float) ($order->calculateTotalAmountWithNationalAsp()),
                 'created_at' => $order->created_at->toISOString(),
                 'action_required' => $order->order_status === 'pending',
             ];
@@ -181,7 +181,7 @@ class OrderCenterController extends Controller
             'order_status' => $order->order_status,
             'ivr_status' => $order->ivr_status ?? 'N/A',
             'order_form_status' => $order->order_status ?? 'Not Started',
-            'total_order_value' => (float) ($order->total_order_value ?? 0),
+            'total_order_value' => (float) ($order->calculateTotalAmountWithNationalAsp()),
             'created_at' => $this->formatDateForISO($order->created_at),
             'submitted_at' => $this->formatDateForISO($order->submitted_at),
             'action_required' => $order->order_status === 'pending',
@@ -409,7 +409,7 @@ class OrderCenterController extends Controller
                     ],
                     'expected_service_date' => $order->expected_service_date?->format('Y-m-d'),
                     'submitted_at' => $order->submitted_at?->toISOString() ?? $order->created_at->toISOString(),
-                    'total_order_value' => (float) ($order->total_order_value ?? 0),
+                    'total_order_value' => (float) ($order->calculateTotalAmountWithNationalAsp()),
                     'action_required' => $order->order_status === 'ready_for_review',
                     'products' => $order->products->map(function ($product) {
                         return [
@@ -1318,7 +1318,7 @@ class OrderCenterController extends Controller
                 'provider' => $order->provider,
                 'facility' => $order->facility,
                 'products' => $order->products,
-                'total_order_value' => $order->total_order_value,
+                'total_order_value' => $order->calculateTotalAmountWithNationalAsp(),
                 'created_at' => $order->created_at->toISOString(),
                 'updated_at' => $order->updated_at->toISOString(),
             ],
@@ -1795,9 +1795,82 @@ class OrderCenterController extends Controller
     {
         $documents = [];
 
+        // Add documents from ProductRequest model (Step7 uploads stored in database)
+        if ($order->documents) {
+            foreach ($order->documents as $doc) {
+                $documents[] = [
+                    'id' => 'db_doc_' . $doc->id,
+                    'name' => $doc->original_name,
+                    'type' => $this->mapDocumentType($doc->document_type),
+                    'fileType' => $this->getFileTypeFromMime($doc->mime_type),
+                    'uploadedAt' => $doc->created_at->toISOString(),
+                    'uploadedBy' => $doc->uploadedByUser ? $doc->uploadedByUser->name : 'Unknown',
+                    'fileSize' => $this->formatFileSize($doc->size),
+                    'url' => $doc->url,
+                    'source' => 'Database (Step7 Uploads)',
+                    'notes' => $doc->notes
+                ];
+            }
+        }
+
         // Add episode documents if available
         if ($order->episode && isset($order->episode->metadata['documents'])) {
             $documents = array_merge($documents, $order->episode->metadata['documents'] ?? []);
+        }
+
+        // Add documents from clinical summary (Step7 uploads)
+        $clinicalSummary = $order->clinical_summary ?? [];
+        if (isset($clinicalSummary['documents'])) {
+            foreach ($clinicalSummary['documents'] as $doc) {
+                $documents[] = [
+                    'id' => 'clinical_doc_' . ($doc['id'] ?? uniqid()),
+                    'name' => $doc['name'] ?? 'Clinical Document',
+                    'type' => $this->mapDocumentType($doc['type'] ?? 'clinical_document'),
+                    'fileType' => $this->getFileTypeFromName($doc['name'] ?? ''),
+                    'uploadedAt' => $doc['uploadedAt'] ?? now()->toISOString(),
+                    'uploadedBy' => $doc['uploadedBy'] ?? 'Provider',
+                    'fileSize' => $this->formatFileSize($doc['size'] ?? 0),
+                    'url' => $doc['url'] ?? $doc['preview'] ?? '#',
+                    'notes' => $doc['notes'] ?? null,
+                    'source' => 'Step7 Upload'
+                ];
+            }
+        }
+
+        // Add clinical documents specifically
+        if (isset($clinicalSummary['clinical_documents'])) {
+            foreach ($clinicalSummary['clinical_documents'] as $doc) {
+                $documents[] = [
+                    'id' => 'clinical_doc_' . ($doc['id'] ?? uniqid()),
+                    'name' => $doc['name'] ?? 'Clinical Document',
+                    'type' => 'medical_record',
+                    'fileType' => $this->getFileTypeFromName($doc['name'] ?? ''),
+                    'uploadedAt' => $doc['uploadedAt'] ?? now()->toISOString(),
+                    'uploadedBy' => $doc['uploadedBy'] ?? 'Provider',
+                    'fileSize' => $this->formatFileSize($doc['size'] ?? 0),
+                    'url' => $doc['url'] ?? $doc['preview'] ?? '#',
+                    'notes' => 'Clinical documentation uploaded during IVR step',
+                    'source' => 'Step7 Clinical Upload'
+                ];
+            }
+        }
+
+        // Add demographics documents specifically
+        if (isset($clinicalSummary['demographics_documents'])) {
+            foreach ($clinicalSummary['demographics_documents'] as $doc) {
+                $documents[] = [
+                    'id' => 'demographics_doc_' . ($doc['id'] ?? uniqid()),
+                    'name' => $doc['name'] ?? 'Demographics Document',
+                    'type' => 'other',
+                    'fileType' => $this->getFileTypeFromName($doc['name'] ?? ''),
+                    'uploadedAt' => $doc['uploadedAt'] ?? now()->toISOString(),
+                    'uploadedBy' => $doc['uploadedBy'] ?? 'Provider',
+                    'fileSize' => $this->formatFileSize($doc['size'] ?? 0),
+                    'url' => $doc['url'] ?? $doc['preview'] ?? '#',
+                    'notes' => 'Demographics and supporting documents uploaded during IVR step',
+                    'source' => 'Step7 Demographics Upload'
+                ];
+            }
         }
 
         // Add status documents
@@ -1815,6 +1888,7 @@ class OrderCenterController extends Controller
                 'notes' => $statusDoc->notes,
                 'statusType' => $statusDoc->status_type,
                 'statusValue' => $statusDoc->status_value,
+                'source' => 'Status Document'
             ];
         }
 
@@ -1833,6 +1907,57 @@ class OrderCenterController extends Controller
         } else {
             return 'document';
         }
+    }
+
+
+
+    /**
+     * Get file type from filename
+     */
+    private function getFileTypeFromName($filename): string
+    {
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        
+        if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'])) {
+            return 'image';
+        } elseif ($extension === 'pdf') {
+            return 'pdf';
+        } else {
+            return 'document';
+        }
+    }
+
+    /**
+     * Map document type from frontend to backend
+     */
+    private function mapDocumentType($type): string
+    {
+        $typeMap = [
+            'clinical_document' => 'medical_record',
+            'demographics_document' => 'other',
+            'insurance_card' => 'insurance_card',
+            'medical_record' => 'medical_record',
+            'prescription' => 'prescription',
+            'consent_form' => 'consent_form',
+            'ivr_doc' => 'ivr_doc',
+            'order_related_doc' => 'order_related_doc',
+            'other' => 'other'
+        ];
+
+        return $typeMap[$type] ?? 'other';
+    }
+
+    /**
+     * Format file size in human readable format
+     */
+    private function formatFileSize($bytes): string
+    {
+        if ($bytes === 0) return '0 B';
+        
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $factor = floor(log($bytes, 1024));
+        
+        return round($bytes / pow(1024, $factor), 2) . ' ' . $units[$factor];
     }
 
     /**

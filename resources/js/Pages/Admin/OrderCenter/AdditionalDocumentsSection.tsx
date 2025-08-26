@@ -15,6 +15,7 @@ interface Document {
   notes?: string;
   statusType?: string;
   statusValue?: string;
+  source?: string;
 }
 
 interface AdditionalDocumentsSectionProps {
@@ -132,6 +133,12 @@ const AdditionalDocumentsSection: React.FC<AdditionalDocumentsSectionProps> = ({
                       <span>Uploaded {formatDate(document.uploadedAt)}</span>
                       <span>•</span>
                       <span>by {document.uploadedBy}</span>
+                      {document.source && (
+                        <>
+                          <span>•</span>
+                          <span className="text-blue-600 font-medium">{document.source}</span>
+                        </>
+                      )}
                       {document.statusType && document.statusValue && (
                         <>
                           <span>•</span>

@@ -338,6 +338,62 @@ class ProductRequest extends Model
         return $this->products->sum('pivot.total_price');
     }
 
+    /**
+     * Calculate the total amount using the same logic as the frontend review step.
+     * This ensures consistency between frontend and backend pricing calculations.
+     */
+    public function calculateTotalAmountWithNationalAsp(): float
+    {
+        $total = 0;
+        
+        foreach ($this->products as $product) {
+            $nationalAsp = $product->national_asp ?? $product->price_per_sq_cm ?? 0;
+            $quantity = $product->pivot->quantity ?? 1;
+            $size = $product->pivot->size ?? null;
+            
+            if ($size) {
+                // Calculate size area from size string (e.g., "2x3" or "4")
+                $sizeArea = $this->calculateSizeArea($size);
+                if ($sizeArea > 0) {
+                    // Price = (Size x Size) x quantity x national_asp
+                    $total += $sizeArea * $nationalAsp * $quantity;
+                } else {
+                    $total += $nationalAsp * $quantity;
+                }
+            } else {
+                // No size selected, fallback to base calculation
+                $total += $nationalAsp * $quantity;
+            }
+        }
+        
+        return round($total, 2);
+    }
+
+    /**
+     * Helper method to calculate size area for pricing (same logic as frontend).
+     */
+    private function calculateSizeArea(?string $sizeStr): float
+    {
+        if (!$sizeStr) return 0;
+
+        // Handle size strings like "2x3", "2 x 3", "2X3", etc.
+        if (preg_match('/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/', $sizeStr, $matches)) {
+            $width = (float) ($matches[1] ?? 0);
+            $height = (float) ($matches[2] ?? 0);
+            // Calculate (Size x Size) = width × height
+            return $width * $height;
+        }
+
+        // If it's just a number (area in cm²), use the area directly
+        $area = (float) $sizeStr;
+        if (!is_nan($area) && $area > 0) {
+            // Use the area directly since it's already in cm²
+            return $area;
+        }
+
+        return 0;
+    }
+
 
     /**
      * Get the step description for the 6-step MSC-MVP workflow.
@@ -881,5 +937,13 @@ class ProductRequest extends Model
     public function getRouteKeyName()
     {
         return 'id';
+    }
+
+    /**
+     * Get the documents for this request.
+     */
+    public function documents()
+    {
+        return $this->morphMany(Document::class, 'documentable');
     }
 }

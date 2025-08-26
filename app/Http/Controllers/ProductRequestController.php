@@ -306,7 +306,7 @@ final class ProductRequestController extends Controller
             'date_of_service' => $productRequest->expected_service_date,
             'status' => 'pending',
             'order_status' => 'pending_ivr',
-            'total_amount' => $productRequest->total_order_value ?? 0,
+            'total_amount' => $productRequest->calculateTotalAmountWithNationalAsp(),
             'payment_status' => 'pending',
             // Use defaults for credit_terms, etc.
         ]);
@@ -521,8 +521,7 @@ final class ProductRequestController extends Controller
                 ],
                 'adminNote' => $clinicalSummary['admin_note'] ?? null,
                 'adminNoteAddedAt' => $clinicalSummary['admin_note_added_at'] ?? null,
-                'total_amount' => $productRequest->total_order_value ??
-                    ($clinicalSummary['metadata']['total_order_value'] ?? 0),
+                'total_amount' => $productRequest->calculateTotalAmountWithNationalAsp(),
                 'clinicalSummary' => $clinicalSummary, // Include full clinical summary for debugging
                 'metadata' => $clinicalSummary['metadata'] ?? [],
             ];
@@ -625,7 +624,7 @@ final class ProductRequestController extends Controller
                     'status' => $order->order_status,
                     'submittedAt' => $order->submitted_at?->format('Y-m-d H:i:s'),
                 ],
-                'total_amount' => $order->total_amount ?? $productRequest->total_order_value ?? 0,
+                'total_amount' => $order->total_amount ?? $productRequest->calculateTotalAmountWithNationalAsp(),
             ];
         }
 
@@ -690,7 +689,7 @@ final class ProductRequestController extends Controller
             'order_status' => $productRequest->order_status,
             'ivr_status' => $productRequest->ivr_status ?? 'pending',
             'order_form_status' => $productRequest->order_status,
-            'total_order_value' => $productRequest->total_order_value ?? 0,
+            'total_order_value' => $productRequest->calculateTotalAmountWithNationalAsp(),
             'created_at' => $productRequest->created_at->toISOString(),
             'action_required' => in_array($productRequest->order_status, ['pending', 'submitted_to_manufacturer']),
             'episode_id' => $productRequest->episode?->id,
