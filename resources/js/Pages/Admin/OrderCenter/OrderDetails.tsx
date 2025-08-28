@@ -47,6 +47,9 @@ interface Order {
   altered_order_form_uploaded_at?: string;
   altered_order_form_uploaded_by_name?: string;
   error_message?: string;
+  carrier?: string;
+  tracking_number?: string;
+  shipping_info?: any;
 }
 
 interface OrderData {
@@ -410,6 +413,12 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
                 }`}>
                   Order: {order.order_form_status || 'Pending'}
                 </span>
+                {/* Show shipping info for confirmed orders */}
+                {order.order_form_status === 'confirmed_by_manufacturer' && (order.carrier || order.tracking_number) && (
+                  <span className="px-3 py-1 rounded-full text-sm font-medium text-purple-600 bg-purple-100 flex items-center gap-1">
+                    📦 {order.carrier} - {order.tracking_number}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">

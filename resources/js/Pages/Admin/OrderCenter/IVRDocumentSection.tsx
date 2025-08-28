@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, FileText, Send, CheckCircle, Clock, AlertCircle, X, Download, Eye, Upload, Trash2, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Send, CheckCircle, Clock, AlertCircle, X, Download, Eye, Upload, Trash2, Loader2, Edit } from 'lucide-react';
 import { Button } from '@/Components/Button';
 import StatusUpdateModal from './StatusUpdateModal';
 import DocumentViewerPanel from '@/Components/DocumentViewerPanel';
@@ -128,6 +128,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   const [showOrderFormModal, setShowOrderFormModal] = useState(false);
   const [showOrderFormEmbed, setShowOrderFormEmbed] = useState(false);
   const [productManufacturerId, setProductManufacturerId] = useState<string | null>(null);
+  const [showShippingEditModal, setShowShippingEditModal] = useState(false);
 
   const getStatusColor = (status: string | null | undefined) => {
     if (!status || typeof status !== 'string') {
@@ -881,10 +882,23 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                   )}
                 </div>
 
-                {/* Tracking Information for Submitted and Confirmed Orders */}
-                {(orderFormData.status === 'submitted_to_manufacturer' || orderFormData.status === 'confirmed_by_manufacturer') && (
+                {/* Tracking Information for Confirmed Orders Only */}
+                {orderFormData.status === 'confirmed_by_manufacturer' && (
                   <div className="space-y-3 p-4 bg-blue-50 rounded-md">
-                    <h5 className="text-sm font-medium text-blue-800">Shipping Information</h5>
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-sm font-medium text-blue-800">Shipping Information</h5>
+                      {userRole === 'Admin' && (
+                        <Button
+                          onClick={() => setShowShippingEditModal(true)}
+                          variant="ghost"
+                          size="sm"
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                      )}
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Carrier</label>
@@ -1135,6 +1149,89 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
           // You can add additional logic here to update the order form status
         }}
       />
+
+      {/* Shipping Edit Modal */}
+      {showShippingEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">Edit Shipping Information</h2>
+              <button
+                onClick={() => setShowShippingEditModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Carrier *</label>
+                <input
+                  type="text"
+                  id="editCarrier"
+                  defaultValue={orderFormData.carrier || ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., FedEx, UPS"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tracking Number *</label>
+                <input
+                  type="text"
+                  id="editTrackingNumber"
+                  defaultValue={orderFormData.trackingNumber || ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Tracking number"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t">
+              <Button
+                onClick={() => setShowShippingEditModal(false)}
+                variant="ghost"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  const carrier = (document.getElementById('editCarrier') as HTMLInputElement)?.value;
+                  const trackingNumber = (document.getElementById('editTrackingNumber') as HTMLInputElement)?.value;
+
+                  if (!carrier || !trackingNumber) {
+                    alert('Please provide both carrier and tracking number');
+                    return;
+                  }
+
+                  try {
+                    const response = await axios.post(`/admin/orders/${orderId}/change-status`, {
+                      status: 'confirmed_by_manufacturer',
+                      status_type: 'order',
+                      carrier: carrier,
+                      tracking_number: trackingNumber,
+                      notes: 'Shipping information updated',
+                      send_notification: false,
+                    });
+
+                    if (response.status === 200) {
+                      setShowShippingEditModal(false);
+                      // Refresh the page to show updated information
+                      window.location.reload();
+                    }
+                  } catch (error) {
+                    console.error('Failed to update shipping info:', error);
+                    alert('Failed to update shipping information. Please try again.');
+                  }
+                }}
+              >
+                Update Shipping
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

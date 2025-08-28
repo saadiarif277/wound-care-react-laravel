@@ -105,6 +105,12 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
       return;
     }
 
+    // Validate shipping information only for confirmed_by_manufacturer status
+    if (newStatus === 'confirmed_by_manufacturer' && (!carrier || !trackingNumber)) {
+      setError('Please provide both carrier and tracking number for confirmed orders.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
@@ -117,8 +123,8 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
         sendNotification,
         notificationDocuments: sendNotification ? notificationDocuments : undefined,
         statusDocuments: statusDocuments.length > 0 ? statusDocuments : undefined,
-        carrier: (newStatus === 'submitted_to_manufacturer' || newStatus === 'confirmed_by_manufacturer') ? carrier : undefined,
-        trackingNumber: (newStatus === 'submitted_to_manufacturer' || newStatus === 'confirmed_by_manufacturer') ? trackingNumber : undefined,
+        carrier: newStatus === 'confirmed_by_manufacturer' ? carrier : undefined,
+        trackingNumber: newStatus === 'confirmed_by_manufacturer' ? trackingNumber : undefined,
       };
 
       await onConfirm(updateData);
@@ -281,29 +287,34 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
             />
           </div>
 
-          {/* Shipping Information for Manufacturer Submission and Confirmed Orders */}
-          {(newStatus === 'submitted_to_manufacturer' || newStatus === 'confirmed_by_manufacturer') && (
+          {/* Shipping Information for Confirmed Orders Only */}
+          {newStatus === 'confirmed_by_manufacturer' && (
             <div className="space-y-3">
-              <h3 className="font-medium text-gray-900">Shipping Information</h3>
+              <h3 className="font-medium text-gray-900">Shipping Information *</h3>
+              <p className="text-sm text-gray-600">
+                Enter shipping information for confirmed order
+              </p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Carrier</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Carrier *</label>
                   <input
                     type="text"
                     value={carrier}
                     onChange={(e) => setCarrier(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., FedEx, UPS"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number *</label>
                   <input
                     type="text"
                     value={trackingNumber}
                     onChange={(e) => setTrackingNumber(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Tracking number"
+                    required
                   />
                 </div>
               </div>

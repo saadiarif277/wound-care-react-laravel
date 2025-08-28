@@ -941,8 +941,8 @@ class OrderCenterController extends Controller
                 $updateData['order_status'] = $newStatus;
                 $previousStatus = $order->order_status ?? 'none';
 
-                // Save shipping info when submitted to manufacturer
-                if ($newStatus === 'submitted_to_manufacturer') {
+                // Save shipping info only when confirmed by manufacturer
+                if ($newStatus === 'confirmed_by_manufacturer') {
                     $updateData['carrier'] = $carrier;
                     $updateData['tracking_number'] = $trackingNumber;
 
