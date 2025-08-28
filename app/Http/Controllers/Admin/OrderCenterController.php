@@ -174,6 +174,7 @@ class OrderCenterController extends Controller
             'order_number' => $order->request_number,
             'patient_name' => $this->formatPatientName($clinicalSummary) ?: $order->patient_display_id ?? 'Unknown Patient',
             'patient_display_id' => $order->patient_display_id,
+            'order_form_submission_id' => $order->order_form_submission_id,
             'provider_name' => $clinicalSummary['provider']['name'] ?? ($order->provider ? $order->provider->first_name . ' ' . $order->provider->last_name : 'Unknown Provider'),
             'facility_name' => $clinicalSummary['facility']['name'] ?? ($order->facility ? $order->facility->name : 'Unknown Facility'),
             'manufacturer_name' => $order->getManufacturer() ?? 'Unknown Manufacturer',
@@ -1917,7 +1918,7 @@ class OrderCenterController extends Controller
     private function getFileTypeFromName($filename): string
     {
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        
+
         if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'])) {
             return 'image';
         } elseif ($extension === 'pdf') {
@@ -1953,10 +1954,10 @@ class OrderCenterController extends Controller
     private function formatFileSize($bytes): string
     {
         if ($bytes === 0) return '0 B';
-        
+
         $units = ['B', 'KB', 'MB', 'GB'];
         $factor = floor(log($bytes, 1024));
-        
+
         return round($bytes / pow(1024, $factor), 2) . ' ' . $units[$factor];
     }
 

@@ -539,10 +539,119 @@ final class OrderController extends Controller
             'facility',
             'manufacturer',
             'items.product',
-            'ivrEpisode:id,episode_id,order_form_submission_id,order_form_status', // Include order_form_submission_id
+            'ivrEpisode:id,episode_id,order_form_status', // Include order_form_submission_id
         ])->findOrFail($id);
 
         $this->authorize('view', $order);
+
+        // Debug logging to see what fields the Order model has
+        \Log::info('Order model debug', [
+            'order_id' => $order->id,
+            'order_keys' => array_keys($order->toArray()),
+            'episode_id_exists' => isset($order->episode_id),
+            'episode_id_value' => $order->episode_id ?? 'NOT_SET',
+            'ivr_episode_loaded' => !!$order->ivrEpisode,
+            'ivr_episode_data' => $order->ivrEpisode ? array_keys($order->ivrEpisode->toArray()) : null,
+        ]);
+
+        // Get the ProductRequest using the proper relationship chain
+        // Order → IVR Episode → ProductRequest
+        $productRequest = null;
+
+        // Get episode_id from order or from IVR episode relationship
+        $episodeId = $order->episode_id ?? $order->ivrEpisode?->episode_id;
+
+        if ($episodeId) {
+            // Get the IVR episode and then find the related product request
+            $ivrEpisode = \App\Models\PatientManufacturerIVREpisode::find($episodeId);
+
+            if ($ivrEpisode) {
+                // Get the first product request associated with this episode
+                $productRequest = $ivrEpisode->productRequests()->first();
+
+                \Log::info('ProductRequest lookup via IVR Episode relationship', [
+                    'order_id' => $order->id,
+                    'episode_id_from_order' => $order->episode_id ?? 'NOT_SET',
+                    'episode_id_from_ivr_episode' => $order->ivrEpisode?->episode_id ?? 'NOT_SET',
+                    'final_episode_id' => $episodeId,
+                    'ivr_episode_found' => !!$ivrEpisode,
+                    'product_request_found' => !!$productRequest,
+                    'product_request_id' => $productRequest?->id,
+                    'order_form_submission_id' => $productRequest?->order_form_submission_id,
+                ]);
+            }
+        }
+
+        // Fallback: if relationship approach fails, try direct lookup
+        if (!$productRequest) {
+            \Log::info('Relationship approach failed, trying direct lookup');
+            $productRequest = ProductRequest::find($id);
+
+            \Log::info('ProductRequest direct lookup', [
+                'order_id' => $order->id,
+                'product_request_found' => !!$productRequest,
+                'product_request_id' => $productRequest?->id,
+                'order_form_submission_id' => $productRequest?->order_form_submission_id,
+                'product_request_keys' => $productRequest ? array_keys($productRequest->toArray()) : null,
+            ]);
+        }
+
+        // Final fallback: try the complex lookup approaches
+        if (!$productRequest) {
+            \Log::info('Direct lookup failed, trying complex lookup approaches');
+
+            // First try: using episode_id to find ProductRequest
+            if ($episodeId) {
+                $productRequest = ProductRequest::where('ivr_episode_id', $episodeId)->first();
+
+                \Log::info('ProductRequest lookup via episode_id', [
+                    'order_id' => $order->id,
+                    'episode_id' => $episodeId,
+                    'product_request_found' => !!$productRequest,
+                    'product_request_id' => $productRequest?->id,
+                    'order_form_submission_id' => $productRequest?->order_form_submission_id,
+                ]);
+            }
+
+            // Second try: if episode_id approach didn't work, try to find by order number
+            if (!$productRequest && $order->order_number) {
+                $productRequest = ProductRequest::where('request_number', $order->order_number)->first();
+
+                \Log::info('ProductRequest lookup via order_number', [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'product_request_found' => !!$productRequest,
+                    'product_request_id' => $productRequest?->id,
+                    'order_form_submission_id' => $productRequest?->order_form_submission_id,
+                ]);
+            }
+
+            // Third try: if still not found, try to find by patient_fhir_id
+            if (!$productRequest && $order->patient_fhir_id) {
+                $productRequest = ProductRequest::where('patient_fhir_id', $order->patient_fhir_id)
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
+                \Log::info('ProductRequest lookup via patient_fhir_id', [
+                    'order_id' => $order->id,
+                    'patient_fhir_id' => $order->patient_fhir_id,
+                    'product_request_found' => !!$productRequest,
+                    'product_request_id' => $productRequest?->id,
+                    'order_form_submission_id' => $productRequest?->order_form_submission_id,
+                ]);
+            }
+        }
+
+        if (!$productRequest) {
+            \Log::warning('No ProductRequest found for Order', [
+                'order_id' => $order->id,
+                'episode_id_from_order' => $order->episode_id ?? 'NOT_SET',
+                'episode_id_from_ivr_episode' => $order->ivrEpisode?->episode_id ?? 'NOT_SET',
+                'final_episode_id' => $episodeId ?? 'NOT_SET',
+                'order_number' => $order->order_number,
+                'patient_fhir_id' => $order->patient_fhir_id,
+            ]);
+        }
 
         $patientName = $order->patient_fhir_id;
 
@@ -595,7 +704,7 @@ final class OrderController extends Controller
             'patient_fhir_id' => $order->patient_fhir_id,
             'patient_name' => $patientName,
             'order_status' => $order->order_status,
-            'order_form_submission_id' => $order->ivrEpisode?->order_form_submission_id, // Get from IVR episode
+            'order_form_submission_id' => $productRequest?->order_form_submission_id, // Get from ProductRequest via episode_id
             'provider' => [
                 'id' => $order->provider->id,
                 'name' => $order->provider->first_name . ' ' . $order->provider->last_name,
@@ -645,9 +754,10 @@ final class OrderController extends Controller
         // Debug logging
         \Log::info('Order detail data', [
             'order_id' => $order->id,
-            'order_form_submission_id' => $order->ivrEpisode?->order_form_submission_id,
-            'ivr_episode_id' => $order->ivrEpisode?->id,
-            'has_ivr_episode' => !!$order->ivrEpisode
+            'episode_id' => $order->episode_id,
+            'order_form_submission_id' => $productRequest?->order_form_submission_id,
+            'product_request_id' => $productRequest?->id,
+            'has_product_request' => !!$productRequest
         ]);
 
         return Inertia::render('Provider/Orders/Show', [

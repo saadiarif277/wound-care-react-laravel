@@ -29,6 +29,7 @@ interface Order {
   action_required: boolean;
   episode_id?: string;
   docuseal_submission_id?: string;
+  order_form_submission_id?: string;
   ivr_document_url?: string;
   place_of_service?: string;
   place_of_service_display?: string;
@@ -169,25 +170,19 @@ interface OrderDetailsProps {
 
 const OrderDetails: React.FC<OrderDetailsProps> = ({
   order,
-  can_update_status,
-  can_view_ivr,
-  userRole = 'Admin',
-  roleRestrictions,
-  navigationRoute
+  userRole = 'Provider',
+  navigationRoute,
+  can_update_status = true,
+  can_view_ivr = true,
+  roleRestrictions
 }) => {
-  // Debug: Check if order has the required data
-  console.log('OrderDetails Debug:', {
+  // Debug logging to see what data is being received from the controller
+  console.log('🔍 OrderDetails debug data:', {
     order,
-    hasPatient: !!order.patient,
-    patientName: order.patient?.name,
-    hasInsurance: !!order.insurance,
-    hasClinical: !!order.clinical,
-    hasProduct: !!order.product,
-    orderKeys: Object.keys(order),
-    patientKeys: order.patient ? Object.keys(order.patient) : null,
-    insuranceKeys: order.insurance ? Object.keys(order.insurance) : null,
-    clinicalKeys: order.clinical ? Object.keys(order.clinical) : null,
-    productKeys: order.product ? Object.keys(order.product) : null,
+    userRole,
+    hasOrderFormSubmissionId: !!order.order_form_submission_id,
+    orderFormSubmissionId: order.order_form_submission_id,
+    orderKeys: Object.keys(order)
   });
 
   // Add error handling for missing order data

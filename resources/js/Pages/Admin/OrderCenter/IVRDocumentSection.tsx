@@ -102,6 +102,16 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   userRole = 'Admin',
   orderData = {}
 }) => {
+  // Debug logging to see what data is being received
+  console.log('🔍 IVRDocumentSection debug data:', {
+    ivrData,
+    orderFormData,
+    orderId,
+    userRole,
+    orderData,
+    hasOrderFormSubmissionId: !!orderFormData.order_form_submission_id,
+    orderFormSubmissionId: orderFormData.order_form_submission_id
+  });
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [modalType, setModalType] = useState<'ivr' | 'order'>('ivr');
   const [modalCurrentStatus, setModalCurrentStatus] = useState('');
@@ -533,22 +543,29 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleViewIVR}
-                      className="flex-1"
-                      variant="ghost"
-                      size="sm"
-                      disabled={isLoadingIVR}
-                    >
-                      {isLoadingIVR ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Eye className="h-4 w-4 mr-2" />
-                      )}
-                      {isLoadingIVR ? 'Loading...' : 'View IVR Form'}
-                    </Button>
-                    {/* {ivrData.docusealSubmissionId && (
+                  {ivrData.docusealSubmissionId ? (
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleViewIVR}
+                        className="flex-1"
+                        variant="ghost"
+                        size="sm"
+                        disabled={isLoadingIVR}
+                      >
+                        {isLoadingIVR ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Eye className="h-4 w-4 mr-2" />
+                        )}
+                        {isLoadingIVR ? 'Loading...' : 'View IVR Form'}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-md border">
+                      IVR has not been submitted by the provider yet.
+                    </div>
+                  )}
+                  {/* {ivrData.docusealSubmissionId && (
                       <Button
                         onClick={handleViewAllSigners}
                         className="flex-1"
@@ -564,26 +581,25 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                         {isLoadingSignerUrls ? 'Loading...' : 'All Signers'}
                       </Button>
                     )} */}
-                  </div>
-
-                  {userRole === 'Admin' && (
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">IVR Status</label>
-                      <select
-                        value={ivrData.status}
-                        onChange={(e) => handleStatusChange('ivr', ivrData.status, e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        disabled={isUpdatingStatus}
-                      >
-                        <option value="n/a">N/A</option>
-                        <option value="pending">Pending</option>
-                        <option value="sent">Sent</option>
-                        <option value="verified">Verified</option>
-                        <option value="rejected">Rejected</option>
-                      </select>
-                    </div>
-                  )}
                 </div>
+
+                {userRole === 'Admin' && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">IVR Status</label>
+                    <select
+                      value={ivrData.status}
+                      onChange={(e) => handleStatusChange('ivr', ivrData.status, e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={isUpdatingStatus}
+                    >
+                      <option value="n/a">N/A</option>
+                      <option value="pending">Pending</option>
+                      <option value="sent">Sent</option>
+                      <option value="verified">Verified</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+                )}
 
                 {/* IVR Files */}
                 <div className="space-y-3">
@@ -597,7 +613,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                           onChange={(e) => handleFileUpload(e, 'ivr')}
                         />
-                        <div className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm">
+                        <div className="flex items-center justify-between text-blue-600 hover:text-blue-700 text-sm">
                           <Upload className="h-4 w-4" />
                           Add File
                         </div>
@@ -632,7 +648,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                               link.download = ivrData.alteredIvrFile!.name;
                               link.click();
                             }}
-                            className="text-green-600 hover:text-green-700"
+                            className="text-green-600 hover:text-blue-700"
                           >
                             <Download className="h-4 w-4" />
                           </button>
@@ -669,7 +685,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                                 link.download = file.name;
                                 link.click();
                               }}
-                              className="text-green-600 hover:text-green-700"
+                              className="text-green-600 hover:text-blue-700"
                             >
                               <Download className="h-4 w-4" />
                             </button>
@@ -708,13 +724,9 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                   </span>
                 </div>
 
-                {/* Disabled Order Status Message */}
-
-
                 <div className="space-y-3">
-                  <div className="flex gap-2">
-                    {/* View Order Form Button - only enabled when IVR is verified */}
-                    {ivrData.status?.toLowerCase() === 'verified' ? (
+                  {orderFormData.order_form_submission_id ? (
+                    <div className="flex gap-2">
                       <Button
                         onClick={handleViewOrderForm}
                         className="flex-1"
@@ -722,21 +734,14 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                         size="sm"
                       >
                         <Eye className="h-4 w-4 mr-2" />
-                        {orderFormData.order_form_submission_id ? 'View Order Form' : 'Fill Order Form'}
+                        View Order Form
                       </Button>
-                    ) : (
-                      <Button
-                        className="flex-1"
-                        variant="ghost"
-                        size="sm"
-                        disabled
-                        title="Order Form available after IVR verification"
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        {orderFormData.order_form_submission_id ? 'View Order Form' : 'Fill Order Form'}
-                      </Button>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-md border">
+                      Order Form has not been submitted by the provider yet.
+                    </div>
+                  )}
 
                   {userRole === 'Admin' && (
                     <div className="space-y-2">
@@ -824,7 +829,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                               link.download = orderFormData.alteredOrderFormFile!.name;
                               link.click();
                             }}
-                            className="text-green-600 hover:text-green-700"
+                            className="text-green-600 hover:text-blue-700"
                           >
                             <Download className="h-4 w-4" />
                           </button>
@@ -861,7 +866,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                                 link.download = file.name;
                                 link.click();
                               }}
-                              className="text-green-600 hover:text-green-700"
+                              className="text-green-600 hover:text-blue-700"
                             >
                               <Download className="h-4 w-4" />
                             </button>

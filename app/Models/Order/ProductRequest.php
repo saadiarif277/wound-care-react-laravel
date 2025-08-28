@@ -5,6 +5,7 @@ namespace App\Models\Order;
 use App\Models\User;
 use App\Models\Fhir\Facility;
 use App\Models\MscSalesRep;
+use App\Models\Document;
 use Illuminate\Support\Facades\Log;
 use App\Traits\BelongsToOrganizationThrough;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -684,7 +685,7 @@ class ProductRequest extends Model
         if (!$product) {
             return null;
         }
-        
+
         // The manufacturer field is a string column, not a relationship
         return $product->manufacturer;
     }
