@@ -652,6 +652,86 @@ class DocusealController extends Controller
     }
 
     /**
+     * Get Order Form document URL for viewing
+     * GET /admin/orders/{orderId}/order-form-document-url
+     */
+    public function getOrderFormDocumentUrl(int $orderId): JsonResponse
+    {
+        try {
+            Log::info('Getting Order Form document URL', [
+                'order_id' => $orderId,
+                'user_id' => Auth::id()
+            ]);
+
+            // Get the order to find the submission ID
+            $order = \App\Models\Order\ProductRequest::find($orderId);
+
+            if (!$order) {
+                return response()->json([
+                    'error' => 'Order not found'
+                ], 404);
+            }
+
+            // Get the submission ID from the order (order_form_submission_id)
+            $submissionId = $order->order_form_submission_id;
+            if (!$submissionId) {
+                return response()->json([
+                    'error' => 'No Order Form submission found for this order'
+                ], 404);
+            }
+
+            // Get submission slugs from Docuseal service
+            $result = $this->docusealService->getSubmissionSlugs($submissionId);
+
+            if (!$result['success']) {
+                return response()->json([
+                    'error' => 'Failed to fetch submission slugs',
+                    'message' => $result['error']
+                ], 500);
+            }
+
+            // Get the first available slug
+            if (empty($result['slugs'])) {
+                return response()->json([
+                    'error' => 'No signer URLs found for this submission'
+                ], 404);
+            }
+
+            $firstSlug = $result['slugs'][0];
+            $documentUrl = $firstSlug['url'];
+
+            Log::info('Successfully generated Order Form document URL', [
+                'order_id' => $orderId,
+                'submission_id' => $submissionId,
+                'document_url' => $documentUrl
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'document_url' => $documentUrl,
+                'submission_id' => $submissionId,
+                'signer_info' => [
+                    'name' => $firstSlug['name'],
+                    'email' => $firstSlug['email'],
+                    'status' => $firstSlug['status']
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to get Order Form document URL', [
+                'order_id' => $orderId,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to get document URL',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get Docuseal document URL for viewing
      * GET /admin/orders/{orderId}/docuseal-document-url
      */

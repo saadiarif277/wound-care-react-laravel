@@ -382,6 +382,7 @@ Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function
     Route::get('/ivr/download/{orderId}', [App\Http\Controllers\Admin\OrderCenterController::class, 'downloadIvrDocument'])->name('admin.ivr.download');
     Route::get('/orders/{orderId}/docuseal-document', [App\Http\Controllers\Admin\OrderCenterController::class, 'getDocusealDocument'])->name('admin.orders.docuseal-document');
     Route::get('/orders/{orderId}/docuseal-document-url', [App\Http\Controllers\DocusealController::class, 'getDocusealDocumentUrl'])->name('admin.orders.docuseal-document-url');
+    Route::get('/orders/{orderId}/order-form-document-url', [App\Http\Controllers\DocusealController::class, 'getOrderFormDocumentUrl'])->name('admin.orders.order-form-document-url');
 
     // Enhanced Dashboard Routes - Now handled by OrderCenterController
     // Redirect old enhanced dashboard route to consolidated order center
@@ -677,6 +678,8 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/search-patients', [ProductRequestController::class, 'searchPatients'])->name('api.product-requests.search-patients');
         Route::get('/{productRequest}/recommendations', [ProductRequestController::class, 'getRecommendations'])->name('api.product-requests.recommendations');
         Route::post('/{productRequest}/eligibility-check', [ProductRequestController::class, 'runEligibilityCheck'])->name('api.product-requests.eligibility-check');
+        Route::get('/{productRequest}/order-form-prefill', [ProductRequestController::class, 'getOrderFormPrefillData'])->name('api.product-requests.order-form-prefill');
+Route::post('/{productRequest}/order-form-submit', [ProductRequestController::class, 'submitOrderForm'])->name('api.product-requests.order-form-submit');
     });
 
     // Product Request Review Routes (Admin)
@@ -1097,16 +1100,48 @@ Route::post('/api/v1/docuseal/orderform/create-submission', function (Request $r
             'episode_id' => $request->episode_id
         ]);
 
-                // Send NO pre-filled data - let user fill everything manually via Docuseal
-        // This avoids all "Unknown field" errors
-        $emptyFormData = [];
+                        // Use the pre-fill data sent from the frontend
+        $formData = $request->input('form_data', []);
+
+        // Log what we're sending
+        \Log::info('Using form data for OrderForm submission', [
+            'form_data_keys' => array_keys($formData),
+            'form_data_count' => count($formData),
+            'has_form_data' => !empty($formData)
+        ]);
+
+        // Transform the pre-fill data to the format expected by DocuSeal service
+        $transformedFormData = [];
+
+        if (!empty($formData)) {
+            // If form_data is already in DocuSeal format (has 'name' and 'default_value' keys)
+            if (isset($formData[0]) && isset($formData[0]['name']) && isset($formData[0]['default_value'])) {
+                // Transform from DocuSeal format to key-value pairs
+                foreach ($formData as $field) {
+                    if (isset($field['name']) && isset($field['default_value'])) {
+                        $transformedFormData[$field['name']] = $field['default_value'];
+                    }
+                }
+                \Log::info('Transformed DocuSeal format to key-value pairs', [
+                    'original_count' => count($formData),
+                    'transformed_count' => count($transformedFormData),
+                    'sample_fields' => array_slice($transformedFormData, 0, 5)
+                ]);
+            } else {
+                // Already in key-value format
+                $transformedFormData = $formData;
+                \Log::info('Form data already in key-value format', [
+                    'field_count' => count($transformedFormData)
+                ]);
+            }
+        }
 
         $result = $docusealService->createSubmissionForQuickRequest(
             $request->template_id,
             'integration@mscwoundcare.com', // Default integration email
             'provider@example.com', // Default submitter email
             'Healthcare Provider', // Default submitter name
-            $emptyFormData, // Empty array - no pre-filled fields
+            $transformedFormData, // Use the transformed form data
             $request->episode_id
         );
 

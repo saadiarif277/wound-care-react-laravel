@@ -39,6 +39,7 @@ export interface OrderFormData {
   approvalDate?: string;
   fileUrl?: string;
   notes?: string;
+  submissionId?: string;
 }
 
 export interface AdminOrderData {

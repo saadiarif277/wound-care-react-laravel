@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { AdminOrderData, AdminActionProps, OrderStatus } from '../types/adminTypes';
+import { AdminOrderData, AdminActionProps, OrderStatus, IVRStatus, OrderFormStatus } from '../types/adminTypes';
 import { AdminActionModals } from './AdminActionModals';
 import { IVRSection } from './IVRSection';
 import { OrderFormSection } from './OrderFormSection';
@@ -45,8 +45,9 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
     }));
   };
 
-  const getStatusColor = (status: OrderStatus): string => {
+  const getStatusColor = (status: OrderStatus | IVRStatus | OrderFormStatus): string => {
     switch (status) {
+      // Order Status colors
       case 'Pending IVR': return 'bg-gray-100 text-gray-800';
       case 'IVR Sent': return 'bg-blue-100 text-blue-800';
       case 'IVR Verified': return 'bg-purple-100 text-purple-800';
@@ -55,6 +56,16 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
       case 'Send Back': return 'bg-orange-100 text-orange-800';
       case 'Submitted to Manufacturer': return 'bg-emerald-100 text-emerald-800';
       case 'Confirmed & Shipped': return 'bg-teal-100 text-teal-800';
+
+      // IVR Status colors
+      case 'N/A': return 'bg-gray-100 text-gray-800';
+      case 'Rejected': return 'bg-red-100 text-red-800';
+
+      // Order Form Status colors
+      case 'Draft': return 'bg-yellow-100 text-yellow-800';
+      case 'Submitted': return 'bg-blue-100 text-blue-800';
+      case 'Under Review': return 'bg-orange-100 text-orange-800';
+
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -106,9 +117,9 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
         </div>
 
         {/* Patient & Insurance Section */}
-        <SectionCard 
-          title="Patient & Insurance Information" 
-          icon={User} 
+        <SectionCard
+          title="Patient & Insurance Information"
+          icon={User}
           sectionKey="patient"
           isOpen={Boolean(openSections.patient)}
           onToggle={toggleSection}
@@ -128,9 +139,9 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
         </SectionCard>
 
         {/* Provider Section */}
-        <SectionCard 
-          title="Provider Information" 
-          icon={Building2} 
+        <SectionCard
+          title="Provider Information"
+          icon={Building2}
           sectionKey="provider"
           isOpen={openSections.provider ?? false}
           onToggle={toggleSection}
@@ -150,9 +161,9 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
         </SectionCard>
 
         {/* Clinical Section */}
-        <SectionCard 
-          title="Clinical Information" 
-          icon={Stethoscope} 
+        <SectionCard
+          title="Clinical Information"
+          icon={Stethoscope}
           sectionKey="clinical"
           isOpen={openSections.clinical ?? false}
           onToggle={toggleSection}
@@ -182,9 +193,9 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
         </SectionCard>
 
         {/* Product Section */}
-        <SectionCard 
-          title="Product Information" 
-          icon={Package} 
+        <SectionCard
+          title="Product Information"
+          icon={Package}
           sectionKey="product"
           isOpen={openSections.product ?? false}
           onToggle={toggleSection}
@@ -226,31 +237,47 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
         </SectionCard>
 
         {/* Forms Section */}
-        <SectionCard 
-          title="IVR Form & Order Form" 
-          icon={ClipboardList} 
+        <SectionCard
+          title="IVR Form & Order Form"
+          icon={ClipboardList}
           sectionKey="forms"
           isOpen={openSections.forms ?? false}
           onToggle={toggleSection}
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <IVRSection
-              order={order}
-              onUpdateIVRStatus={onUpdateIVRStatus}
-              onUploadIVRResults={onUploadIVRResults}
-              onGenerateIVR={onGenerateIVR}
-            />
-            <OrderFormSection
-              order={order}
-              onUpdateOrderFormStatus={onUpdateOrderFormStatus}
-            />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">IVR Form</h3>
+                <Badge className={getStatusColor(order.ivrData.status || 'Pending IVR')}>
+                  {order.ivrData.status || 'Pending IVR'}
+                </Badge>
+              </div>
+              <IVRSection
+                order={order}
+                onUpdateIVRStatus={onUpdateIVRStatus}
+                onUploadIVRResults={onUploadIVRResults}
+                onGenerateIVR={onGenerateIVR}
+              />
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">Order Form</h3>
+                <Badge className={getStatusColor(order.orderFormData.status || 'Not Started')}>
+                  {order.orderFormData.status || 'Not Started'}
+                </Badge>
+              </div>
+              <OrderFormSection
+                order={order}
+                onUpdateOrderFormStatus={onUpdateOrderFormStatus}
+              />
+            </div>
           </div>
         </SectionCard>
 
         {/* Supporting Documents Section */}
-        <SectionCard 
-          title="Supporting Documents" 
-          icon={FileText} 
+        <SectionCard
+          title="Supporting Documents"
+          icon={FileText}
           sectionKey="documents"
           isOpen={openSections.documents ?? false}
           onToggle={toggleSection}
@@ -272,9 +299,9 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
         </SectionCard>
 
         {/* Action History Section */}
-        <SectionCard 
-          title="Action History" 
-          icon={History} 
+        <SectionCard
+          title="Action History"
+          icon={History}
           sectionKey="history"
           isOpen={openSections.history ?? false}
           onToggle={toggleSection}

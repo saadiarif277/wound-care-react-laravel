@@ -45,14 +45,14 @@ final class OrderController extends Controller
     public function center(Request $request): Response
     {
         $user = $request->user();
-        
+
         $query = $this->buildOrderCenterQuery();
         $this->applyOrderCenterFilters($query, $request);
-        
+
         $requests = $this->processOrderCenterResults($query);
         $statusCounts = $this->getOrderStatusCounts();
         $facilities = $this->getActiveFacilities();
-        
+
         return Inertia::render('Order/OrderCenter', [
             'requests' => $requests,
             'filters' => $request->only(['search', 'status', 'priority', 'facility', 'days_pending']),
@@ -180,7 +180,7 @@ final class OrderController extends Controller
     private function calculateRequestPriorityScore($request, int $daysSince): int
     {
         $score = 0;
-        
+
         if ($daysSince > 7) $score += 40;
         elseif ($daysSince > 3) $score += 20;
         elseif ($daysSince > 1) $score += 10;
@@ -501,8 +501,8 @@ final class OrderController extends Controller
             'order_number' => $order->request_number,
             'patient_display_id' => $order->patient_display_id,
             'order_status' => $order->order_status,
-            'expected_service_date' => $order->expected_service_date 
-                ? Carbon::parse($order->expected_service_date)->format('Y-m-d') 
+            'expected_service_date' => $order->expected_service_date
+                ? Carbon::parse($order->expected_service_date)->format('Y-m-d')
                 : $order->date_of_service,
             'submitted_at' => $order->created_at->format('Y-m-d H:i:s'),
             'tracking_number' => $order->tracking_number,
@@ -539,7 +539,7 @@ final class OrderController extends Controller
             'facility',
             'manufacturer',
             'items.product',
-            'ivrEpisode.orders',
+            'ivrEpisode:id,episode_id,order_form_submission_id,order_form_status', // Include order_form_submission_id
         ])->findOrFail($id);
 
         $this->authorize('view', $order);
@@ -595,6 +595,7 @@ final class OrderController extends Controller
             'patient_fhir_id' => $order->patient_fhir_id,
             'patient_name' => $patientName,
             'order_status' => $order->order_status,
+            'order_form_submission_id' => $order->ivrEpisode?->order_form_submission_id, // Get from IVR episode
             'provider' => [
                 'id' => $order->provider->id,
                 'name' => $order->provider->first_name . ' ' . $order->provider->last_name,
@@ -626,6 +627,7 @@ final class OrderController extends Controller
                 'verification_status' => $order->ivrEpisode->verification_status,
                 'verified_date' => $order->ivrEpisode->verified_date,
                 'expiration_date' => $order->ivrEpisode->expiration_date,
+                'order_form_submission_id' => $order->ivrEpisode->order_form_submission_id, // Also include here for debugging
                 'docuseal' => $ivrDocuseal,
                 'orders' => $order->ivrEpisode->orders->map(function($o) {
                     return [
@@ -639,6 +641,14 @@ final class OrderController extends Controller
             'confirmation_documents' => [], // TODO: Populate when Document model is available
             'audit_log' => [], // TODO: Implement audit log for provider
         ];
+
+        // Debug logging
+        \Log::info('Order detail data', [
+            'order_id' => $order->id,
+            'order_form_submission_id' => $order->ivrEpisode?->order_form_submission_id,
+            'ivr_episode_id' => $order->ivrEpisode?->id,
+            'has_ivr_episode' => !!$order->ivrEpisode
+        ]);
 
         return Inertia::render('Provider/Orders/Show', [
             'order' => $orderDetail,

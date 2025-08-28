@@ -356,6 +356,8 @@ final class ProductRequestController extends Controller
             'facility_id' => $productRequest->facility_id,
             'provider_id' => $productRequest->provider_id,
             'products_count' => $productRequest->products->count(),
+            'order_form_submission_id' => $productRequest->order_form_submission_id, // Add this field
+            'has_order_form_submission_id' => !empty($productRequest->order_form_submission_id),
         ]);
 
         $user = Auth::user()->load(['roles', 'organizations', 'facilities']);
@@ -689,6 +691,7 @@ final class ProductRequestController extends Controller
             'order_status' => $productRequest->order_status,
             'ivr_status' => $productRequest->ivr_status ?? 'pending',
             'order_form_status' => $productRequest->order_status,
+            'order_form_submission_id' => $productRequest->order_form_submission_id, // Add this field
             'total_order_value' => $productRequest->calculateTotalAmountWithNationalAsp(),
             'created_at' => $productRequest->created_at->toISOString(),
             'action_required' => in_array($productRequest->order_status, ['pending', 'submitted_to_manufacturer']),
@@ -698,6 +701,14 @@ final class ProductRequestController extends Controller
 
         // Merge orderData into order object for frontend compatibility
         $mergedOrderData = array_merge($orderInterfaceData, $orderData);
+
+        // Debug: Log what's being sent to frontend
+        Log::info('ProductRequest show - data sent to frontend', [
+            'product_request_id' => $productRequest->id,
+            'order_form_submission_id' => $productRequest->order_form_submission_id,
+            'order_form_submission_id_in_merged_data' => $mergedOrderData['order_form_submission_id'] ?? 'NOT_FOUND',
+            'has_order_form_submission_id' => !empty($mergedOrderData['order_form_submission_id'] ?? null),
+        ]);
 
         return Inertia::render('Admin/OrderCenter/OrderDetails', [
             'order' => $mergedOrderData,
@@ -1207,6 +1218,93 @@ final class ProductRequestController extends Controller
         }
     }
 
+    /**
+     * Get order form pre-fill data for ACZ manufacturer
+     */
+    public function getOrderFormPrefillData(ProductRequest $productRequest)
+    {
+        // Ensure the provider can only get pre-fill data for their own requests
+        if ($productRequest->provider_id !== Auth::id()) {
+            abort(403);
+        }
+
+        try {
+            // Check if this product request can access ACZ template (ID: 852554)
+            // We'll check if the manufacturer has the ACZ template configured
+            $manufacturerName = $productRequest->getManufacturer();
+
+            // Debug logging
+            \Log::info('Order form pre-fill debug', [
+                'product_request_id' => $productRequest->id,
+                'manufacturer_name' => $manufacturerName,
+                'has_products' => $productRequest->products()->exists(),
+                'first_product' => $productRequest->products()->first() ? [
+                    'id' => $productRequest->products()->first()->id,
+                    'manufacturer' => $productRequest->products()->first()->manufacturer,
+                    'manufacturer_type' => gettype($productRequest->products()->first()->manufacturer)
+                ] : null
+            ]);
+
+            if (!$manufacturerName) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'No manufacturer found for this product request'
+                ], 400);
+            }
+
+            // Check if manufacturer has ACZ template (ID: 852554)
+            $manufacturerConfig = config("manufacturers.acz-associates");
+            if (!$manufacturerConfig || !isset($manufacturerConfig['order_form_template_id']) || $manufacturerConfig['order_form_template_id'] !== 852554) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Order form pre-fill is only available for ACZ & Associates manufacturer'
+                ], 400);
+            }
+
+            // Get pre-fill data
+            $prefillService = app(\App\Services\OrderFormPrefillService::class);
+            $prefillData = $prefillService->getACZOrderFormPrefillData($productRequest);
+
+            // Get field mappings from manufacturer config
+            $fieldMappings = $manufacturerConfig['order_form_field_names'] ?? [];
+
+            // Debug logging for field mappings
+            \Log::info('OrderFormPrefillData: Field mappings loaded', [
+                'manufacturer_config_keys' => array_keys($manufacturerConfig),
+                'has_order_form_field_names' => isset($manufacturerConfig['order_form_field_names']),
+                'field_mappings_count' => count($fieldMappings),
+                'field_mappings_sample' => array_slice($fieldMappings, 0, 10)
+            ]);
+
+            // Map to Docuseal format
+            $docuSealFields = $prefillService->mapToDocusealFields($prefillData, $fieldMappings);
+
+            // Debug logging for final result
+            \Log::info('OrderFormPrefillData: Final result', [
+                'prefill_data_count' => count($prefillData),
+                'docuseal_fields_count' => count($docuSealFields),
+                'docuseal_fields_sample' => array_slice($docuSealFields, 0, 5)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'prefill_data' => $prefillData,
+                    'docuSeal_fields' => $docuSealFields,
+                    'template_id' => $manufacturerConfig['order_form_template_id'],
+                    'manufacturer' => $manufacturerName
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to get order form pre-fill data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     // Private helper methods for MSC-MVP implementation
 
     private function storeClinicalDataInAzure(array $clinicalData, ProductRequest $productRequest): string
@@ -1465,5 +1563,85 @@ final class ProductRequestController extends Controller
             'cancelled', 'voided' => 'cancelled',
             default => 'pending'
         };
+    }
+
+    /**
+     * Submit order form and save submission ID
+     */
+    public function submitOrderForm(ProductRequest $productRequest, Request $request)
+    {
+        try {
+            \Log::info('Order form submission attempt', [
+                'product_request_id' => $productRequest->id,
+                'user_id' => auth()->id(),
+                'request_data' => $request->all()
+            ]);
+
+
+            $request->validate([
+                'submission_id' => 'required', // Accept any type, we'll convert to string
+                'manufacturer_id' => 'required|integer'
+            ]);
+
+            // Convert submission_id to string if it's not already
+            $submissionId = (string) $request->submission_id;
+
+            \Log::info('Updating product request with order form submission', [
+                'product_request_id' => $productRequest->id,
+                'submission_id' => $submissionId,
+                'manufacturer_id' => $request->manufacturer_id
+            ]);
+
+            // Update the product request with order form submission details
+            $productRequest->update([
+                'order_form_submission_id' => $submissionId,
+                'order_form_submitted_at' => now()
+            ]);
+
+            \Log::info('Order form submission successful', [
+                'product_request_id' => $productRequest->id,
+                'submission_id' => $submissionId
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order form submitted successfully',
+                'data' => [
+                    'order_form_submission_id' => $submissionId,
+                    'order_form_submitted_at' => $productRequest->order_form_submitted_at
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Order form submission failed', [
+                'product_request_id' => $productRequest->id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // Check if it's a database column error
+            if (str_contains($e->getMessage(), 'Unknown column') || str_contains($e->getMessage(), 'order_form_submission_id')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Database schema error: Missing order_form_submission_id column. Please run migrations.',
+                    'error_details' => $e->getMessage()
+                ], 500);
+            }
+
+            // Check if it's a permission error
+            if (str_contains($e->getMessage(), 'permission') || str_contains($e->getMessage(), 'access')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Permission denied: You do not have access to submit order forms for this product request.',
+                    'error_details' => $e->getMessage()
+                ], 403);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit order form: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

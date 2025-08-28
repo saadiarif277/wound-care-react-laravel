@@ -9,7 +9,8 @@ import ClinicalSection from '@/Pages/Admin/OrderCenter/ClinicalSection';
 import ProviderSection from '@/Pages/Admin/OrderCenter/ProviderSection';
 import AdditionalDocumentsSection from '@/Pages/Admin/OrderCenter/AdditionalDocumentsSection';
 import { OrderFormModal } from '@/Components/OrderForm/OrderFormModal';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
+
 import { formatHumanReadableDate } from '@/utils/dateUtils';
 import axios from 'axios';
 
@@ -285,6 +286,13 @@ const ProductRequestShow: React.FC<ProductRequestShowProps> = ({
     hasInsurance: !!orderData.insurance,
     hasClinical: !!orderData.clinical,
     hasProduct: !!orderData.product,
+    manufacturerInfo: {
+      manufacturer_name: request.manufacturer_name,
+      product_manufacturer: request.product?.manufacturer,
+      product_manufacturerId: request.product?.manufacturerId,
+      orderData_manufacturer_name: orderData.manufacturer_name,
+      orderData_product_manufacturerId: orderData.product?.manufacturerId
+    }
   });
 
   // Add error handling for missing request data
@@ -336,12 +344,23 @@ const ProductRequestShow: React.FC<ProductRequestShowProps> = ({
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
                   orderData.order_form_status === 'confirmed_by_manufacturer' ? 'text-green-600 bg-green-100' :
-                  orderData.order_form_status === 'submitted_to_manufacturer' ? 'text-blue-600 bg-blue-100' :
+                  orderData.order_form_status === 'submitted_to_manufacturer' ? 'text-blue-600 bg-green-100' :
                   orderData.order_form_status === 'rejected' ? 'text-red-600 bg-red-100' :
                   'text-yellow-600 bg-yellow-100'
                 }`}>
                   Order: {orderData.order_form_status || 'Pending'}
                 </span>
+              </div>
+
+              {/* View Order Form Button */}
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setShowOrderFormModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  View Order Form
+                </Button>
               </div>
             </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -521,11 +540,38 @@ const ProductRequestShow: React.FC<ProductRequestShowProps> = ({
             ivr_status: orderData.ivr_status,
             order_form_status: orderData.order_form_status,
             docuseal_submission_id: orderData.docuseal_submission_id,
-            order_form_submission_id: ''
+            order_form_submission_id: '',
+            product_request_id: request.id,
+            // Add comprehensive data for auto-fill
+            facility: {
+              name: orderData.facility_name,
+              address: orderData.facility?.address,
+              city: orderData.facility?.city,
+              state: orderData.facility?.state,
+              zip: orderData.facility?.zip,
+              phone: orderData.facility?.phone
+            },
+            provider: {
+              name: orderData.provider_name,
+              email: orderData.provider?.email,
+              phone: orderData.provider?.phone,
+              npi: orderData.provider?.npi
+            },
+            product: {
+              name: orderData.product_name,
+              quantity: orderData.product?.quantity,
+              size: orderData.product?.size,
+              price: orderData.total_order_value
+            },
+            clinical: {
+              wound_type: orderData.wound_type,
+              expected_service_date: orderData.expected_service_date
+            }
           }}
           onOrderFormComplete={(data) => {
             console.log('Order form completed:', data);
-            setShowOrderFormModal(false);
+            // Don't close the modal automatically - let user close it manually
+            // setShowOrderFormModal(false);
             // You can add additional logic here to update the order form status
           }}
         />

@@ -56,6 +56,8 @@ class ProductRequest extends Model
         'ivr_episode_id',
         'docuseal_submission_id',
         'docuseal_template_id',
+        'order_form_submission_id',
+        'order_form_submitted_at',
         'notes',
         'rejection_reason',
         'cancellation_reason',
@@ -79,6 +81,7 @@ class ProductRequest extends Model
         'shipping_info' => 'array',
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
+        'order_form_submitted_at' => 'datetime',
         'pre_auth_submitted_at' => 'datetime',
         'pre_auth_approved_at' => 'datetime',
         'pre_auth_denied_at' => 'datetime',
@@ -345,12 +348,12 @@ class ProductRequest extends Model
     public function calculateTotalAmountWithNationalAsp(): float
     {
         $total = 0;
-        
+
         foreach ($this->products as $product) {
             $nationalAsp = $product->national_asp ?? $product->price_per_sq_cm ?? 0;
             $quantity = $product->pivot->quantity ?? 1;
             $size = $product->pivot->size ?? null;
-            
+
             if ($size) {
                 // Calculate size area from size string (e.g., "2x3" or "4")
                 $sizeArea = $this->calculateSizeArea($size);
@@ -365,7 +368,7 @@ class ProductRequest extends Model
                 $total += $nationalAsp * $quantity;
             }
         }
-        
+
         return round($total, 2);
     }
 
@@ -678,7 +681,12 @@ class ProductRequest extends Model
     public function getManufacturer(): ?string
     {
         $product = $this->products()->first();
-        return $product ? $product->manufacturer : null;
+        if (!$product) {
+            return null;
+        }
+        
+        // The manufacturer field is a string column, not a relationship
+        return $product->manufacturer;
     }
 
     /**

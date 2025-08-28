@@ -51,6 +51,7 @@ interface OrderFormData {
     uploadedAt: string;
     uploadedBy: string;
   };
+  order_form_submission_id?: string; // Added for existing submission
 }
 
 interface DocumentFile {
@@ -83,6 +84,7 @@ interface IVRDocumentSectionProps {
     integration_email?: string;
     episode_id?: number;
     product_id?: number;
+    product_request_id?: number;
     clinical_summary?: any;
   };
 }
@@ -404,6 +406,47 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
     }
   };
 
+  const handleViewOrderForm = async () => {
+    console.log('🔍 handleViewOrderForm called with:', {
+      orderFormData,
+      hasSubmissionId: !!orderFormData.order_form_submission_id,
+      submissionId: orderFormData.order_form_submission_id
+    });
+
+    // Check if we have an existing order form submission
+    if (orderFormData.order_form_submission_id) {
+      console.log('🔍 Opening existing order form submission:', orderFormData.order_form_submission_id);
+
+      // Try to open the existing submission directly (like IVR does)
+      try {
+        // Use the new controller method to get the document URL
+        const response = await fetch(`/admin/orders/${orderId}/order-form-document-url`);
+        const data = await response.json();
+
+        if (data.success && data.document_url) {
+          console.log('🔍 Opening Order Form document URL:', data.document_url);
+          window.open(data.document_url, '_blank');
+        } else {
+          console.error('❌ Failed to get document URL:', data.message);
+          // Fallback to direct DocuSeal URL
+          const fallbackUrl = `https://docuseal.com/e/${orderFormData.order_form_submission_id}`;
+          console.log('🔍 Using fallback URL for existing order form:', fallbackUrl);
+          window.open(fallbackUrl, '_blank');
+        }
+      } catch (error) {
+        console.error('❌ Error opening order form:', error);
+        // Fallback to direct DocuSeal URL
+        const fallbackUrl = `https://docuseal.com/e/${orderFormData.order_form_submission_id}`;
+        console.log('🔍 Using fallback URL due to error:', fallbackUrl);
+        window.open(fallbackUrl, '_blank');
+      }
+    } else {
+      console.log('🔍 Opening modal for new order form');
+      // Open modal for filling new order form
+      setShowOrderFormEmbed(true);
+    }
+  };
+
   // Function to get manufacturer_id from product
   const getManufacturerIdFromProduct = async () => {
     console.log('🔍 getManufacturerIdFromProduct called with:', {
@@ -673,13 +716,13 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                     {/* View Order Form Button - only enabled when IVR is verified */}
                     {ivrData.status?.toLowerCase() === 'verified' ? (
                       <Button
-                        onClick={() => setShowOrderFormEmbed(true)}
+                        onClick={handleViewOrderForm}
                         className="flex-1"
                         variant="ghost"
                         size="sm"
                       >
                         <Eye className="h-4 w-4 mr-2" />
-                        View Order Form
+                        {orderFormData.order_form_submission_id ? 'View Order Form' : 'Fill Order Form'}
                       </Button>
                     ) : (
                       <Button
@@ -690,12 +733,9 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                         title="Order Form available after IVR verification"
                       >
                         <Eye className="h-4 w-4 mr-2" />
-                        View Order Form
+                        {orderFormData.order_form_submission_id ? 'View Order Form' : 'Fill Order Form'}
                       </Button>
                     )}
-
-                    {/* Show Order Form Modal Button when IVR is verified */}
-
                   </div>
 
                   {userRole === 'Admin' && (
@@ -1001,7 +1041,9 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-semibold text-gray-900">Order Form</h2>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {orderFormData.order_form_submission_id ? 'View Order Form' : 'Fill Order Form'}
+              </h2>
               <button
                 onClick={() => setShowOrderFormEmbed(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -1012,12 +1054,17 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
             <div className="flex-1 p-6 overflow-auto">
               {(() => {
                 const finalManufacturerId = productManufacturerId || orderData.manufacturer_id?.toString() || '1';
-                console.log('🔍 OrderFormEmbed manufacturerId debug:', {
+                const hasExistingSubmission = orderFormData.order_form_submission_id;
+
+                console.log('🔍 OrderFormEmbed debug:', {
                   productManufacturerId,
                   orderData_manufacturer_id: orderData.manufacturer_id,
                   finalManufacturerId,
-                  orderData: orderData
+                  orderData: orderData,
+                  hasExistingSubmission,
+                  existingSubmissionId: orderFormData.order_form_submission_id
                 });
+
                 return (
                   <OrderFormEmbed
                     manufacturerId={finalManufacturerId}
@@ -1031,14 +1078,21 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                       episode_id: orderData.episode_id
                     }}
                     episodeId={orderData.episode_id}
+                    productRequestId={orderId}
+                    existingSubmissionId={hasExistingSubmission ? orderFormData.order_form_submission_id : undefined}
                     onComplete={(data) => {
                       console.log('Order form completed:', data);
-                      setShowOrderFormEmbed(false);
+                      // Don't close the modal automatically - let user close it manually
+                      // setShowOrderFormEmbed(false);
                       // You can add additional logic here to update the order form status
                     }}
                     onError={(error) => {
                       console.error('Order form error:', error);
                       // You can add error handling logic here
+                    }}
+                    onOrderFormSubmit={(submissionId) => {
+                      console.log('Order form submitted with ID:', submissionId);
+                      // You can add logic here to update the order form status
                     }}
                     className="h-full"
                     debug={true}
@@ -1067,7 +1121,8 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
           ivr_status: ivrData.status,
           order_form_status: orderFormData.status,
           docuseal_submission_id: ivrData.docusealSubmissionId,
-          order_form_submission_id: orderFormData.fileUrl
+          order_form_submission_id: orderFormData.fileUrl,
+          product_request_id: orderId
         }}
         onOrderFormComplete={(data) => {
           console.log('Order form completed:', data);

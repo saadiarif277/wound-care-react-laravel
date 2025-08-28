@@ -74,6 +74,15 @@ export const OrderFormSection: React.FC<OrderFormSectionProps> = ({
                 <div>{order.orderFormData.approvalDate}</div>
               </div>
             )}
+            {/* Show submission ID if available */}
+            {order.orderFormData.submissionId && (
+              <div>
+                <span className="font-medium">Submission ID:</span>
+                <div className="font-mono text-xs bg-gray-100 p-1 rounded">
+                  {order.orderFormData.submissionId}
+                </div>
+              </div>
+            )}
           </div>
 
           {order.orderFormData.notes && (
@@ -87,6 +96,19 @@ export const OrderFormSection: React.FC<OrderFormSectionProps> = ({
             <Button variant="outline" onClick={() => setShowStatusModal(true)} size="sm">
               Update Status
             </Button>
+
+            {/* Only show View Order Form button if form has been submitted */}
+            {order.orderFormData.status === 'Submitted' || order.orderFormData.status === 'Under Review' || order.orderFormData.status === 'Approved' ? (
+              <Button variant="outline" size="sm">
+                <Eye className="h-4 w-4 mr-2" />
+                View Order Form
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled className="opacity-50 cursor-not-allowed">
+                <Eye className="h-4 w-4 mr-2" />
+                View Order Form (Submit First)
+              </Button>
+            )}
 
             {order.orderFormData.fileUrl && (
               <Button variant="outline" size="sm">

@@ -515,6 +515,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             approvalDate: '',
             notes: '',
             fileUrl: '',
+            order_form_submission_id: order.order_form_submission_id, // Add this field
             files: order.documents || [],
             carrier: (order as any).carrier || '',
             trackingNumber: (order as any).tracking_number || '',
