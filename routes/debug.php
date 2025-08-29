@@ -28,7 +28,7 @@ Route::get('/debug/test-ai-enhancement/{episodeId}', function ($episodeId) {
     $templateId = 'test-template';
     
     try {
-        $enhancedData = $optimizedService->enhanceDocusealFieldMapping($episode, $baseData, $templateId);
+        $enhancedData = $optimizedService->enhanceDocusealFieldMapping($baseData, $templateId, $episode);
         
         return response()->json([
             'success' => true,

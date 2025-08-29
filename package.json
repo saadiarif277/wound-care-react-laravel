@@ -126,7 +126,7 @@
     "@types/babel__traverse": "^7.20.7",
     "@types/estree": "^1.0.8",
     "@types/jest": "^29.5.14",
-    "@types/lodash": "^4.17.4",
+    "@types/lodash": "^4.17.20",
     "@types/nextgen-events": "^1.1.4",
     "@types/node": "^20.19.4",
     "@types/node-fetch": "^2.6.12",

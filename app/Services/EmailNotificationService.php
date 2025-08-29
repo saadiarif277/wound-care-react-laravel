@@ -11,6 +11,12 @@ use Exception;
 
 class EmailNotificationService
 {
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
     /**
      * Send status change notification
      * Implements notifications #2 and #3 based on status type
@@ -27,7 +33,7 @@ class EmailNotificationService
             // Determine notification type based on status
             $isIvrStatus = in_array($newStatus, ['sent', 'verified', 'rejected']);
             $isOrderStatus = in_array($newStatus, ['submitted_to_manufacturer', 'confirmed_by_manufacturer', 'rejected', 'canceled']);
-            
+
             if (!$isIvrStatus && !$isOrderStatus) {
                 Log::info('Status change does not require notification', [
                     'order_id' => $order->id,
@@ -35,26 +41,20 @@ class EmailNotificationService
                 ]);
                 return false;
             }
-            
+
             // Get the original requestor (Provider/OM who submitted the order)
             $requestor = $this->getOrderRequestor($order);
-            
+
             if (!$requestor || !$requestor->email) {
                 Log::warning('No requestor found for order status notification', [
                     'order_id' => $order->id
                 ]);
                 return false;
             }
-            
-            // Send notification to requestor
-            return $this->sendStatusUpdateToProvider(
-                $order,
-                $requestor,
-                $newStatus,
-                $notes,
-                $isIvrStatus ? 'ivr' : 'order',
-                $notificationDocuments
-            );
+
+            // Use the new NotificationService for sending
+            $status = $this->mapStatusForNotification($newStatus);
+            return $this->notificationService->notifyProvider($order, $status, $notes);
 
         } catch (Exception $e) {
             Log::error('Failed to send status change notification', [
@@ -64,6 +64,22 @@ class EmailNotificationService
             ]);
             return false;
         }
+    }
+
+    /**
+     * Map internal status to notification status
+     */
+    private function mapStatusForNotification(string $status): string
+    {
+        return match ($status) {
+            'sent' => 'approved',
+            'verified' => 'approved',
+            'rejected' => 'denied',
+            'submitted_to_manufacturer' => 'approved',
+            'confirmed_by_manufacturer' => 'approved',
+            'canceled' => 'denied',
+            default => $status,
+        };
     }
     
     /**

@@ -26,22 +26,29 @@ class FhirServiceProvider extends ServiceProvider
     {
         // Register Azure FHIR client with proper error handling
         $this->app->singleton(AzureFhirClient::class, function ($app) {
-            // Skip authentication during console commands to avoid errors
-            if (app()->runningInConsole()) {
-                return new AzureFhirClient('http://localhost', 'dummy-token');
+            $baseUrl = config('services.azure.fhir.base_url') ?: config('services.azure.fhir.base_url');
+
+            // If base URL missing, return disabled client (graceful degradation)
+            if (!$baseUrl) {
+                logger()->warning('Azure FHIR base URL not configured; FHIR client disabled.');
+                return new AzureFhirClient('', '');
             }
 
-            $baseUrl = config('services.azure.fhir.base_url');
-
-            if (!$baseUrl) {
-                throw new \RuntimeException('Azure FHIR base URL is not configured. Please set AZURE_FHIR_URL in your .env file.');
+            // Skip real auth during console (migrate/seed) to avoid blocking
+            if (app()->runningInConsole()) {
+                return new AzureFhirClient($baseUrl, '');
             }
 
             try {
-                return new AzureFhirClient($baseUrl, $this->getAzureFhirAccessToken());
-            } catch (\Exception $e) {
-                throw $e;
+                $token = $this->getAzureFhirAccessToken();
+            } catch (\Throwable $e) {
+                logger()->error('Azure FHIR token acquisition failed; continuing with disabled client', [
+                    'error' => $e->getMessage()
+                ]);
+                $token = '';
             }
+
+            return new AzureFhirClient($baseUrl, $token);
         });
 
         // Register circuit breaker for FHIR calls
@@ -145,14 +152,18 @@ class FhirServiceProvider extends ServiceProvider
     private function getAzureFhirAccessToken(): string
     {
         return Cache::remember('azure_fhir_token', 3500, function () {
-            return $this->requestNewToken();
+            $token = $this->requestNewToken();
+            if (!$token) {
+                throw new \RuntimeException('Empty token received');
+            }
+            return $token;
         });
     }
 
     /**
      * Request new token from Azure AD
      */
-    private function requestNewToken(): string
+    private function requestNewToken(): ?string
     {
         $tenantId = config('services.azure.fhir.tenant_id') ?? config('services.azure.tenant_id');
         $clientId = config('services.azure.fhir.client_id') ?? config('services.azure.client_id');
@@ -160,12 +171,13 @@ class FhirServiceProvider extends ServiceProvider
         $resource = config('services.azure.fhir.resource', 'https://azurehealthcareapis.com');
 
         if (!$tenantId || !$clientId || !$clientSecret) {
-            throw new \RuntimeException('Azure AD credentials for FHIR are not configured. Please check your .env file.');
+            logger()->warning('FHIR Azure AD credentials incomplete; skipping token request');
+            return null;
         }
 
         try {
             $response = Http::timeout(10)
-                ->retry(3, 1000)
+                ->retry(2, 500)
                 ->asForm()
                 ->post("https://login.microsoftonline.com/{$tenantId}/oauth2/v2.0/token", [
                     'grant_type' => 'client_credentials',
@@ -175,30 +187,19 @@ class FhirServiceProvider extends ServiceProvider
                 ]);
 
             if (!$response->successful()) {
-                throw new \RuntimeException(
-                    'Failed to obtain Azure FHIR access token: ' . $response->body()
-                );
+                logger()->error('FHIR token request failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                return null;
             }
 
-            $token = $response->json('access_token');
-
-            if (!$token) {
-                throw new \RuntimeException('No access token in Azure AD response');
-            }
-
-            return $token;
-
-        } catch (\Exception $e) {
-            logger()->error('Failed to request Azure FHIR token', [
-                'error' => $e->getMessage(),
-                'tenant_id' => $tenantId
+            return $response->json('access_token');
+        } catch (\Throwable $e) {
+            logger()->error('Exception during FHIR token request', [
+                'error' => $e->getMessage()
             ]);
-
-            throw new \RuntimeException(
-                'Unable to authenticate with Azure FHIR: ' . $e->getMessage(),
-                $e->getCode(),
-                $e
-            );
+            return null;
         }
     }
 

@@ -18,8 +18,8 @@ return [
         'secret' => env('MAILGUN_SECRET'),
         'endpoint' => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
         'scheme' => 'https',
-    'webhook_signing_secret' => env('MAILGUN_WEBHOOK_SIGNING_SECRET'),
-    'tracking_domain' => env('MAILGUN_TRACKING_DOMAIN', null),
+        'webhook_signing_secret' => env('MAILGUN_WEBHOOK_SIGNING_SECRET'),
+        'tracking_domain' => env('MAILGUN_TRACKING_DOMAIN'),
     ],
 
     'postmark' => [

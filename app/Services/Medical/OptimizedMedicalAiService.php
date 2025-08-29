@@ -174,7 +174,7 @@ class OptimizedMedicalAiService
     /**
      * Enhanced DocuSeal field mapping using AI with FHIR context
      */
-    public function enhanceDocusealFieldMapping(?PatientManufacturerIVREpisode $episode = null, array $baseData, string $templateId): array
+    public function enhanceDocusealFieldMapping(array $baseData, string $templateId, ?PatientManufacturerIVREpisode $episode = null): array
     {
         try {
             // Check if service is enabled

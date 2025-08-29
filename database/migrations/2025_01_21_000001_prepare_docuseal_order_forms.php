@@ -51,7 +51,15 @@ return new class extends Migration
                 }
                 
                 // Add index using manufacturer_id instead of manufacturer_name
-                if (!collect(DB::select("SHOW INDEX FROM docuseal_templates"))->pluck('Key_name')->contains('idx_manufacturer_template_type')) {
+                // Check if index exists (SQLite compatible)
+                $indexExists = false;
+                if (DB::getDriverName() === 'sqlite') {
+                    $indexExists = collect(DB::select("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_manufacturer_template_type'"))->isNotEmpty();
+                } else {
+                    $indexExists = collect(DB::select("SHOW INDEX FROM docuseal_templates"))->pluck('Key_name')->contains('idx_manufacturer_template_type');
+                }
+                
+                if (!$indexExists) {
                     $table->index(['manufacturer_id', 'template_type', 'is_active'], 'idx_manufacturer_template_type');
                 }
             });

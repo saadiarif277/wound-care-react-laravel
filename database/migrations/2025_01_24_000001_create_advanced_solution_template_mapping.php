@@ -44,10 +44,9 @@ return new class extends Migration
             ],
             [
                 'id' => Str::uuid(),
-                'docuseal_template_id' => 'advanced_solution_ivr_temp', // Will be updated by sync
+                'docuseal_template_id' => '1199885', // Advanced Solution template ID
+                'template_type' => 'ivr',
                 'document_type' => 'IVR',
-                'is_default' => true,
-                'is_active' => true,
                 'field_mappings' => json_encode([
                     'patient_name' => 'Patient Name',
                     'patient_dob' => 'Date of Birth',
@@ -58,6 +57,7 @@ return new class extends Migration
                     'primary_insurance_name' => 'Insurance Name',
                     'primary_member_id' => 'Member ID',
                 ]),
+                'is_active' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
@@ -70,8 +70,8 @@ return new class extends Migration
     public function down(): void
     {
         DB::table('docuseal_templates')
-            ->where('template_name', 'Advanced Solution IVR')
-            ->where('manufacturer_id', 2)
+            ->where('name', 'Advanced Solution IVR')
+            ->where('manufacturer_name', 'Advanced Solution')
             ->delete();
     }
 };

@@ -419,6 +419,22 @@ Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRe
     ->middleware('webhook.verify:docuseal')
     ->name('docuseal.webhook.quickrequest');
 
+// Secure DocuSeal Routes with RBAC
+Route::middleware(['auth:sanctum'])->prefix('v1/docuseal')->group(function () {
+    // Secure DocuSeal endpoints with RBAC
+    Route::post('submissions/secure', [\App\Http\Controllers\QuickRequest\SecureDocusealController::class, 'createSecureSubmission'])
+        ->middleware('permission:create-documents');
+    
+    Route::get('submissions/{submission}/download', [\App\Http\Controllers\QuickRequest\SecureDocusealController::class, 'downloadSecureDocument'])
+        ->middleware('permission:view-documents');
+    
+    Route::get('orders/{order}/documents/status', [\App\Http\Controllers\QuickRequest\SecureDocusealController::class, 'getDocumentStatus'])
+        ->middleware('permission:view-documents');
+    
+    Route::get('orders/{order}/audit-trail', [\App\Http\Controllers\QuickRequest\SecureDocusealController::class, 'getDocumentAuditTrail'])
+        ->middleware('permission:view-audit-logs');
+});
+
 // Document Intelligence Routes
 Route::prefix('v1/document-intelligence')->middleware(['permission:manage-orders'])->name('document-intelligence.')->group(function () {
     Route::post('analyze-template', [\App\Http\Controllers\Api\DocumentIntelligenceController::class, 'analyzeTemplate'])->name('analyze-template');

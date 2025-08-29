@@ -97,7 +97,7 @@ class UnifiedFieldMappingService
                     $episode = \App\Models\PatientManufacturerIVREpisode::find($episodeId);
                     if ($episode) {
                         $aiService = app(\App\Services\Medical\OptimizedMedicalAiService::class);
-                        $result = $aiService->enhanceDocusealFieldMapping($episode, $additionalData, $templateId);
+                        $result = $aiService->enhanceDocusealFieldMapping($additionalData, $templateId, $episode);
                     
                         Log::info('AI mapping completed successfully', [
                             'episode_id' => $episodeId,

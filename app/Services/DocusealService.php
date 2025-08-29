@@ -38,92 +38,894 @@ class DocusealService
     }
 
     /**
-     * Create or update a submission for an episode
+     * Enhanced submission creation with RBAC and order integration
      */
-    public function createOrUpdateSubmission(
-        int $episodeId,
-        string $manufacturerName,
-        array $additionalData = []
+    public function createSecureSubmission(
+        string $templateId,
+        array $prefillData,
+        int $orderId,
+        ?int $episodeId = null
     ): array {
-        try {
-            // Get mapped data using unified service
-            $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
-                $episodeId,
-                $manufacturerName,
-                $additionalData
-            );
+        // 1. Check permissions
+        if (!$this->validateDocumentPermissions($orderId, 'create')) {
+            throw new \InvalidArgumentException('Insufficient permissions to create document');
+        }
 
-            if (!$mappingResult['validation']['valid']) {
-                throw new \Exception('Field mapping validation failed: ' .
-                    implode(', ', $mappingResult['validation']['errors']));
+        // 2. Get order and validate status
+        $order = \App\Models\Order\Order::findOrFail($orderId);
+        if (!$this->canCreateDocumentForOrder($order)) {
+            throw new \InvalidArgumentException('Cannot create document for order in current status');
+        }
+
+        // 3. Create submission using existing logic
+        $result = $this->createSubmissionForQuickRequest(
+            $templateId,
+            'limitless@mscwoundcare.com', // integration email
+            $prefillData['provider_email'] ?? 'provider@example.com',
+            $prefillData['provider_name'] ?? 'Healthcare Provider',
+            $prefillData,
+            $episodeId
+        );
+
+        // 4. Link to order and update status
+        if ($result['success']) {
+            $this->linkSubmissionToOrder($result['data']['submission_id'], $orderId);
+            $this->createDocumentAuditTrail($orderId, 'created', $result['data']['submission_id']);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Enhanced document download with RBAC
+     */
+    public function downloadSecureDocument(string $submissionId, int $orderId): string
+    {
+        // 1. Validate permissions
+        if (!$this->validateDocumentPermissions($orderId, 'view')) {
+            throw new \InvalidArgumentException('Insufficient permissions to view document');
+        }
+
+        // 2. Download document using existing logic
+        $document = $this->downloadDocument($submissionId);
+
+        // 3. Create audit trail
+        $this->createDocumentAuditTrail($orderId, 'downloaded', $submissionId);
+
+        return $document;
+    }
+
+    /**
+     * Validate document permissions based on RBAC
+     */
+    private function validateDocumentPermissions(int $orderId, string $action): bool
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // Check if user can access this order
+        $order = \App\Models\Order\Order::find($orderId);
+        if (!$order) {
+            return false;
+        }
+
+        // Provider can access their own orders
+        if ($order->provider_id === $user->id) {
+            return true;
+        }
+
+        // Facility admin can access facility orders
+        if ($user->can('manage-facility-orders') && $order->facility_id === $user->facility_id) {
+            return true;
+        }
+
+        // Super admin can access all
+        if ($user->hasRole('super-admin') || $user->hasRole('msc-admin')) {
+            return true;
+        }
+
+        // Check specific document permissions
+        return $user->can("document.{$action}");
+    }
+
+    /**
+     * Check if document can be created for order status
+     */
+    private function canCreateDocumentForOrder(\App\Models\Order\Order $order): bool
+    {
+        return in_array($order->status, [
+            'approved',
+            'pending_ivr',
+            'submitted',
+            'processing'
+        ]);
+    }
+
+    /**
+     * Link submission to order
+     */
+    private function linkSubmissionToOrder(string $submissionId, int $orderId): void
+    {
+        \DB::table('order_documents')->updateOrInsert(
+            ['order_id' => $orderId, 'document_type' => 'ivr'],
+            [
+                'docuseal_submission_id' => $submissionId,
+                'status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]
+        );
+    }
+
+    /**
+     * Create document audit trail
+     */
+    private function createDocumentAuditTrail(int $orderId, string $action, string $submissionId): void
+    {
+        \DB::table('document_audit_trail')->insert([
+            'order_id' => $orderId,
+            'action' => $action,
+            'submission_id' => $submissionId,
+            'user_id' => auth()->id(),
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+            'created_at' => now()
+        ]);
+    }
+
+    /**
+     * Get document status for an order
+     */
+    public function getDocumentStatus(int $orderId): array
+    {
+        // Check permissions
+        if (!$this->validateDocumentPermissions($orderId, 'view')) {
+            throw new \InvalidArgumentException('Insufficient permissions to view document status');
+        }
+
+        return \DB::table('order_documents')
+            ->where('order_id', $orderId)
+            ->get()
+            ->map(function ($doc) {
+                return [
+                    'id' => $doc->id,
+                    'type' => $doc->document_type,
+                    'status' => $doc->status,
+                    'submission_id' => $doc->docuseal_submission_id,
+                    'document_url' => $doc->document_url,
+                    'completed_at' => $doc->completed_at,
+                    'created_at' => $doc->created_at
+                ];
+            })
+            ->toArray();
+    }
+
+    /**
+     * Create submission for Quick Request workflow
+     */
+    /**
+     * Create DocuSeal submission for Quick Request workflow
+     * This method handles the specific data structure coming from the frontend
+     */
+    public function createSubmissionForQuickRequest(
+        string $templateId,
+        string $integrationEmail,  // Our DocuSeal account email (limitless@mscwoundcare.com)
+        string $submitterEmail,    // The person who will sign (provider@example.com)
+        string $submitterName,     // The person's name
+        array $prefillData = [],
+        ?int $episodeId = null
+    ): array {
+        Log::info('Creating DocuSeal submission for Quick Request', [
+            'template_id' => $templateId,
+            'integration_email' => $integrationEmail,
+            'submitter_email' => $submitterEmail,
+            'submitter_name' => $submitterName,
+            'episode_id' => $episodeId,
+            'prefill_data_keys' => array_keys($prefillData),
+            'prefill_data_count' => count($prefillData),
+            'patient_fields' => array_filter($prefillData, function($key) {
+                return strpos($key, 'patient') !== false;
+            }, ARRAY_FILTER_USE_KEY),
+            'provider_fields' => array_filter($prefillData, function($key) {
+                return strpos($key, 'provider') !== false || strpos($key, 'physician') !== false;
+            }, ARRAY_FILTER_USE_KEY),
+            'facility_fields' => array_filter($prefillData, function($key) {
+                return strpos($key, 'facility') !== false;
+            }, ARRAY_FILTER_USE_KEY),
+            'insurance_fields' => array_filter($prefillData, function($key) {
+                return strpos($key, 'insurance') !== false || strpos($key, 'payer') !== false;
+            }, ARRAY_FILTER_USE_KEY),
+            'place_of_service' => $prefillData['place_of_service'] ?? 'not set',
+            'all_data' => $prefillData // Log all data for debugging
+        ]);
+
+        // Check if data is already mapped (from QuickRequestOrchestrator)
+        // Mapped fields have proper DocuSeal field names with spaces and proper capitalization
+        $isAlreadyMapped = false;
+        $sampleKeys = array_slice(array_keys($prefillData), 0, 10);
+        foreach ($sampleKeys as $key) {
+            // DocuSeal field names have spaces and proper capitalization
+            // Raw database fields use underscores and lowercase
+            if (str_contains($key, ' ') ||
+                preg_match('/[A-Z]/', $key) || // Has uppercase letters (DocuSeal fields)
+                in_array($key, ['Name', 'Email', 'Phone'])) { // Common DocuSeal fields
+                $isAlreadyMapped = true;
+                break;
+            }
+        }
+
+        // Additional check: raw database fields that should NOT be considered as mapped
+        $rawDatabaseFields = ['provider_id', 'facility_id', 'patient_id', 'organization_id', 'manufacturer_id'];
+        foreach ($rawDatabaseFields as $rawField) {
+            if (isset($prefillData[$rawField])) {
+                $isAlreadyMapped = false; // Override - this is definitely raw data
+                break;
+            }
+        }
+
+        Log::warning('=== DocusealService FIELD MAPPING ANALYSIS ===', [
+            'template_id' => $templateId,
+            'is_already_mapped' => $isAlreadyMapped,
+            'prefill_data_keys' => array_keys($prefillData),
+            'prefill_data_count' => count($prefillData),
+            'sample_data' => array_slice($prefillData, 0, 5, true),
+            'patient_fields' => array_filter(array_keys($prefillData), fn($k) => str_contains($k, 'patient')),
+            'provider_fields' => array_filter(array_keys($prefillData), fn($k) => str_contains($k, 'provider') || str_contains($k, 'physician')),
+            'facility_fields' => array_filter(array_keys($prefillData), fn($k) => str_contains($k, 'facility') || str_contains($k, 'practice'))
+        ]);
+
+        try {
+            // If data is already mapped by QuickRequestOrchestrator, use it directly
+            if ($isAlreadyMapped) {
+                Log::info('Data is already mapped by orchestrator, bypassing AI/canonical mapping', [
+                    'template_id' => $templateId,
+                    'field_count' => count($prefillData),
+                    'sample_fields' => array_slice(array_keys($prefillData), 0, 10)
+                ]);
+
+                // Find manufacturer for metadata
+                $manufacturerName = $this->findManufacturerByTemplateId($templateId);
+
+                // Filter out empty values and format for DocuSeal
+                $docusealFields = array_filter($prefillData, function($value) {
+                    return $value !== null && $value !== '';
+                });
+
+                // Convert boolean values to lowercase "true"/"false" strings for DocuSeal checkboxes
+                foreach ($docusealFields as $key => $value) {
+                    if (is_bool($value)) {
+                        $docusealFields[$key] = $value ? 'true' : 'false';
+                    }
+                }
+
+                Log::warning('=== ALREADY MAPPED DATA - Sending to DocuSeal ===', [
+                    'template_id' => $templateId,
+                    'manufacturer' => $manufacturerName ?? 'Unknown',
+                    'total_fields' => count($docusealFields),
+                    'field_names' => array_keys($docusealFields),
+                    'sample_fields' => array_slice($docusealFields, 0, 10, true)
+                ]);
+
+                return $this->createDocusealSubmission(
+                    $templateId,
+                    $docusealFields,
+                    $integrationEmail,
+                    $submitterEmail,
+                    $submitterName,
+                    $episodeId,
+                    $manufacturerName ?? 'Unknown',
+                    false,
+                    1.0,
+                    'orchestrator_mapped'
+                );
             }
 
-            // Get or create IVR episode record
-            $ivrEpisode = $this->getOrCreateIvrEpisode($episodeId, $mappingResult);
+            // Find manufacturer by template ID
+            $manufacturerName = $this->findManufacturerByTemplateId($templateId);
 
-            // Check if we need to create a new submission or update existing
-            if ($ivrEpisode->docuseal_submission_id) {
-                // Update existing submission
-                $response = $this->updateSubmission(
-                    $ivrEpisode->docuseal_submission_id,
-                    $mappingResult['data'],
-                    $mappingResult['manufacturer']['template_id']
+            if (!$manufacturerName) {
+                Log::warning('No manufacturer found for template ID, using fallback mapping', [
+                    'template_id' => $templateId
+                ]);
+
+                // Use old static mapping as fallback
+                $docusealFields = $this->transformQuickRequestData($prefillData, $templateId, $manufacturerName);
+
+                return $this->createDocusealSubmission($templateId, $docusealFields, $integrationEmail, $submitterEmail, $submitterName, $episodeId, $manufacturerName, false, 0.0, 'static_fallback');
+            }
+
+            // Use AI service for intelligent field mapping
+            Log::info('Using AI service for field mapping', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName,
+                'prefill_data_count' => count($prefillData)
+            ]);
+
+            // Call the AI service via OptimizedMedicalAiService
+            // Skip AI enhancement if no episode available (fallback to static mapping)
+            if ($episodeId) {
+                $episode = \App\Models\PatientManufacturerIVREpisode::find($episodeId);
+                if ($episode) {
+                    $aiMappingResult = $this->aiService->enhanceDocusealFieldMapping($episode, $prefillData, $templateId);
+                } else {
+                    $aiMappingResult = ['success' => false, 'error' => 'Episode not found'];
+                }
+            } else {
+                $aiMappingResult = ['success' => false, 'error' => 'No episode ID provided'];
+            }
+
+            if ($aiMappingResult['success'] && !empty($aiMappingResult['field_mappings'])) {
+                // AI mapping successful - use the AI-mapped fields
+                $docusealFields = $aiMappingResult['field_mappings'];
+
+                Log::info('AI mapping successful', [
+                    'template_id' => $templateId,
+                    'manufacturer' => $manufacturerName,
+                    'ai_fields_mapped' => count($docusealFields),
+                    'ai_confidence' => $aiMappingResult['confidence'] ?? 0.0,
+                    'ai_quality_grade' => $aiMappingResult['quality_grade'] ?? 'unknown'
+                ]);
+
+                return $this->createDocusealSubmission(
+                    $templateId,
+                    $docusealFields,
+                    $integrationEmail,
+                    $submitterEmail,
+                    $submitterName,
+                    $episodeId,
+                    $manufacturerName,
+                    true,
+                    $aiMappingResult['confidence'] ?? 0.95,
+                    'azure_ai'
                 );
             } else {
-                // Create new submission
-                $response = $this->createSubmission(
-                    $mappingResult['manufacturer']['template_id'],
-                    $mappingResult['data'],
-                    $episodeId,
-                    $mappingResult['manufacturer']
-                );
-
-                // Update IVR episode with submission ID
-                $ivrEpisode->update([
-                    'docuseal_submission_id' => $response['id'],
-                    'docuseal_status' => 'pending',
-                    'field_mapping_completeness' => $mappingResult['completeness']['percentage'],
-                    'mapped_fields' => $mappingResult['data'],
-                    'validation_warnings' => $mappingResult['validation']['warnings'],
+                // AI mapping failed - fall back to static mapping
+                Log::warning('AI mapping failed, using static fallback', [
+                    'template_id' => $templateId,
+                    'manufacturer' => $manufacturerName,
+                    'ai_error' => $aiMappingResult['error'] ?? 'unknown error'
                 ]);
 
-                // Log the submission ID update
-                Log::info('Updated IVR episode with docuseal submission ID', [
-                    'episode_id' => $episodeId,
-                    'ivr_episode_id' => $ivrEpisode->id,
-                    'docuseal_submission_id' => $response['id'],
-                    'manufacturer' => $manufacturerName
-                ]);
+                $docusealFields = $this->transformQuickRequestData($prefillData, $templateId, $manufacturerName);
 
-                // Update ProductRequest with episode and submission info
-                $this->updateProductRequestWithEpisode($episodeId, $ivrEpisode->id, $response['id'], $mappingResult['manufacturer']['template_id']);
+                return $this->createDocusealSubmission($templateId, $docusealFields, $integrationEmail, $submitterEmail, $submitterName, $episodeId, $manufacturerName, false, 0.0, 'static_fallback');
             }
 
-            // Log the operation
-            Log::info('Docuseal submission created/updated', [
+        } catch (\Exception $e) {
+            Log::error('Failed to create DocuSeal submission for Quick Request', [
+                'template_id' => $templateId,
+                'integration_email' => $integrationEmail,
                 'episode_id' => $episodeId,
-                'manufacturer' => $manufacturerName,
-                'submission_id' => $response['id'] ?? null,
-                'completeness' => $mappingResult['completeness']['percentage'],
+                'error' => $e->getMessage()
             ]);
 
             return [
-                'success' => true,
-                'submission' => $response,
-                'ivr_episode' => $ivrEpisode,
-                'mapping' => $mappingResult,
+                'success' => false,
+                'error' => $e->getMessage()
             ];
+        }
+    }
 
-        } catch (\Exception $e) {
-            Log::error('Docuseal submission failed', [
-                'episode_id' => $episodeId,
-                'manufacturer' => $manufacturerName,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+    /**
+     * Helper method to create DocuSeal submission with unified response format
+     */
+    private function createDocusealSubmission(
+        string $templateId,
+        array $docusealFields,
+        string $integrationEmail,
+        string $submitterEmail,
+        string $submitterName,
+        ?int $episodeId,
+        ?string $manufacturerName,
+        bool $aiMappingUsed,
+        float $aiConfidence,
+        string $mappingMethod
+    ): array {
+        // Final safety check: if no valid fields, return error
+        if (empty($docusealFields)) {
+            Log::warning('No valid fields to send to DocuSeal', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName
             ]);
 
-            throw $e;
+            // Try to create a submission without any fields
+            Log::info('Attempting to create DocuSeal submission without field mapping', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName
+            ]);
+
+            // Create submission with empty fields array
+            $emptyFieldsArray = [];
+
+            $submissionData = [
+                'template_id' => $templateId,
+                'send_email' => false,
+                'metadata' => [
+                    'source' => 'quick_request',
+                    'episode_id' => $episodeId,
+                    'created_at' => now()->toIso8601String(),
+                    'submitter_email' => $submitterEmail,
+                    'integration_email' => $integrationEmail,
+                    'manufacturer' => $manufacturerName,
+                    'mapping_method' => 'no_fields_available',
+                    'ai_mapping_used' => false,
+                    'ai_confidence' => 0.0,
+                ],
+                'submitters' => [
+                    [
+                        'name' => $submitterName,
+                        'email' => $submitterEmail,
+                        'role' => 'First Party',
+                        'fields' => $emptyFieldsArray
+                    ]
+                ]
+            ];
+
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post("{$this->apiUrl}/submissions", $submissionData);
+
+            if (!$response->successful()) {
+                $errorBody = $response->json();
+                $errorMessage = 'Failed to create DocuSeal submission without fields';
+
+                if (isset($errorBody['error'])) {
+                    $errorMessage .= ': ' . $errorBody['error'];
+                }
+
+                Log::error('Failed to create DocuSeal submission without fields', [
+                    'template_id' => $templateId,
+                    'status' => $response->status(),
+                    'error' => $errorBody
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => $errorMessage,
+                    'message' => 'Template field validation failed and fallback submission also failed'
+                ];
+            }
+
+            $result = $response->json();
+            $submissionData = $result[0] ?? $result;
+            $submissionId = $submissionData['submission_id'] ?? null;
+            $slug = $submissionData['slug'] ?? null;
+
+            if (!$slug) {
+                return [
+                    'success' => false,
+                    'error' => 'No submission slug returned',
+                    'message' => 'DocuSeal submission created but no slug available'
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => [
+                    'submission_id' => $submissionId,
+                    'slug' => $slug,
+                    'template_id' => $templateId
+                ],
+                'ai_mapping_used' => false,
+                'ai_confidence' => 0.0,
+                'mapping_method' => 'no_fields_available'
+            ];
         }
+
+        // Convert fields to DocuSeal fields array format (NOT values object)
+        $docusealFieldsArray = $this->convertToDocusealFieldsArray($docusealFields);
+
+        // Additional validation: ensure no empty field names
+        $validFieldsArray = [];
+        foreach ($docusealFieldsArray as $field) {
+            if (!empty($field['name']) && trim($field['name']) !== '') {
+                $validFieldsArray[] = $field;
+            } else {
+                Log::warning('Skipping field with empty name', [
+                    'field' => $field,
+                    'template_id' => $templateId
+                ]);
+            }
+        }
+
+        // If we have no valid fields, try to proceed with empty fields rather than failing
+        if (empty($validFieldsArray)) {
+            Log::warning('No valid fields after name validation, proceeding with empty fields', [
+                'template_id' => $templateId,
+                'original_count' => count($docusealFieldsArray)
+            ]);
+            $validFieldsArray = []; // Use empty array instead of failing
+        }
+
+        $docusealFieldsArray = $validFieldsArray;
+
+        Log::info('Preparing DocuSeal submission data', [
+            'template_id' => $templateId,
+            'manufacturer' => $manufacturerName,
+            'raw_fields_count' => count($docusealFields),
+            'converted_fields_count' => count($docusealFieldsArray),
+            'sample_raw_fields' => array_slice($docusealFields, 0, 3),
+            'sample_converted_fields' => array_slice($docusealFieldsArray, 0, 3),
+            'mapping_method' => $mappingMethod,
+            'ai_used' => $aiMappingUsed
+        ]);
+
+        // Prepare submission data according to DocuSeal API format
+        $submissionData = [
+            'template_id' => $templateId,
+            'send_email' => false, // Don't send email automatically
+            'metadata' => [
+                'source' => 'quick_request',
+                'episode_id' => $episodeId,
+                'created_at' => now()->toIso8601String(),
+                'submitter_email' => $submitterEmail,
+                'integration_email' => $integrationEmail,
+                'manufacturer' => $manufacturerName,
+                'mapping_method' => $mappingMethod,
+                'ai_mapping_used' => $aiMappingUsed,
+                'ai_confidence' => $aiConfidence,
+            ],
+            'submitters' => [
+                [
+                    'name' => $submitterName,
+                    'email' => $submitterEmail,
+                    'role' => 'First Party',
+                    'fields' => $docusealFieldsArray  // CHANGED FROM 'values' to 'fields'
+                ]
+            ]
+        ];
+
+        Log::warning('=== FINAL DOCUSEAL API REQUEST ===', [
+            'template_id' => $templateId,
+            'manufacturer' => $manufacturerName,
+            'submitter_count' => count($submissionData['submitters']),
+            'fields_count' => count($docusealFieldsArray),
+            'fields_format' => 'array', // Now using correct array format
+            'sample_fields' => array_slice($docusealFieldsArray, 0, 10),
+            'all_fields' => $docusealFieldsArray // Show all fields for debugging
+        ]);
+
+        // Make API call to DocuSeal
+        $response = Http::withHeaders([
+            'X-Auth-Token' => $this->apiKey,
+            'Content-Type' => 'application/json',
+        ])->post("{$this->apiUrl}/submissions", $submissionData);
+
+        if (!$response->successful()) {
+            $errorBody = $response->json();
+            $errorMessage = 'Failed to create DocuSeal submission';
+
+            // Enhanced error message extraction
+            if (isset($errorBody['error'])) {
+                $errorMessage .= ': ' . $errorBody['error'];
+            } elseif (isset($errorBody['message'])) {
+                $errorMessage .= ': ' . $errorBody['message'];
+            } elseif (isset($errorBody['errors'])) {
+                // Handle validation errors
+                $validationErrors = [];
+                foreach ($errorBody['errors'] as $field => $errors) {
+                    $validationErrors[] = "$field: " . implode(', ', $errors);
+                }
+                $errorMessage .= ': ' . implode('; ', $validationErrors);
+            } else {
+                $errorMessage .= ': HTTP ' . $response->status();
+            }
+
+            // Log detailed error information
+            Log::error('DocuSeal API error', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName,
+                'status' => $response->status(),
+                'error_body' => $errorBody,
+                'fields_count' => count($docusealFields),
+                'field_names' => array_keys($docusealFields),
+                'mapping_method' => $mappingMethod,
+                'sample_fields' => array_slice($docusealFields, 0, 5, true),
+                'converted_fields' => array_slice($docusealFieldsArray, 0, 5)
+            ]);
+
+            throw new \Exception($errorMessage);
+        }
+
+        $result = $response->json();
+
+        // Extract submission info from response (DocuSeal returns array of submitters)
+        $submissionData = $result[0] ?? $result;
+        $submissionId = $submissionData['submission_id'] ?? null;
+        $slug = $submissionData['slug'] ?? null;
+
+        if (!$slug) {
+            throw new \Exception('No slug returned from DocuSeal API');
+        }
+
+        Log::info('DocuSeal submission created successfully', [
+            'template_id' => $templateId,
+            'manufacturer' => $manufacturerName,
+            'submission_id' => $submissionId,
+            'slug' => $slug,
+            'fields_mapped' => count($docusealFields),
+            'mapping_method' => $mappingMethod,
+            'ai_mapping_used' => $aiMappingUsed,
+            'ai_confidence' => $aiConfidence
+        ]);
+
+        return [
+            'success' => true,
+            'data' => [
+                'slug' => $slug,
+                'submission_id' => $submissionId,
+                'embed_url' => "https://docuseal.com/s/{$slug}",
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName
+            ],
+            'ai_mapping_used' => $aiMappingUsed,
+            'ai_confidence' => $aiConfidence,
+            'mapping_method' => $mappingMethod,
+            'fields_mapped' => count($docusealFields)
+        ];
+    }
+
+    /**
+     * Transform Quick Request data to DocuSeal field format using manufacturer config
+     */
+    private function transformQuickRequestData(array $prefillData, string $templateId, ?string $manufacturerName = null): array
+    {
+        // Check if this is ACZ & Associates IVR template (ID: 852440)
+        if ($templateId == '852440' && $manufacturerName === 'ACZ & ASSOCIATES') {
+            return $this->transformACZIVRData($prefillData, $templateId);
+        }
+
+        // Check if this is MedLife AMNIO AMP IVR template (ID: 1233913)
+        if ($templateId == '1233913' && $manufacturerName === 'MEDLIFE SOLUTIONS') {
+            return $this->transformMedLifeAmnioAmpIVRData($prefillData, $templateId);
+        }
+
+        // Check if this is Celularity Biovance IVR template (ID: 1330769)
+        if ($templateId == '1330769' && $manufacturerName === 'CELULARITY') {
+            return $this->transformCelularityBiovanceIVRData($prefillData, $templateId);
+        }
+
+        // Check if this is Extremity Care Coll-e-Derm IVR template (ID: 1234285)
+        if ($templateId == '1234285' && $manufacturerName === 'EXTREMITY CARE LLC') {
+            return $this->transformExtremityCareCollEDermIVRData($prefillData, $templateId);
+        }
+
+        // Check if this is Advanced Solution IVR template (ID: 1199885)
+        if ($templateId == '1199885' && $manufacturerName === 'ADVANCED SOLUTION') {
+            return $this->transformAdvancedSolutionIVRData($prefillData, $templateId);
+        }
+
+        $docusealFields = [];
+
+        // STEP 1: Get the actual template fields from DocuSeal
+        $templateFields = [];
+        try {
+            $templateFields = $this->getTemplateFieldsFromAPI($templateId);
+            Log::info('Retrieved template fields for validation', [
+                'template_id' => $templateId,
+                'field_count' => count($templateFields),
+                'field_names' => array_keys($templateFields)
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to get template fields, proceeding without validation', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        // STEP 2: If we can't get template fields, use minimal approach
+        if (empty($templateFields)) {
+            Log::warning('No template fields available, using minimal field mapping', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName
+            ]);
+
+            // Return only the most basic fields that are likely to exist
+            $minimalFields = [];
+            if (isset($prefillData['patient_name'])) {
+                $minimalFields['Patient Name'] = $prefillData['patient_name'];
+            }
+            if (isset($prefillData['provider_name'])) {
+                $minimalFields['Provider Name'] = $prefillData['provider_name'];
+            }
+            if (isset($prefillData['facility_name'])) {
+                $minimalFields['Facility Name'] = $prefillData['facility_name'];
+            }
+
+            Log::info('Using minimal field mapping due to template field retrieval failure', [
+                'template_id' => $templateId,
+                'minimal_fields_count' => count($minimalFields),
+                'minimal_fields' => array_keys($minimalFields)
+            ]);
+
+            return $minimalFields;
+        }
+
+        // STEP 3: We have template fields - use manufacturer config if available
+        if ($manufacturerName) {
+            $manufacturerConfig = $this->fieldMappingService->getManufacturerConfig($manufacturerName);
+
+            if ($manufacturerConfig && isset($manufacturerConfig['docuseal_field_names'])) {
+                $fieldMappings = $manufacturerConfig['docuseal_field_names'];
+
+                Log::info('Using manufacturer-specific field mappings', [
+                    'manufacturer' => $manufacturerName,
+                    'template_id' => $templateId,
+                    'available_mappings' => count($fieldMappings),
+                    'mapping_fields' => array_keys($fieldMappings)
+                ]);
+
+                // Apply manufacturer-specific field mappings - ONLY for fields that exist in template
+                $matchedFields = [];
+                $missedFields = [];
+
+                foreach ($fieldMappings as $canonicalField => $docusealField) {
+                    if (isset($prefillData[$canonicalField]) && $prefillData[$canonicalField] !== null && $prefillData[$canonicalField] !== '') {
+                        $value = $prefillData[$canonicalField];
+
+                        // Convert boolean values to text
+                        if (is_bool($value)) {
+                            $value = $value ? 'true' : 'false';
+                        }
+
+                        // ONLY include fields that exist in the template
+                        if (isset($templateFields[$docusealField])) {
+                            $docusealFields[$docusealField] = $value;
+                            $matchedFields[$canonicalField] = $docusealField;
+                        } else {
+                            $missedFields[] = $docusealField;
+                            Log::debug('Skipping field not found in template (manufacturer mapping)', [
+                                'field_name' => $docusealField,
+                                'template_id' => $templateId,
+                                'available_template_fields' => array_keys($templateFields)
+                            ]);
+                        }
+                    }
+                }
+
+                Log::info('Applied manufacturer-specific field mappings', [
+                    'manufacturer' => $manufacturerName,
+                    'template_id' => $templateId,
+                    'input_fields' => count($prefillData),
+                    'output_fields' => count($docusealFields),
+                    'mapped_fields' => array_keys($docusealFields),
+                    'skipped_fields' => $missedFields,
+                    'skipped_count' => count($missedFields),
+                    'success_rate' => count($matchedFields) > 0 ? round((count($matchedFields) / (count($matchedFields) + count($missedFields))) * 100, 1) : 0
+                ]);
+
+                return $docusealFields;
+            }
+        }
+
+        // STEP 4: Fallback to generic field mappings - ONLY for fields that exist in template
+        Log::warning('Using fallback field mappings - manufacturer config not found', [
+            'manufacturer' => $manufacturerName,
+            'template_id' => $templateId
+        ]);
+
+        // Common field mappings for Quick Request data (fallback)
+        $fieldMappings = [
+            // Patient information
+            'patient_name' => 'Patient Name',
+            'patient_first_name' => 'Patient First Name',
+            'patient_last_name' => 'Patient Last Name',
+            'patient_dob' => 'Patient Date of Birth',
+            'patient_gender' => 'Patient Gender',
+            'patient_phone' => 'Patient Phone',
+            'patient_email' => 'Patient Email',
+            'patient_address_line1' => 'Patient Address',
+            'patient_city' => 'Patient City',
+            'patient_state' => 'Patient State',
+            'patient_zip' => 'Patient ZIP',
+
+            // Provider information
+            'provider_name' => 'Provider Name',
+            'provider_npi' => 'Provider NPI',
+            'provider_ptan' => 'Provider PTAN',
+            'provider_credentials' => 'Provider Credentials',
+            'provider_email' => 'Provider Email',
+
+            // Facility information
+            'facility_name' => 'Facility Name',
+            'facility_address' => 'Facility Address',
+            'facility_phone' => 'Facility Phone',
+            'facility_npi' => 'Facility NPI',
+
+            // Insurance information
+            'primary_insurance_name' => 'Primary Insurance',
+            'primary_member_id' => 'Member ID',
+            'primary_plan_type' => 'Plan Type',
+
+            // Clinical information
+            'wound_type' => 'Wound Type',
+            'wound_location' => 'Wound Location',
+            'wound_size_length' => 'Wound Length',
+            'wound_size_width' => 'Wound Width',
+            'wound_size_depth' => 'Wound Depth',
+            'wound_dimensions' => 'Wound Dimensions',
+            'wound_duration' => 'Wound Duration',
+            'primary_diagnosis_code' => 'Primary Diagnosis',
+            'secondary_diagnosis_code' => 'Secondary Diagnosis',
+
+            // Product information
+            'product_name' => 'Product Name',
+            'product_code' => 'Product Code',
+            'product_manufacturer' => 'Manufacturer',
+
+            // Other fields
+            'service_date' => 'Service Date',
+            'prior_applications' => 'Prior Applications',
+            'hospice_status' => 'Hospice Status',
+        ];
+
+        // Apply field mappings - ONLY for fields that exist in template
+        $validFields = [];
+        $invalidFields = [];
+
+        foreach ($fieldMappings as $sourceKey => $targetKey) {
+            if (isset($prefillData[$sourceKey]) && $prefillData[$sourceKey] !== null && $prefillData[$sourceKey] !== '') {
+                $value = $prefillData[$sourceKey];
+
+                // Convert boolean values to text
+                if (is_bool($value)) {
+                    $value = $value ? 'true' : 'false';
+                }
+
+                // ONLY include fields that exist in the template
+                if (isset($templateFields[$targetKey])) {
+                    $docusealFields[$targetKey] = $value;
+                    $validFields[] = $targetKey;
+                } else {
+                    $invalidFields[] = $targetKey;
+                    Log::debug('Skipping field not found in template', [
+                        'field_name' => $targetKey,
+                        'template_id' => $templateId,
+                        'available_fields' => array_keys($templateFields)
+                    ]);
+                }
+            }
+        }
+
+        Log::info('Field mapping validation results', [
+            'template_id' => $templateId,
+            'valid_fields' => $validFields,
+            'invalid_fields' => $invalidFields,
+            'total_mapped' => count($docusealFields),
+            'skipped_count' => count($invalidFields),
+            'success_rate' => count($validFields) > 0 ? round((count($validFields) / (count($validFields) + count($invalidFields))) * 100, 1) : 0
+        ]);
+
+        // Handle special field transformations - ONLY if they exist in template
+        if (isset($prefillData['product_details_text']) && isset($templateFields['Product Details'])) {
+            $docusealFields['Product Details'] = $prefillData['product_details_text'];
+        }
+
+        if (isset($prefillData['diagnosis_codes_display']) && isset($templateFields['Diagnosis Codes'])) {
+            $docusealFields['Diagnosis Codes'] = $prefillData['diagnosis_codes_display'];
+        }
+
+        // Skip manufacturer_fields in fallback mapping
+        // These are test fields that don't correspond to actual DocuSeal fields
+        if (isset($prefillData['manufacturer_fields'])) {
+            Log::warning('Skipping manufacturer_fields in fallback mapping', [
+                'manufacturer_fields_count' => count($prefillData['manufacturer_fields']),
+                'manufacturer_fields_keys' => array_keys($prefillData['manufacturer_fields'])
+            ]);
+        }
+
+        Log::info('Transformed Quick Request data to DocuSeal fields (fallback)', [
+            'template_id' => $templateId,
+            'input_fields' => count($prefillData),
+            'output_fields' => count($docusealFields),
+            'sample_mapping' => array_slice($docusealFields, 0, 5, true)
+        ]);
+
+        return $docusealFields;
     }
 
     /**
@@ -1282,874 +2084,12 @@ class DocusealService
     }
 
     /**
-     * Create DocuSeal submission for Quick Request workflow
-     * This method handles the specific data structure coming from the frontend
-     */
-    public function createSubmissionForQuickRequest(
-        string $templateId,
-        string $integrationEmail,  // Our DocuSeal account email (limitless@mscwoundcare.com)
-        string $submitterEmail,    // The person who will sign (provider@example.com)
-        string $submitterName,     // The person's name
-        array $prefillData = [],
-        ?int $episodeId = null
-    ): array {
-        Log::info('Creating DocuSeal submission for Quick Request', [
-            'template_id' => $templateId,
-            'integration_email' => $integrationEmail,
-            'submitter_email' => $submitterEmail,
-            'submitter_name' => $submitterName,
-            'episode_id' => $episodeId,
-            'prefill_data_keys' => array_keys($prefillData),
-            'prefill_data_count' => count($prefillData),
-            'patient_fields' => array_filter($prefillData, function($key) {
-                return strpos($key, 'patient') !== false;
-            }, ARRAY_FILTER_USE_KEY),
-            'provider_fields' => array_filter($prefillData, function($key) {
-                return strpos($key, 'provider') !== false || strpos($key, 'physician') !== false;
-            }, ARRAY_FILTER_USE_KEY),
-            'facility_fields' => array_filter($prefillData, function($key) {
-                return strpos($key, 'facility') !== false;
-            }, ARRAY_FILTER_USE_KEY),
-            'insurance_fields' => array_filter($prefillData, function($key) {
-                return strpos($key, 'insurance') !== false || strpos($key, 'payer') !== false;
-            }, ARRAY_FILTER_USE_KEY),
-            'place_of_service' => $prefillData['place_of_service'] ?? 'not set',
-            'all_data' => $prefillData // Log all data for debugging
-        ]);
-
-        // Check if data is already mapped (from QuickRequestOrchestrator)
-        // Mapped fields have proper DocuSeal field names with spaces and proper capitalization
-        $isAlreadyMapped = false;
-        $sampleKeys = array_slice(array_keys($prefillData), 0, 10);
-        foreach ($sampleKeys as $key) {
-            // DocuSeal field names have spaces and proper capitalization
-            // Raw database fields use underscores and lowercase
-            if (str_contains($key, ' ') ||
-                preg_match('/[A-Z]/', $key) || // Has uppercase letters (DocuSeal fields)
-                in_array($key, ['Name', 'Email', 'Phone'])) { // Common DocuSeal fields
-                $isAlreadyMapped = true;
-                break;
-            }
-        }
-
-        // Additional check: raw database fields that should NOT be considered as mapped
-        $rawDatabaseFields = ['provider_id', 'facility_id', 'patient_id', 'organization_id', 'manufacturer_id'];
-        foreach ($rawDatabaseFields as $rawField) {
-            if (isset($prefillData[$rawField])) {
-                $isAlreadyMapped = false; // Override - this is definitely raw data
-                break;
-            }
-        }
-
-        Log::warning('=== DocusealService FIELD MAPPING ANALYSIS ===', [
-            'template_id' => $templateId,
-            'is_already_mapped' => $isAlreadyMapped,
-            'prefill_data_keys' => array_keys($prefillData),
-            'prefill_data_count' => count($prefillData),
-            'sample_data' => array_slice($prefillData, 0, 5, true),
-            'patient_fields' => array_filter(array_keys($prefillData), fn($k) => str_contains($k, 'patient')),
-            'provider_fields' => array_filter(array_keys($prefillData), fn($k) => str_contains($k, 'provider') || str_contains($k, 'physician')),
-            'facility_fields' => array_filter(array_keys($prefillData), fn($k) => str_contains($k, 'facility') || str_contains($k, 'practice'))
-        ]);
-
-        try {
-            // If data is already mapped by QuickRequestOrchestrator, use it directly
-            if ($isAlreadyMapped) {
-                Log::info('Data is already mapped by orchestrator, bypassing AI/canonical mapping', [
-                    'template_id' => $templateId,
-                    'field_count' => count($prefillData),
-                    'sample_fields' => array_slice(array_keys($prefillData), 0, 10)
-                ]);
-
-                // Find manufacturer for metadata
-                $manufacturerName = $this->findManufacturerByTemplateId($templateId);
-
-                // Filter out empty values and format for DocuSeal
-                $docusealFields = array_filter($prefillData, function($value) {
-                    return $value !== null && $value !== '';
-                });
-
-                // Convert boolean values to lowercase "true"/"false" strings for DocuSeal checkboxes
-                foreach ($docusealFields as $key => $value) {
-                    if (is_bool($value)) {
-                        $docusealFields[$key] = $value ? 'true' : 'false';
-                    }
-                }
-
-                Log::warning('=== ALREADY MAPPED DATA - Sending to DocuSeal ===', [
-                    'template_id' => $templateId,
-                    'manufacturer' => $manufacturerName ?? 'Unknown',
-                    'total_fields' => count($docusealFields),
-                    'field_names' => array_keys($docusealFields),
-                    'sample_fields' => array_slice($docusealFields, 0, 10, true)
-                ]);
-
-                return $this->createDocusealSubmission(
-                    $templateId,
-                    $docusealFields,
-                    $integrationEmail,
-                    $submitterEmail,
-                    $submitterName,
-                    $episodeId,
-                    $manufacturerName ?? 'Unknown',
-                    false,
-                    1.0,
-                    'orchestrator_mapped'
-                );
-            }
-
-            // Find manufacturer by template ID
-            $manufacturerName = $this->findManufacturerByTemplateId($templateId);
-
-            if (!$manufacturerName) {
-                Log::warning('No manufacturer found for template ID, using fallback mapping', [
-                    'template_id' => $templateId
-                ]);
-
-                // Use old static mapping as fallback
-                $docusealFields = $this->transformQuickRequestData($prefillData, $templateId, $manufacturerName);
-
-                return $this->createDocusealSubmission($templateId, $docusealFields, $integrationEmail, $submitterEmail, $submitterName, $episodeId, $manufacturerName, false, 0.0, 'static_fallback');
-            }
-
-            // Use AI service for intelligent field mapping
-            Log::info('Using AI service for field mapping', [
-                'template_id' => $templateId,
-                'manufacturer' => $manufacturerName,
-                'prefill_data_count' => count($prefillData)
-            ]);
-
-            // Call the AI service via OptimizedMedicalAiService
-            // Skip AI enhancement if no episode available (fallback to static mapping)
-            if ($episodeId) {
-                $episode = \App\Models\PatientManufacturerIVREpisode::find($episodeId);
-                if ($episode) {
-                    $aiMappingResult = $this->aiService->enhanceDocusealFieldMapping($episode, $prefillData, $templateId);
-                } else {
-                    $aiMappingResult = ['success' => false, 'error' => 'Episode not found'];
-                }
-            } else {
-                $aiMappingResult = ['success' => false, 'error' => 'No episode ID provided'];
-            }
-
-            if ($aiMappingResult['success'] && !empty($aiMappingResult['field_mappings'])) {
-                // AI mapping successful - use the AI-mapped fields
-                $docusealFields = $aiMappingResult['field_mappings'];
-
-                Log::info('AI mapping successful', [
-                    'template_id' => $templateId,
-                    'manufacturer' => $manufacturerName,
-                    'ai_fields_mapped' => count($docusealFields),
-                    'ai_confidence' => $aiMappingResult['confidence'] ?? 0.0,
-                    'ai_quality_grade' => $aiMappingResult['quality_grade'] ?? 'unknown'
-                ]);
-
-                return $this->createDocusealSubmission(
-                    $templateId,
-                    $docusealFields,
-                    $integrationEmail,
-                    $submitterEmail,
-                    $submitterName,
-                    $episodeId,
-                    $manufacturerName,
-                    true,
-                    $aiMappingResult['confidence'] ?? 0.95,
-                    'azure_ai'
-                );
-            } else {
-                // AI mapping failed - fall back to static mapping
-                Log::warning('AI mapping failed, using static fallback', [
-                    'template_id' => $templateId,
-                    'manufacturer' => $manufacturerName,
-                    'ai_error' => $aiMappingResult['error'] ?? 'unknown error'
-                ]);
-
-                $docusealFields = $this->transformQuickRequestData($prefillData, $templateId, $manufacturerName);
-
-                return $this->createDocusealSubmission($templateId, $docusealFields, $integrationEmail, $submitterEmail, $submitterName, $episodeId, $manufacturerName, false, 0.0, 'static_fallback');
-            }
-
-        } catch (\Exception $e) {
-            Log::error('Failed to create DocuSeal submission for Quick Request', [
-                'template_id' => $templateId,
-                'integration_email' => $integrationEmail,
-                'episode_id' => $episodeId,
-                'error' => $e->getMessage()
-            ]);
-
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
-
-    /**
-     * Helper method to create DocuSeal submission with unified response format
-     */
-    private function createDocusealSubmission(
-        string $templateId,
-        array $docusealFields,
-        string $integrationEmail,
-        string $submitterEmail,
-        string $submitterName,
-        ?int $episodeId,
-        ?string $manufacturerName,
-        bool $aiMappingUsed,
-        float $aiConfidence,
-        string $mappingMethod
-    ): array {
-        // Final safety check: if no valid fields, return error
-        if (empty($docusealFields)) {
-            Log::warning('No valid fields to send to DocuSeal', [
-                'template_id' => $templateId,
-                'manufacturer' => $manufacturerName
-            ]);
-
-            // Try to create a submission without any fields
-            Log::info('Attempting to create DocuSeal submission without field mapping', [
-                'template_id' => $templateId,
-                'manufacturer' => $manufacturerName
-            ]);
-
-            // Create submission with empty fields array
-            $emptyFieldsArray = [];
-
-            $submissionData = [
-                'template_id' => $templateId,
-                'send_email' => false,
-                'metadata' => [
-                    'source' => 'quick_request',
-                    'episode_id' => $episodeId,
-                    'created_at' => now()->toIso8601String(),
-                    'submitter_email' => $submitterEmail,
-                    'integration_email' => $integrationEmail,
-                    'manufacturer' => $manufacturerName,
-                    'mapping_method' => 'no_fields_available',
-                    'ai_mapping_used' => false,
-                    'ai_confidence' => 0.0,
-                ],
-                'submitters' => [
-                    [
-                        'name' => $submitterName,
-                        'email' => $submitterEmail,
-                        'role' => 'First Party',
-                        'fields' => $emptyFieldsArray
-                    ]
-                ]
-            ];
-
-            $response = Http::withHeaders([
-                'X-Auth-Token' => $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->apiUrl}/submissions", $submissionData);
-
-            if (!$response->successful()) {
-                $errorBody = $response->json();
-                $errorMessage = 'Failed to create DocuSeal submission without fields';
-
-                if (isset($errorBody['error'])) {
-                    $errorMessage .= ': ' . $errorBody['error'];
-                }
-
-                Log::error('Failed to create DocuSeal submission without fields', [
-                    'template_id' => $templateId,
-                    'status' => $response->status(),
-                    'error' => $errorBody
-                ]);
-
-                return [
-                    'success' => false,
-                    'error' => $errorMessage,
-                    'message' => 'Template field validation failed and fallback submission also failed'
-                ];
-            }
-
-            $result = $response->json();
-            $submissionData = $result[0] ?? $result;
-            $submissionId = $submissionData['submission_id'] ?? null;
-            $slug = $submissionData['slug'] ?? null;
-
-            if (!$slug) {
-                return [
-                    'success' => false,
-                    'error' => 'No submission slug returned',
-                    'message' => 'DocuSeal submission created but no slug available'
-                ];
-            }
-
-            return [
-                'success' => true,
-                'data' => [
-                    'submission_id' => $submissionId,
-                    'slug' => $slug,
-                    'template_id' => $templateId
-                ],
-                'ai_mapping_used' => false,
-                'ai_confidence' => 0.0,
-                'mapping_method' => 'no_fields_available'
-            ];
-        }
-
-        // Convert fields to DocuSeal fields array format (NOT values object)
-        $docusealFieldsArray = $this->convertToDocusealFieldsArray($docusealFields);
-
-        // Additional validation: ensure no empty field names
-        $validFieldsArray = [];
-        foreach ($docusealFieldsArray as $field) {
-            if (!empty($field['name']) && trim($field['name']) !== '') {
-                $validFieldsArray[] = $field;
-            } else {
-                Log::warning('Skipping field with empty name', [
-                    'field' => $field,
-                    'template_id' => $templateId
-                ]);
-            }
-        }
-
-        // If we have no valid fields, try to proceed with empty fields rather than failing
-        if (empty($validFieldsArray)) {
-            Log::warning('No valid fields after name validation, proceeding with empty fields', [
-                'template_id' => $templateId,
-                'original_count' => count($docusealFieldsArray)
-            ]);
-            $validFieldsArray = []; // Use empty array instead of failing
-        }
-
-        $docusealFieldsArray = $validFieldsArray;
-
-        Log::info('Preparing DocuSeal submission data', [
-            'template_id' => $templateId,
-            'manufacturer' => $manufacturerName,
-            'raw_fields_count' => count($docusealFields),
-            'converted_fields_count' => count($docusealFieldsArray),
-            'sample_raw_fields' => array_slice($docusealFields, 0, 3),
-            'sample_converted_fields' => array_slice($docusealFieldsArray, 0, 3),
-            'mapping_method' => $mappingMethod,
-            'ai_used' => $aiMappingUsed
-        ]);
-
-        // Prepare submission data according to DocuSeal API format
-        $submissionData = [
-            'template_id' => $templateId,
-            'send_email' => false, // Don't send email automatically
-            'metadata' => [
-                'source' => 'quick_request',
-                'episode_id' => $episodeId,
-                'created_at' => now()->toIso8601String(),
-                'submitter_email' => $submitterEmail,
-                'integration_email' => $integrationEmail,
-                'manufacturer' => $manufacturerName,
-                'mapping_method' => $mappingMethod,
-                'ai_mapping_used' => $aiMappingUsed,
-                'ai_confidence' => $aiConfidence,
-            ],
-            'submitters' => [
-                [
-                    'name' => $submitterName,
-                    'email' => $submitterEmail,
-                    'role' => 'First Party',
-                    'fields' => $docusealFieldsArray  // CHANGED FROM 'values' to 'fields'
-                ]
-            ]
-        ];
-
-        Log::warning('=== FINAL DOCUSEAL API REQUEST ===', [
-            'template_id' => $templateId,
-            'manufacturer' => $manufacturerName,
-            'submitter_count' => count($submissionData['submitters']),
-            'fields_count' => count($docusealFieldsArray),
-            'fields_format' => 'array', // Now using correct array format
-            'sample_fields' => array_slice($docusealFieldsArray, 0, 10),
-            'all_fields' => $docusealFieldsArray // Show all fields for debugging
-        ]);
-
-        // Make API call to DocuSeal
-        $response = Http::withHeaders([
-            'X-Auth-Token' => $this->apiKey,
-            'Content-Type' => 'application/json',
-        ])->post("{$this->apiUrl}/submissions", $submissionData);
-
-        if (!$response->successful()) {
-            $errorBody = $response->json();
-            $errorMessage = 'Failed to create DocuSeal submission';
-
-            // Enhanced error message extraction
-            if (isset($errorBody['error'])) {
-                $errorMessage .= ': ' . $errorBody['error'];
-            } elseif (isset($errorBody['message'])) {
-                $errorMessage .= ': ' . $errorBody['message'];
-            } elseif (isset($errorBody['errors'])) {
-                // Handle validation errors
-                $validationErrors = [];
-                foreach ($errorBody['errors'] as $field => $errors) {
-                    $validationErrors[] = "$field: " . implode(', ', $errors);
-                }
-                $errorMessage .= ': ' . implode('; ', $validationErrors);
-            } else {
-                $errorMessage .= ': HTTP ' . $response->status();
-            }
-
-            // Log detailed error information
-            Log::error('DocuSeal API error', [
-                'template_id' => $templateId,
-                'manufacturer' => $manufacturerName,
-                'status' => $response->status(),
-                'error_body' => $errorBody,
-                'fields_count' => count($docusealFields),
-                'field_names' => array_keys($docusealFields),
-                'mapping_method' => $mappingMethod,
-                'sample_fields' => array_slice($docusealFields, 0, 5, true),
-                'converted_fields' => array_slice($docusealFieldsArray, 0, 5)
-            ]);
-
-            throw new \Exception($errorMessage);
-        }
-
-        $result = $response->json();
-
-        // Extract submission info from response (DocuSeal returns array of submitters)
-        $submissionData = $result[0] ?? $result;
-        $submissionId = $submissionData['submission_id'] ?? null;
-        $slug = $submissionData['slug'] ?? null;
-
-        if (!$slug) {
-            throw new \Exception('No slug returned from DocuSeal API');
-        }
-
-        Log::info('DocuSeal submission created successfully', [
-            'template_id' => $templateId,
-            'manufacturer' => $manufacturerName,
-            'submission_id' => $submissionId,
-            'slug' => $slug,
-            'fields_mapped' => count($docusealFields),
-            'mapping_method' => $mappingMethod,
-            'ai_mapping_used' => $aiMappingUsed,
-            'ai_confidence' => $aiConfidence
-        ]);
-
-        return [
-            'success' => true,
-            'data' => [
-                'slug' => $slug,
-                'submission_id' => $submissionId,
-                'embed_url' => "https://docuseal.com/s/{$slug}",
-                'template_id' => $templateId,
-                'manufacturer' => $manufacturerName
-            ],
-            'ai_mapping_used' => $aiMappingUsed,
-            'ai_confidence' => $aiConfidence,
-            'mapping_method' => $mappingMethod,
-            'fields_mapped' => count($docusealFields)
-        ];
-    }
-
-    /**
-     * Convert field mappings to DocuSeal values format
-     * DocuSeal expects values as key-value pairs, not the field format
-     */
-    private function convertFieldsToDocusealValues(array $docusealFields): array
-    {
-        $values = [];
-
-        foreach ($docusealFields as $fieldName => $fieldValue) {
-            // Handle different field formats
-            if (is_array($fieldValue)) {
-                // If it's an array with 'name' and 'default_value', use that (old format)
-                if (isset($fieldValue['name']) && isset($fieldValue['default_value'])) {
-                    $values[$fieldValue['name']] = $fieldValue['default_value'];
-                } else {
-                    // Otherwise convert array to comma-separated string
-                    $values[$fieldName] = $this->formatFieldValue($fieldValue);
-                }
-            } else {
-                // Simple key-value pair
-                $values[$fieldName] = $this->formatFieldValue($fieldValue);
-            }
-        }
-
-        return $values;
-    }
-
-    /**
-     * Format field value for DocuSeal
-     */
-    private function formatFieldValue($value): string
-    {
-        if (is_bool($value)) {
-            // DocuSeal expects lowercase string values for checkbox fields
-            return $value ? 'true' : 'false';
-        } elseif (is_array($value)) {
-            // Handle nested arrays by converting to comma-separated string
-            $flattenedValues = array_map(function($item) {
-                return is_array($item) ? json_encode($item) : (string)$item;
-            }, $value);
-            return implode(', ', $flattenedValues);
-        } elseif ($value === null) {
-            return '';
-        }
-
-        return (string) $value;
-    }
-
-    /**
-     * Transform Quick Request data to DocuSeal field format using manufacturer config
-     */
-    private function transformQuickRequestData(array $prefillData, string $templateId, ?string $manufacturerName = null): array
-    {
-        // Check if this is ACZ & Associates IVR template (ID: 852440)
-        if ($templateId == '852440' && $manufacturerName === 'ACZ & ASSOCIATES') {
-            return $this->transformACZIVRData($prefillData, $templateId);
-        }
-
-        // Check if this is MedLife AMNIO AMP IVR template (ID: 1233913)
-        if ($templateId == '1233913' && $manufacturerName === 'MEDLIFE SOLUTIONS') {
-            return $this->transformMedLifeAmnioAmpIVRData($prefillData, $templateId);
-        }
-
-        // Check if this is Celularity Biovance IVR template (ID: 1330769)
-        if ($templateId == '1330769' && $manufacturerName === 'CELULARITY') {
-            return $this->transformCelularityBiovanceIVRData($prefillData, $templateId);
-        }
-
-        // Check if this is Extremity Care Coll-e-Derm IVR template (ID: 1234285)
-        if ($templateId == '1234285' && $manufacturerName === 'EXTREMITY CARE LLC') {
-            return $this->transformExtremityCareCollEDermIVRData($prefillData, $templateId);
-        }
-
-        // Check if this is Advanced Solution IVR template (ID: 1199885)
-        if ($templateId == '1199885' && $manufacturerName === 'ADVANCED SOLUTION') {
-            return $this->transformAdvancedSolutionIVRData($prefillData, $templateId);
-        }
-
-        $docusealFields = [];
-
-        // STEP 1: Get the actual template fields from DocuSeal
-        $templateFields = [];
-        try {
-            $templateFields = $this->getTemplateFieldsFromAPI($templateId);
-            Log::info('Retrieved template fields for validation', [
-                'template_id' => $templateId,
-                'field_count' => count($templateFields),
-                'field_names' => array_keys($templateFields)
-            ]);
-        } catch (\Exception $e) {
-            Log::warning('Failed to get template fields, proceeding without validation', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage()
-            ]);
-        }
-
-        // STEP 2: If we can't get template fields, use minimal approach
-        if (empty($templateFields)) {
-            Log::warning('No template fields available, using minimal field mapping', [
-                'template_id' => $templateId,
-                'manufacturer' => $manufacturerName
-            ]);
-
-            // Return only the most basic fields that are likely to exist
-            $minimalFields = [];
-            if (isset($prefillData['patient_name'])) {
-                $minimalFields['Patient Name'] = $prefillData['patient_name'];
-            }
-            if (isset($prefillData['provider_name'])) {
-                $minimalFields['Provider Name'] = $prefillData['provider_name'];
-            }
-            if (isset($prefillData['facility_name'])) {
-                $minimalFields['Facility Name'] = $prefillData['facility_name'];
-            }
-
-            Log::info('Using minimal field mapping due to template field retrieval failure', [
-                'template_id' => $templateId,
-                'minimal_fields_count' => count($minimalFields),
-                'minimal_fields' => array_keys($minimalFields)
-            ]);
-
-            return $minimalFields;
-        }
-
-        // STEP 3: We have template fields - use manufacturer config if available
-        if ($manufacturerName) {
-            $manufacturerConfig = $this->fieldMappingService->getManufacturerConfig($manufacturerName);
-
-            if ($manufacturerConfig && isset($manufacturerConfig['docuseal_field_names'])) {
-                $fieldMappings = $manufacturerConfig['docuseal_field_names'];
-
-                Log::info('Using manufacturer-specific field mappings', [
-                    'manufacturer' => $manufacturerName,
-                    'template_id' => $templateId,
-                    'available_mappings' => count($fieldMappings),
-                    'mapping_fields' => array_keys($fieldMappings)
-                ]);
-
-                // Apply manufacturer-specific field mappings - ONLY for fields that exist in template
-                $matchedFields = [];
-                $missedFields = [];
-
-                foreach ($fieldMappings as $canonicalField => $docusealField) {
-                    if (isset($prefillData[$canonicalField]) && $prefillData[$canonicalField] !== null && $prefillData[$canonicalField] !== '') {
-                        $value = $prefillData[$canonicalField];
-
-                        // Convert boolean values to text
-                        if (is_bool($value)) {
-                            $value = $value ? 'true' : 'false';
-                        }
-
-                        // ONLY include fields that exist in the template
-                        if (isset($templateFields[$docusealField])) {
-                            $docusealFields[$docusealField] = $value;
-                            $matchedFields[$canonicalField] = $docusealField;
-                        } else {
-                            $missedFields[] = $docusealField;
-                            Log::debug('Skipping field not found in template (manufacturer mapping)', [
-                                'field_name' => $docusealField,
-                                'template_id' => $templateId,
-                                'available_template_fields' => array_keys($templateFields)
-                            ]);
-                        }
-                    }
-                }
-
-                Log::info('Applied manufacturer-specific field mappings', [
-                    'manufacturer' => $manufacturerName,
-                    'template_id' => $templateId,
-                    'input_fields' => count($prefillData),
-                    'output_fields' => count($docusealFields),
-                    'mapped_fields' => array_keys($docusealFields),
-                    'skipped_fields' => $missedFields,
-                    'skipped_count' => count($missedFields),
-                    'success_rate' => count($matchedFields) > 0 ? round((count($matchedFields) / (count($matchedFields) + count($missedFields))) * 100, 1) : 0
-                ]);
-
-                return $docusealFields;
-            }
-        }
-
-        // STEP 4: Fallback to generic field mappings - ONLY for fields that exist in template
-        Log::warning('Using fallback field mappings - manufacturer config not found', [
-            'manufacturer' => $manufacturerName,
-            'template_id' => $templateId
-        ]);
-
-        // Common field mappings for Quick Request data (fallback)
-        $fieldMappings = [
-            // Patient information
-            'patient_name' => 'Patient Name',
-            'patient_first_name' => 'Patient First Name',
-            'patient_last_name' => 'Patient Last Name',
-            'patient_dob' => 'Patient Date of Birth',
-            'patient_gender' => 'Patient Gender',
-            'patient_phone' => 'Patient Phone',
-            'patient_email' => 'Patient Email',
-            'patient_address_line1' => 'Patient Address',
-            'patient_city' => 'Patient City',
-            'patient_state' => 'Patient State',
-            'patient_zip' => 'Patient ZIP',
-
-            // Provider information
-            'provider_name' => 'Provider Name',
-            'provider_npi' => 'Provider NPI',
-            'provider_ptan' => 'Provider PTAN',
-            'provider_credentials' => 'Provider Credentials',
-            'provider_email' => 'Provider Email',
-
-            // Facility information
-            'facility_name' => 'Facility Name',
-            'facility_address' => 'Facility Address',
-            'facility_phone' => 'Facility Phone',
-            'facility_npi' => 'Facility NPI',
-
-            // Insurance information
-            'primary_insurance_name' => 'Primary Insurance',
-            'primary_member_id' => 'Member ID',
-            'primary_plan_type' => 'Plan Type',
-
-            // Clinical information
-            'wound_type' => 'Wound Type',
-            'wound_location' => 'Wound Location',
-            'wound_size_length' => 'Wound Length',
-            'wound_size_width' => 'Wound Width',
-            'wound_size_depth' => 'Wound Depth',
-            'wound_dimensions' => 'Wound Dimensions',
-            'wound_duration' => 'Wound Duration',
-            'primary_diagnosis_code' => 'Primary Diagnosis',
-            'secondary_diagnosis_code' => 'Secondary Diagnosis',
-
-            // Product information
-            'product_name' => 'Product Name',
-            'product_code' => 'Product Code',
-            'product_manufacturer' => 'Manufacturer',
-
-            // Other fields
-            'service_date' => 'Service Date',
-            'prior_applications' => 'Prior Applications',
-            'hospice_status' => 'Hospice Status',
-        ];
-
-        // Apply field mappings - ONLY for fields that exist in template
-        $validFields = [];
-        $invalidFields = [];
-
-        foreach ($fieldMappings as $sourceKey => $targetKey) {
-            if (isset($prefillData[$sourceKey]) && $prefillData[$sourceKey] !== null && $prefillData[$sourceKey] !== '') {
-                $value = $prefillData[$sourceKey];
-
-                // Convert boolean values to text
-                if (is_bool($value)) {
-                    $value = $value ? 'true' : 'false';
-                }
-
-                // ONLY include fields that exist in the template
-                if (isset($templateFields[$targetKey])) {
-                    $docusealFields[$targetKey] = $value;
-                    $validFields[] = $targetKey;
-                } else {
-                    $invalidFields[] = $targetKey;
-                    Log::debug('Skipping field not found in template', [
-                        'field_name' => $targetKey,
-                        'template_id' => $templateId,
-                        'available_fields' => array_keys($templateFields)
-                    ]);
-                }
-            }
-        }
-
-        Log::info('Field mapping validation results', [
-            'template_id' => $templateId,
-            'valid_fields' => $validFields,
-            'invalid_fields' => $invalidFields,
-            'total_mapped' => count($docusealFields),
-            'skipped_count' => count($invalidFields),
-            'success_rate' => count($validFields) > 0 ? round((count($validFields) / (count($validFields) + count($invalidFields))) * 100, 1) : 0
-        ]);
-
-        // Handle special field transformations - ONLY if they exist in template
-        if (isset($prefillData['product_details_text']) && isset($templateFields['Product Details'])) {
-            $docusealFields['Product Details'] = $prefillData['product_details_text'];
-        }
-
-        if (isset($prefillData['diagnosis_codes_display']) && isset($templateFields['Diagnosis Codes'])) {
-            $docusealFields['Diagnosis Codes'] = $prefillData['diagnosis_codes_display'];
-        }
-
-        // Skip manufacturer_fields in fallback mapping
-        // These are test fields that don't correspond to actual DocuSeal fields
-        if (isset($prefillData['manufacturer_fields'])) {
-            Log::warning('Skipping manufacturer_fields in fallback mapping', [
-                'manufacturer_fields_count' => count($prefillData['manufacturer_fields']),
-                'manufacturer_fields_keys' => array_keys($prefillData['manufacturer_fields'])
-            ]);
-        }
-
-        Log::info('Transformed Quick Request data to DocuSeal fields (fallback)', [
-            'template_id' => $templateId,
-            'input_fields' => count($prefillData),
-            'output_fields' => count($docusealFields),
-            'sample_mapping' => array_slice($docusealFields, 0, 5, true)
-        ]);
-
-        return $docusealFields;
-    }
-
-    /**
-     * Compute field value based on field configuration
-     */
-    private function computeFieldValue(array $fieldConfig, array $data): mixed
-    {
-        if (!isset($fieldConfig['computation'])) {
-            return null;
-        }
-
-        $computation = $fieldConfig['computation'];
-
-        // Handle simple concatenation (e.g., "patient_first_name + patient_last_name")
-        if (strpos($computation, '+') !== false) {
-            $parts = array_map('trim', explode('+', $computation));
-            $values = [];
-            foreach ($parts as $part) {
-                if (isset($data[$part])) {
-                    $values[] = $data[$part];
-                }
-            }
-            return implode(' ', $values);
-        }
-
-        // Handle simple field references
-        if (isset($data[$computation])) {
-            return $data[$computation];
-        }
-
-        // Handle mathematical operations (e.g., "wound_size_length * wound_size_width")
-        if (strpos($computation, '*') !== false) {
-            $parts = array_map('trim', explode('*', $computation));
-            if (count($parts) === 2 && isset($data[$parts[0]]) && isset($data[$parts[1]])) {
-                return floatval($data[$parts[0]]) * floatval($data[$parts[1]]);
-            }
-        }
-
-        // Handle wound size computation (e.g., "wound_size_length + ' x ' + wound_size_width + ' cm'")
-        if (strpos($computation, 'wound_size_length') !== false && strpos($computation, 'wound_size_width') !== false) {
-            $length = $data['wound_size_length'] ?? '';
-            $width = $data['wound_size_width'] ?? '';
-            if ($length && $width) {
-                return $length . ' x ' . $width . ' cm';
-            }
-        }
-
-        // Handle ICD-10 diagnosis codes computation (e.g., "primary_diagnosis_code + ', ' + secondary_diagnosis_code")
-        if (strpos($computation, 'primary_diagnosis_code') !== false && strpos($computation, 'secondary_diagnosis_code') !== false) {
-            $primary = $data['primary_diagnosis_code'] ?? '';
-            $secondary = $data['secondary_diagnosis_code'] ?? '';
-            if ($primary && $secondary) {
-                return $primary . ', ' . $secondary;
-            } elseif ($primary) {
-                return $primary;
-            }
-        }
-
-        // Handle current date computation
-        if ($computation === 'current_date') {
-            return date('Y-m-d');
-        }
-
-        return null;
-    }
-
-    /**
      * Create IVR submission (alias for createOrUpdateSubmission for legacy compatibility)
      */
     public function createIVRSubmission(array $data, Episode $episode): array
     {
-        Log::info('Creating IVR submission', [
-            'episode_id' => $episode->id,
-            'manufacturer_id' => $data['manufacturer_id'] ?? null
-        ]);
-
-        try {
-            // Extract manufacturer name from data
-            $manufacturerName = $data['manufacturer_name'] ?? 'Unknown';
-
-            // Use the main method with episode ID and manufacturer
-            $result = $this->createOrUpdateSubmission($episode->id, $manufacturerName, $data);
-
-            return [
-                'success' => true,
-                'embed_url' => $result['submission']['embed_url'] ?? null,
-                'submission_id' => $result['submission']['id'] ?? null,
-                'pdf_url' => $result['submission']['pdf_url'] ?? null
-            ];
-
-        } catch (\Exception $e) {
-            Log::error('IVR submission creation failed', [
-                'episode_id' => $episode->id,
-                'error' => $e->getMessage()
-            ]);
-
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
+        // TODO: Implement this method properly
+        throw new \Exception('Method not yet implemented');
     }
 
     /**

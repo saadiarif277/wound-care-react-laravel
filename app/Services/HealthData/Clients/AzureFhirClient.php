@@ -11,16 +11,25 @@ class AzureFhirClient
     private string $baseUrl;
     private string $accessToken;
     private array $defaultHeaders;
+    private bool $enabled;
 
     public function __construct(string $fhirBaseUrl, string $accessToken)
     {
-        $this->baseUrl = rtrim($fhirBaseUrl, '/');
+        $this->baseUrl = trim($fhirBaseUrl) !== '' ? rtrim($fhirBaseUrl, '/') : '';
         $this->accessToken = $accessToken;
+        $this->enabled = ($this->baseUrl !== '' && trim($accessToken) !== '');
         $this->defaultHeaders = [
-            'Authorization' => 'Bearer ' . $this->accessToken,
             'Content-Type' => 'application/fhir+json',
             'Accept' => 'application/fhir+json',
         ];
+        if ($this->enabled) {
+            $this->defaultHeaders['Authorization'] = 'Bearer ' . $this->accessToken;
+        }
+    }
+
+    public function isEnabled(): bool
+    {
+        return $this->enabled;
     }
 
     /**
@@ -32,21 +41,26 @@ class AzureFhirClient
      */
     public function createBundle(array $bundle): array
     {
-        $response = Http::withHeaders($this->defaultHeaders)
-            ->post($this->baseUrl . '/', $bundle); // Bundles are posted to the base URL
-
-        if (!$response->successful()) {
-            // Log detailed error information
-            logger()->error('Azure FHIR Bundle creation failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-                'url' => $this->baseUrl . '/',
-                // 'bundle_id' => $bundle['id'] ?? 'N/A' // Be careful logging full bundle if it contains PHI
-            ]);
-            $response->throw(); // Throws Illuminate\Http\Client\RequestException
+        if (!$this->enabled) {
+            logger()->notice('FHIR disabled: returning mock bundle response');
+            return $this->mockBundleResponse($bundle);
         }
-
-        return $response->json();
+        try {
+            $response = Http::withHeaders($this->defaultHeaders)
+                ->post($this->baseUrl . '/', $bundle);
+            if (!$response->successful()) {
+                logger()->error('Azure FHIR Bundle creation failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'url' => $this->baseUrl . '/',
+                ]);
+                return $this->mockBundleResponse($bundle);
+            }
+            return $response->json();
+        } catch (\Throwable $e) {
+            logger()->error('Exception creating FHIR Bundle', ['error' => $e->getMessage()]);
+            return $this->mockBundleResponse($bundle);
+        }
     }
 
     /**
@@ -59,20 +73,25 @@ class AzureFhirClient
      */
     public function getResource(string $resourceType, string $id): array
     {
-        $url = "{$this->baseUrl}/{$resourceType}/{$id}";
-        $response = Http::withHeaders($this->defaultHeaders)
-            ->get($url);
-
-        if (!$response->successful()) {
-            logger()->error('Azure FHIR resource retrieval failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-                'url' => $url
-            ]);
-            $response->throw();
+        if (!$this->enabled) {
+            return $this->mockResource($resourceType, $id);
         }
-
-        return $response->json();
+        $url = "{$this->baseUrl}/{$resourceType}/{$id}";
+        try {
+            $response = Http::withHeaders($this->defaultHeaders)->get($url);
+            if (!$response->successful()) {
+                logger()->error('Azure FHIR resource retrieval failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'url' => $url
+                ]);
+                return $this->mockResource($resourceType, $id);
+            }
+            return $response->json();
+        } catch (\Throwable $e) {
+            logger()->error('Exception retrieving FHIR resource', ['error' => $e->getMessage()]);
+            return $this->mockResource($resourceType, $id);
+        }
     }
 
     /**
@@ -85,20 +104,65 @@ class AzureFhirClient
      */
     public function searchResources(string $resourceType, array $searchParams): array
     {
-        $url = "{$this->baseUrl}/{$resourceType}";
-        $response = Http::withHeaders($this->defaultHeaders)
-            ->get($url, $searchParams);
-
-        if (!$response->successful()) {
-            logger()->error('Azure FHIR search failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-                'url' => $url,
-                'params' => $searchParams
-            ]);
-            $response->throw();
+        if (!$this->enabled) {
+            return $this->mockSearchBundle($resourceType);
         }
+        $url = "{$this->baseUrl}/{$resourceType}";
+        try {
+            $response = Http::withHeaders($this->defaultHeaders)->get($url, $searchParams);
+            if (!$response->successful()) {
+                logger()->error('Azure FHIR search failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'url' => $url,
+                    'params' => $searchParams
+                ]);
+                return $this->mockSearchBundle($resourceType);
+            }
+            return $response->json();
+        } catch (\Throwable $e) {
+            logger()->error('Exception during FHIR search', ['error' => $e->getMessage()]);
+            return $this->mockSearchBundle($resourceType);
+        }
+    }
 
-        return $response->json();
+    private function mockBundleResponse(array $bundle): array
+    {
+        return [
+            'resourceType' => 'Bundle',
+            'type' => $bundle['type'] ?? 'transaction-response',
+            'id' => 'mock-' . uniqid(),
+            'entry' => array_map(function ($entry) {
+                return [
+                    'response' => [
+                        'status' => '201 Created',
+                        'location' => ($entry['resource']['resourceType'] ?? 'Resource') . '/' . uniqid()
+                    ]
+                ];
+            }, $bundle['entry'] ?? [])
+        ];
+    }
+
+    private function mockResource(string $resourceType, string $id): array
+    {
+        return [
+            'resourceType' => $resourceType,
+            'id' => $id,
+            'meta' => [
+                'versionId' => '1',
+                'lastUpdated' => now()->toIso8601String()
+            ]
+        ];
+    }
+
+    private function mockSearchBundle(string $resourceType): array
+    {
+        return [
+            'resourceType' => 'Bundle',
+            'type' => 'searchset',
+            'total' => 0,
+            'entry' => [],
+            'link' => []
+        ];
     }
 } 

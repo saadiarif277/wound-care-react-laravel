@@ -58,10 +58,10 @@ return new class extends Migration
             ],
             [
                 'id' => Str::uuid(),
-                'docuseal_template_id' => 'acz_biowound_ivr_temp',
+                'docuseal_template_id' => 'biowound_ivr_temp',
+                'template_type' => 'ivr',
                 'document_type' => 'IVR',
                 'is_default' => true,
-                'is_active' => true,
                 'field_mappings' => json_encode([
                     'patient_name' => 'Patient Name',
                     'patient_dob' => 'Date of Birth',
@@ -72,6 +72,7 @@ return new class extends Migration
                     'primary_insurance_name' => 'Insurance Name',
                     'primary_member_id' => 'Member ID',
                 ]),
+                'is_active' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
@@ -110,7 +111,7 @@ return new class extends Migration
                 'manufacturer_id' => $imbedManufacturerId,
             ],
             [
-                'id' => \Illuminate\Support\Str::uuid(),
+                'id' => Str::uuid(),
                 'docuseal_template_id' => 'imbed_microlyte_ivr_temp',
                 'document_type' => 'IVR',
                 'is_default' => true,
@@ -138,7 +139,7 @@ return new class extends Migration
                 'manufacturer_id' => $imbedManufacturerId,
             ],
             [
-                'id' => \Illuminate\Support\Str::uuid(),
+                'id' => Str::uuid(),
                 'docuseal_template_id' => 'imbed_microlyte_order_temp',
                 'document_type' => 'OrderForm',
                 'is_default' => true,
@@ -188,7 +189,7 @@ return new class extends Migration
     {
         // Remove all template mappings created by this migration
         DB::table('docuseal_templates')
-            ->where('manufacturer_id', 1)
+            ->where('manufacturer_id', '1')
             ->whereIn('template_name', ['Biowound IVR', 'ACZ & ASSOCIATES - Biowound IVR'])
             ->delete();
 

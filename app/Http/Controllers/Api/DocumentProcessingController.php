@@ -723,9 +723,9 @@ class DocumentProcessingController extends Controller
                     $episode = PatientManufacturerIVREpisode::find($formData['episode_id']);
                     if ($episode && isset($formData['template_id'])) {
                         $medicalEnhanced = $this->medicalAiService->enhanceDocusealFieldMapping(
-                            $episode,
                             $enhancedData,
-                            $formData['template_id']
+                            $formData['template_id'],
+                            $episode
                         );
                         
                         if (!empty($medicalEnhanced) && ($medicalEnhanced['_ai_confidence'] ?? 0) > 0.7) {

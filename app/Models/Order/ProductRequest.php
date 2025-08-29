@@ -17,6 +17,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Docuseal\DocusealSubmission;
 use App\Constants\DocusealFields;
 use Illuminate\Support\Arr;
+use Illuminate\Http\UploadedFile;
+use App\Services\OrderDetailService;
+use App\Services\FileService;
 
 class ProductRequest extends Model
 {
@@ -737,6 +740,14 @@ class ProductRequest extends Model
                 $patient = $this->getPatientAttribute();
                 return $patient ? ($patient['name'] ?? null) : $this->patient_display_id;
             },
+            DocusealFields::PATIENT_FIRST_NAME => function() {
+                $patient = $this->getPatientAttribute();
+                return $patient ? ($patient['name'][0]['given'][0] ?? null) : null;
+            },
+            DocusealFields::PATIENT_LAST_NAME => function() {
+                $patient = $this->getPatientAttribute();
+                return $patient ? ($patient['name'][0]['family'] ?? null) : null;
+            },
             DocusealFields::PATIENT_DOB => function() {
                 $patient = $this->getPatientAttribute();
                 return $patient ? ($patient['birthDate'] ?? null) : null;
@@ -747,7 +758,23 @@ class ProductRequest extends Model
             },
             DocusealFields::PATIENT_ADDRESS => function() {
                 $patient = $this->getPatientAttribute();
-                return $patient ? ($patient['address'] ?? null) : null;
+                if ($patient && isset($patient['address'][0])) {
+                    $addr = $patient['address'][0];
+                    return ($addr['line'] ?? []) ? implode(', ', $addr['line']) : null;
+                }
+                return null;
+            },
+            DocusealFields::PATIENT_CITY => function() {
+                $patient = $this->getPatientAttribute();
+                return $patient ? ($patient['address'][0]['city'] ?? null) : null;
+            },
+            DocusealFields::PATIENT_STATE => function() {
+                $patient = $this->getPatientAttribute();
+                return $patient ? ($patient['address'][0]['state'] ?? null) : null;
+            },
+            DocusealFields::PATIENT_ZIP => function() {
+                $patient = $this->getPatientAttribute();
+                return $patient ? ($patient['address'][0]['postalCode'] ?? null) : null;
             },
 
             // Provider Information
@@ -756,6 +783,12 @@ class ProductRequest extends Model
             },
             DocusealFields::PROVIDER_NPI => function() {
                 return $this->provider ? $this->provider->npi : null;
+            },
+            DocusealFields::PROVIDER_PHONE => function() {
+                return $this->provider ? $this->provider->phone : null;
+            },
+            DocusealFields::PROVIDER_EMAIL => function() {
+                return $this->provider ? $this->provider->email : null;
             },
 
             // Facility Information
@@ -771,13 +804,40 @@ class ProductRequest extends Model
             DocusealFields::FACILITY_CONTACT_EMAIL => function() {
                 return $this->facility ? $this->facility->email : null;
             },
+            DocusealFields::FACILITY_ADDRESS => function() {
+                if (!$this->facility) return null;
+                $facility = $this->facility;
+                $parts = array_filter([
+                    $facility->address_line_1,
+                    $facility->address_line_2,
+                    $facility->city . ', ' . $facility->state . ' ' . $facility->zip_code
+                ]);
+                return $parts ? implode("\n", $parts) : null;
+            },
 
             // Insurance Information
             DocusealFields::PRIMARY_INS_NAME => 'payer_name_submitted',
+            DocusealFields::PRIMARY_INS_MEMBER_ID => function() {
+                $clinical = $this->clinical_summary;
+                return is_array($clinical) ? ($clinical['insurance']['primary_member_id'] ?? null) : null;
+            },
+            DocusealFields::SECONDARY_INS_NAME => function() {
+                $clinical = $this->clinical_summary;
+                return is_array($clinical) ? ($clinical['insurance']['secondary_name'] ?? null) : null;
+            },
+            DocusealFields::SECONDARY_INS_MEMBER_ID => function() {
+                $clinical = $this->clinical_summary;
+                return is_array($clinical) ? ($clinical['insurance']['secondary_member_id'] ?? null) : null;
+            },
 
             // Service Information
             DocusealFields::PLACE_OF_SERVICE => 'place_of_service',
-            DocusealFields::ANTICIPATED_APPLICATION_DATE => 'expected_service_date',
+            DocusealFields::ANTICIPATED_APPLICATION_DATE => function() {
+                return $this->expected_service_date ? $this->expected_service_date->format('m/d/Y') : null;
+            },
+            DocusealFields::SERVICE_DATE => function() {
+                return $this->expected_service_date ? $this->expected_service_date->format('m/d/Y') : null;
+            },
 
             // Product Information
             DocusealFields::PRODUCT_CODE => function() {
@@ -788,16 +848,54 @@ class ProductRequest extends Model
                 $product = $this->products()->first();
                 return $product ? $product->pivot->size ?? null : null;
             },
+            DocusealFields::PRODUCT_NAME => function() {
+                $product = $this->products()->first();
+                return $product ? $product->name : null;
+            },
+            DocusealFields::PRODUCT_QUANTITY => function() {
+                $product = $this->products()->first();
+                return $product ? $product->pivot->quantity ?? 1 : 1;
+            },
+            DocusealFields::PRODUCT_CATEGORY => function() {
+                $product = $this->products()->first();
+                return $product ? $product->category : null;
+            },
 
             // Clinical Information
             DocusealFields::WOUND_TYPE => 'wound_type',
+            DocusealFields::WOUND_LOCATION => function() {
+                $clinical = $this->clinical_summary;
+                return is_array($clinical) ? ($clinical['clinical']['wound_location'] ?? null) : null;
+            },
+            DocusealFields::WOUND_SIZE => function() {
+                $clinical = $this->clinical_summary;
+                if (!is_array($clinical) || !isset($clinical['clinical']['wound_size'])) {
+                    return null;
+                }
+                $size = $clinical['clinical']['wound_size'];
+                if (is_array($size)) {
+                    $parts = [];
+                    if (isset($size['length']) && isset($size['width'])) {
+                        $parts[] = $size['length'] . 'cm x ' . $size['width'] . 'cm';
+                    }
+                    if (isset($size['depth'])) {
+                        $parts[] = 'Depth: ' . $size['depth'] . 'cm';
+                    }
+                    return $parts ? implode(', ', $parts) : null;
+                }
+                return is_string($size) ? $size : null;
+            },
             DocusealFields::ICD10_PRIMARY => function() {
                 $clinical = $this->clinical_summary;
-                return is_array($clinical) ? ($clinical['primary_diagnosis'] ?? null) : null;
+                return is_array($clinical) ? ($clinical['clinical']['primary_diagnosis_code'] ?? null) : null;
             },
             DocusealFields::ICD10_SECONDARY => function() {
                 $clinical = $this->clinical_summary;
-                return is_array($clinical) ? ($clinical['secondary_diagnosis'] ?? null) : null;
+                return is_array($clinical) ? ($clinical['clinical']['secondary_diagnosis_code'] ?? null) : null;
+            },
+            DocusealFields::CLINICAL_NOTES => function() {
+                $clinical = $this->clinical_summary;
+                return is_array($clinical) ? ($clinical['clinical']['clinical_notes'] ?? null) : null;
             },
         ];
 
@@ -861,25 +959,180 @@ class ProductRequest extends Model
     }
 
     /**
-     * Generate reference number for orders (REQ-YYYYMMDD-ABC123 format).
-     */
-    public function generateReferenceNumber(): string
-    {
-        if ($this->request_number) {
-            return $this->request_number;
-        }
-
-        $date = now()->format('Ymd');
-        $count = static::whereDate('created_at', today())->count() + 1;
-
-        return sprintf('REQ-%s-%s%03d', $date, strtoupper(substr(md5($this->id), 0, 3)), $count);
-    }
-
-    /**
-     * Get the route key for the model.
+     * Get route key for the model.
      */
     public function getRouteKeyName()
     {
         return 'id';
+    }
+
+    /**
+     * Get comprehensive order data using the OrderDataService
+     */
+    public function getComprehensiveOrderData(): array
+    {
+        $orderDataService = app(OrderDataService::class);
+        return $orderDataService->getOrderData($this);
+    }
+
+    /**
+     * Get active file URLs (prioritizing uploaded files over originals)
+     */
+    public function getActiveFileUrls(): array
+    {
+        return [
+            'ivr' => $this->altered_ivr_file_url ?: $this->ivr_document_url,
+            'order_form' => $this->altered_order_form_file_url ?: $this->episode?->order_form_url,
+        ];
+    }
+
+    /**
+     * Get active file names (prioritizing uploaded files over originals)
+     */
+    public function getActiveFileNames(): array
+    {
+        return [
+            'ivr' => $this->altered_ivr_file_name ?: $this->extractFileName($this->ivr_document_url),
+            'order_form' => $this->altered_order_form_file_name ?: $this->extractFileName($this->episode?->order_form_url),
+        ];
+    }
+
+    /**
+     * Check if order has uploaded files
+     */
+    public function hasUploadedFiles(): bool
+    {
+        return !empty($this->altered_ivr_file_path) || !empty($this->altered_order_form_file_path);
+    }
+
+    /**
+     * Get file upload information
+     */
+    public function getFileUploadInfo(): array
+    {
+        return [
+            'ivr' => [
+                'has_upload' => !empty($this->altered_ivr_file_path),
+                'uploaded_at' => $this->altered_ivr_uploaded_at,
+                'uploaded_by' => $this->alteredIvrUploadedBy?->name,
+                'file_name' => $this->altered_ivr_file_name,
+                'file_url' => $this->altered_ivr_file_url,
+            ],
+            'order_form' => [
+                'has_upload' => !empty($this->altered_order_form_file_path),
+                'uploaded_at' => $this->altered_order_form_uploaded_at,
+                'uploaded_by' => $this->alteredOrderFormUploadedBy?->name,
+                'file_name' => $this->altered_order_form_file_name,
+                'file_url' => $this->altered_order_form_file_url,
+            ],
+        ];
+    }
+
+    /**
+     * Extract filename from URL
+     */
+    private function extractFileName(?string $url): ?string
+    {
+        if (!$url) {
+            return null;
+        }
+
+        return basename(parse_url($url, PHP_URL_PATH));
+    }
+
+    /**
+     * Get order documents using FileService
+     */
+    public function getOrderDocuments(): array
+    {
+        $fileService = app(FileService::class);
+        return $fileService->getOrderDocuments($this);
+    }
+
+    /**
+     * Get file statistics for the order
+     */
+    public function getFileStats(): array
+    {
+        $fileService = app(FileService::class);
+        return $fileService->getOrderFileStats($this);
+    }
+
+    /**
+     * Upload a file for this order
+     */
+    public function uploadFile(UploadedFile $file, string $fileType, ?string $notes = null, ?int $uploadedBy = null): array
+    {
+        $fileService = app(FileService::class);
+        return $fileService->uploadOrderFile($this, $file, $fileType, $notes, $uploadedBy);
+    }
+
+    /**
+     * Update an existing file for this order
+     */
+    public function updateFile(UploadedFile $file, string $fileType, ?string $notes = null, ?int $uploadedBy = null): array
+    {
+        $fileService = app(FileService::class);
+        return $fileService->updateOrderFile($this, $file, $fileType, $notes, $uploadedBy);
+    }
+
+    /**
+     * Delete a file from this order
+     */
+    public function deleteFile(int $documentId): bool
+    {
+        $fileService = app(FileService::class);
+        return $fileService->deleteOrderFile($this, $documentId);
+    }
+
+    /**
+     * Get formatted patient name from various sources
+     */
+    public function getFormattedPatientName(): string
+    {
+        // Try from Docuseal fields first
+        $name = $this->getValue(DocusealFields::PATIENT_NAME);
+        if ($name) {
+            return $name;
+        }
+
+        // Try from clinical summary
+        $clinical = $this->clinical_summary;
+        if (is_array($clinical) && isset($clinical['patient'])) {
+            $firstName = $clinical['patient']['first_name'] ?? '';
+            $lastName = $clinical['patient']['last_name'] ?? '';
+            if ($firstName || $lastName) {
+                return trim($firstName . ' ' . $lastName);
+            }
+        }
+
+        // Fallback to display ID
+        return $this->patient_display_id ?? 'Unknown Patient';
+    }
+
+    /**
+     * Get formatted provider name
+     */
+    public function getFormattedProviderName(): ?string
+    {
+        $name = $this->getValue(DocusealFields::PROVIDER_NAME);
+        return $name ?: ($this->provider ? $this->provider->first_name . ' ' . $this->provider->last_name : null);
+    }
+
+    /**
+     * Get formatted facility name
+     */
+    public function getFormattedFacilityName(): ?string
+    {
+        return $this->getValue(DocusealFields::FACILITY_NAME) ?: $this->facility?->name;
+    }
+
+    /**
+     * Get order data formatted for frontend consumption
+     */
+    public function getFrontendOrderData(): array
+    {
+        $orderDetailService = app(OrderDetailService::class);
+        return $orderDetailService->getFrontendOrderData($this);
     }
 }

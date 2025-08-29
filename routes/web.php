@@ -1012,6 +1012,8 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // Docuseal API endpoints (within web middleware for session auth)
+    // COMMENTED OUT - DocusealTemplateController does not exist
+    /*
     Route::prefix('api/v1/docuseal/templates')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'index']);
         Route::post('/sync', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'sync']);
@@ -1024,6 +1026,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/{templateId}/apply-bulk-patterns', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'applyBulkPatterns']);
         Route::post('/{templateId}/sync-fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'syncFields']);
     });
+    */
 
     // Test route for debugging OrderForm templates
     Route::get('/test-orderform-templates', function () {
